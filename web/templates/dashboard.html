@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - BlurkitModsTool{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Dashboard</h2>
+    <p class="text-muted">Bienvenido, <strong>{{ current_user.username }}</strong> ({{ current_user.role }})</p>
+    
+    <div class="row mt-4">
+        <div class="col-md-4 mb-3">
+            <div class="card text-white bg-primary">
+                <div class="card-body">
+                    <h5 class="card-title">Total de Mods</h5>
+                    <h2 class="card-text">{{ stats.total }}</h2>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4 mb-3">
+            <div class="card text-white bg-danger">
+                <div class="card-body">
+                    <h5 class="card-title">Mods Prohibidos</h5>
+                    <h2 class="card-text">{{ stats.prohibidos }}</h2>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4 mb-3">
+            <div class="card text-white bg-success">
+                <div class="card-body">
+                    <h5 class="card-title">Mods Permitidos</h5>
+                    <h2 class="card-text">{{ stats.permitidos }}</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <h4>Acciones rápidas</h4>
+            <div class="list-group">
+                <a href="{{ url_for('index') }}" class="list-group-item list-group-item-action">
+                    <strong>Ver todos los mods</strong>
+                    <p class="mb-0 text-muted">Lista completa de mods prohibidos y permitidos</p>
+                </a>
+                
+                <a href="{{ url_for('search') }}" class="list-group-item list-group-item-action">
+                    <strong>Buscar mods</strong>
+                    <p class="mb-0 text-muted">Buscar por nombre o alias</p>
+                </a>
+                
+                <a href="{{ url_for('paste_page') }}" class="list-group-item list-group-item-action">
+                    <strong>Analizar log (pegar)</strong>
+                    <p class="mb-0 text-muted">Pegar contenido de log para análisis</p>
+                </a>
+                
+                <a href="{{ url_for('upload') }}" class="list-group-item list-group-item-action">
+                    <strong>Analizar log (archivo)</strong>
+                    <p class="mb-0 text-muted">Subir archivo de log para análisis</p>
+                </a>
+                
+                {% if current_user.is_admin() %}
+                <a href="{{ url_for('admin_users') }}" class="list-group-item list-group-item-action list-group-item-warning">
+                    <strong>Gestionar usuarios</strong>
+                    <p class="mb-0 text-muted">Administración de usuarios y roles (solo admin)</p>
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="alert alert-info">
+                <strong>Permisos de tu rol ({{ current_user.role }}):</strong>
+                <ul class="mb-0 mt-2">
+                    <li>Ver mods, buscar y analizar logs: ✓</li>
+                    {% if current_user.can_edit() %}
+                    <li>Agregar, editar y eliminar mods: ✓</li>
+                    {% else %}
+                    <li>Agregar, editar y eliminar mods: ✗</li>
+                    {% endif %}
+                    {% if current_user.is_admin() %}
+                    <li>Gestionar usuarios: ✓</li>
+                    {% else %}
+                    <li>Gestionar usuarios: ✗</li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

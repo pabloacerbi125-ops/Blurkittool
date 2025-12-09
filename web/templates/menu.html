@@ -1,33 +1,135 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="text-center mb-5">
-  <h1 class="display-4 fw-bold" style="color: var(--accent);">BlurkitTool</h1>
-  <p class="lead" style="color: #ffffff;">🛠️ Herramientas rápidas para revisar mods y logs</p>
+<div class="text-center mb-4">
+  <h1 class="display-3 fw-bold" style="color: #ffc107;">BlurkitTool</h1>
+  <p class="lead text-light">🛠️ Herramientas rápidas para revisar mods y logs</p>
+  <p class="text-light mt-2">
+    Bienvenido, 
+    <strong style="color: {% if current_user.role == 'admin' %}#dc3545{% elif current_user.role == 'smod' %}#0d6efd{% elif current_user.role == 'mod' %}#146c43{% else %}#20c997{% endif %};">
+      {{ current_user.username }}
+    </strong>
+  </p>
 </div>
 
-<div class="menu-grid">
-  <a href="/search" class="menu-card">
-    <div class="menu-icon">🔍</div>
-    <h3 class="menu-title">Buscar mod</h3>
-    <p class="menu-description">Busca un mod por nombre y verifica si está permitido o prohibido en la lista</p>
-  </a>
-
-  <a href="/upload" class="menu-card">
-    <div class="menu-icon">📁</div>
-    <h3 class="menu-title">Subir log</h3>
-    <p class="menu-description">Carga un archivo de log (.log, .txt) y obtén un informe detallado</p>
-  </a>
-
-  <a href="/paste" class="menu-card">
-    <div class="menu-icon">📋</div>
-    <h3 class="menu-title">Pegar log</h3>
-    <p class="menu-description">Pega el contenido del log directamente y analízalo al instante</p>
-  </a>
-
-  <a href="/mods" class="menu-card">
-    <div class="menu-icon">📊</div>
-    <h3 class="menu-title">Gestionar mods</h3>
-    <p class="menu-description">Ver, agregar, editar y eliminar mods de la lista</p>
-  </a>
+<!-- Statistics Cards -->
+<div class="row justify-content-center mb-5">
+  <div class="col-md-3">
+    <div class="card text-white bg-primary">
+      <div class="card-body text-center">
+        <h5 class="card-title">Total de Mods</h5>
+        <h2 class="card-text">{{ stats.total }}</h2>
+      </div>
+    </div>
+  </div>
+  
+  <div class="col-md-3">
+    <div class="card text-white bg-danger">
+      <div class="card-body text-center">
+        <h5 class="card-title">Mods Prohibidos</h5>
+        <h2 class="card-text">{{ stats.prohibidos }}</h2>
+      </div>
+    </div>
+  </div>
+  
+  <div class="col-md-3">
+    <div class="card text-white bg-success">
+      <div class="card-body text-center">
+        <h5 class="card-title">Mods Permitidos</h5>
+        <h2 class="card-text">{{ stats.permitidos }}</h2>
+      </div>
+    </div>
+  </div>
 </div>
+
+<div class="row justify-content-center g-4 mb-4">
+  <div class="col-md-4">
+    <a href="/search" class="text-decoration-none">
+      <div class="card bg-dark border-secondary h-100 shadow-lg hover-card">
+        <div class="card-body text-center p-4">
+          <div class="mb-3" style="font-size: 3rem;">🔍</div>
+          <h3 class="card-title text-light fw-bold mb-3">Buscar mod</h3>
+          <p class="card-text text-secondary">Busca un mod por nombre y verifica si está permitido o prohibido en la lista</p>
+        </div>
+      </div>
+    </a>
+  </div>
+  
+  <div class="col-md-4">
+    <a href="/upload" class="text-decoration-none">
+      <div class="card bg-dark border-secondary h-100 shadow-lg hover-card">
+        <div class="card-body text-center p-4">
+          <div class="mb-3" style="font-size: 3rem;">📁</div>
+          <h3 class="card-title text-light fw-bold mb-3">Subir log</h3>
+          <p class="card-text text-secondary">Carga un archivo de log (.log, .txt) y obtén un informe detallado</p>
+        </div>
+      </div>
+    </a>
+  </div>
+  
+  {% if current_user.is_admin() %}
+  <div class="col-md-4">
+    <a href="/paste" class="text-decoration-none">
+      <div class="card bg-dark border-secondary h-100 shadow-lg hover-card">
+        <div class="card-body text-center p-4">
+          <div class="mb-3" style="font-size: 3rem;">📋</div>
+          <h3 class="card-title text-light fw-bold mb-3">Pegar log</h3>
+          <p class="card-text text-secondary">Pega el contenido del log directamente y analízalo al instante</p>
+        </div>
+      </div>
+    </a>
+  </div>
+  {% else %}
+  <div class="col-md-4">
+    <a href="/paste" class="text-decoration-none">
+      <div class="card bg-dark border-secondary h-100 shadow-lg hover-card">
+        <div class="card-body text-center p-4">
+          <div class="mb-3" style="font-size: 3rem;">📋</div>
+          <h3 class="card-title text-light fw-bold mb-3">Pegar log</h3>
+          <p class="card-text text-secondary">Pega el contenido del log directamente y analízalo al instante</p>
+        </div>
+      </div>
+    </a>
+  </div>
+  {% endif %}
+</div>
+
+<div class="row justify-content-center g-4">
+  {% if current_user.is_admin() %}
+  <div class="col-md-4">
+    <a href="/admin/users" class="text-decoration-none">
+      <div class="card bg-dark border-secondary h-100 shadow-lg hover-card">
+        <div class="card-body text-center p-4">
+          <div class="mb-3" style="font-size: 3rem;">👥</div>
+          <h3 class="card-title text-light fw-bold mb-3">Usuarios</h3>
+          <p class="card-text text-secondary">Gestión de usuarios y roles del sistema</p>
+        </div>
+      </div>
+    </a>
+  </div>
+  {% endif %}
+  
+  <div class="col-md-4">
+    <a href="/mods" class="text-decoration-none">
+      <div class="card bg-dark border-secondary h-100 shadow-lg hover-card">
+        <div class="card-body text-center p-4">
+          <div class="mb-3" style="font-size: 3rem;">📊</div>
+          <h3 class="card-title text-light fw-bold mb-3">Ver lista de mods, editar, agregar y eliminar</h3>
+          <p class="card-text text-secondary">Visualiza todas las listas de mods permitidos y prohibidos e incluso aquí también podrás editar, agregar y eliminar los mods</p>
+        </div>
+      </div>
+    </a>
+  </div>
+</div>
+
+<style>
+.hover-card {
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+.hover-card:hover {
+  transform: translateY(-5px);
+  border-color: #ffc107 !important;
+  box-shadow: 0 0 20px rgba(255, 193, 7, 0.3) !important;
+}
+</style>
 {% endblock %}

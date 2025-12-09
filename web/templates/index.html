@@ -27,10 +27,12 @@
             <div class="title">✗ {{ m.name }}</div>
             <div class="meta">{{ m.category or '-' }} • {{ m.platform or '-' }}</div>
           </div>
+          {% if current_user.can_edit() %}
           <div class="btn-group">
             <a href="/edit/{{ idx }}" class="btn btn-sm btn-outline-light btn-sm-custom">Editar</a>
             <button class="btn btn-sm btn-outline-danger btn-sm-custom delete-btn" data-delete-idx="{{ idx }}">Eliminar</button>
           </div>
+          {% endif %}
         </div>
         {% else %}
         <div class="card-mod">(ninguno)</div>
@@ -45,10 +47,12 @@
             <div class="title">✔ {{ m.name }}</div>
             <div class="meta">{{ m.category or '-' }} • {{ m.platform or '-' }}</div>
           </div>
+          {% if current_user.can_edit() %}
           <div class="btn-group">
             <a href="/edit/{{ idx }}" class="btn btn-sm btn-outline-light btn-sm-custom">Editar</a>
             <button class="btn btn-sm btn-outline-danger btn-sm-custom delete-btn" data-delete-idx="{{ idx }}">Eliminar</button>
           </div>
+          {% endif %}
         </div>
         {% else %}
         <div class="card-mod">(ninguno)</div>
@@ -58,6 +62,7 @@
 
   </div>
 
+  {% if current_user.can_edit() %}
   <div class="col-lg-4 right-col">
     <div class="card p-3" style="background:var(--panel); border:1px solid var(--card-border)">
       <h5 class="mb-3" style="color: #ffffff;">Agregar mod</h5>
@@ -90,6 +95,7 @@
       <p class="footer-note">mods.json se guarda en la carpeta del proyecto.</p>
     </div>
   </div>
+  {% endif %}
 </div>
 
 <script>

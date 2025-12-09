@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+
+{% block title %}Gestión de Usuarios - BlurkitModsTool{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Gestión de Usuarios</h2>
+    <p class="text-muted">Administración de usuarios y roles</p>
+    
+    <!-- Create User Form -->
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">Crear Nuevo Usuario</h5>
+        </div>
+        <div class="card-body">
+            <form method="POST" action="{{ url_for('admin_create_user') }}">
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label for="username" class="form-label">Usuario</label>
+                            <input type="text" class="form-control" id="username" name="username" required>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label for="email" class="form-label">Email</label>
+                            <input type="email" class="form-control" id="email" name="email" required>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label for="password" class="form-label">Contraseña</label>
+                            <input type="password" class="form-control" id="password" name="password" required>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-2">
+                        <div class="mb-3">
+                            <label for="role" class="form-label">Rol</label>
+                            <select class="form-select" id="role" name="role" required>
+                                <option value="helper">Helper</option>
+                                <option value="mod">Mod</option>
+                                <option value="smod">S-Mod</option>
+                                <option value="admin">Admin</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-1 d-flex align-items-end">
+                        <button type="submit" class="btn btn-success w-100 mb-3">Crear</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Users Table -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">Lista de Usuarios ({{ users|length }})</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>ID</th>
+                            <th>Usuario</th>
+                            <th>Email</th>
+                            <th>Rol</th>
+                            <th>Estado</th>
+                            <th>Último login</th>
+                            <th>Creado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in users %}
+                        <tr {% if not user.is_active %}class="table-secondary"{% endif %}>
+                            <td>{{ user.id }}</td>
+                            <td>
+                                <strong>{{ user.username }}</strong>
+                                {% if user.id == current_user.id %}
+                                <span class="badge bg-info">Tú</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ user.email }}</td>
+                            <td>
+                                {% if user.id == current_user.id %}
+                                <span class="badge bg-secondary">{{ user.role }}</span>
+                                {% else %}
+                                <form method="POST" action="{{ url_for('admin_change_role', user_id=user.id) }}" class="d-inline">
+                                    <select name="role" class="form-select form-select-sm" onchange="this.form.submit()" style="width: auto; display: inline-block;">
+                                        <option value="helper" {% if user.role == 'helper' %}selected{% endif %}>helper</option>
+                                        <option value="mod" {% if user.role == 'mod' %}selected{% endif %}>mod</option>
+                                        <option value="smod" {% if user.role == 'smod' %}selected{% endif %}>smod</option>
+                                        <option value="admin" {% if user.role == 'admin' %}selected{% endif %}>admin</option>
+                                    </select>
+                                </form>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if user.is_active %}
+                                <span class="badge bg-success">Activo</span>
+                                {% else %}
+                                <span class="badge bg-danger">Inactivo</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if user.last_login %}
+                                {{ user.last_login.strftime('%Y-%m-%d %H:%M') }}
+                                {% else %}
+                                <span class="text-muted">Nunca</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ user.created_at.strftime('%Y-%m-%d') }}</td>
+                            <td>
+                                <button type="button" class="btn btn-sm btn-primary" title="Editar" 
+                                        data-bs-toggle="modal" data-bs-target="#editModal{{ user.id }}">
+                                    ✏️
+                                </button>
+                                
+                                {% if user.id != current_user.id %}
+                                <form method="POST" action="{{ url_for('admin_toggle_user', user_id=user.id) }}" class="d-inline">
+                                    {% if user.is_active %}
+                                    <button type="submit" class="btn btn-sm btn-warning" title="Desactivar">
+                                        🚫
+                                    </button>
+                                    {% else %}
+                                    <button type="submit" class="btn btn-sm btn-success" title="Activar">
+                                        ✓
+                                    </button>
+                                    {% endif %}
+                                </form>
+                                
+                                <form method="POST" action="{{ url_for('admin_delete_user', user_id=user.id) }}" class="d-inline" 
+                                      onsubmit="return confirm('¿Eliminar usuario {{ user.username }}?')">
+                                    <button type="submit" class="btn btn-sm btn-danger" title="Eliminar">
+                                        🗑️
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <div class="mt-3">
+        <a href="{{ url_for('menu') }}" class="btn btn-secondary">← Volver al Menú</a>
+    </div>
+</div>
+
+<!-- Edit User Modals -->
+{% for user in users %}
+<div class="modal fade" id="editModal{{ user.id }}" tabindex="-1" aria-labelledby="editModalLabel{{ user.id }}" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content bg-dark text-light">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editModalLabel{{ user.id }}">Editar Usuario: {{ user.username }}</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="{{ url_for('admin_edit_user', user_id=user.id) }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="edit_username{{ user.id }}" class="form-label">Usuario</label>
+                        <input type="text" class="form-control" id="edit_username{{ user.id }}" name="username" value="{{ user.username }}" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="edit_email{{ user.id }}" class="form-label">Email</label>
+                        <input type="email" class="form-control" id="edit_email{{ user.id }}" name="email" value="{{ user.email }}" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="edit_password{{ user.id }}" class="form-label">Nueva Contraseña (dejar en blanco para no cambiar)</label>
+                        <input type="password" class="form-control" id="edit_password{{ user.id }}" name="password" placeholder="Dejar vacío si no deseas cambiarla">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="edit_confirm_password{{ user.id }}" class="form-label">Confirmar Nueva Contraseña</label>
+                        <input type="password" class="form-control" id="edit_confirm_password{{ user.id }}" name="confirm_password" placeholder="Confirmar contraseña">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
+{% endblock %}
