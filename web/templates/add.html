@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+{% block content %}
+<h4>Agregar mod</h4>
+<form action="/add_mod" method="post">
+  <div class="mb-2">
+    <input name="name" class="form-control" placeholder="Nombre" required>
+  </div>
+  <div class="mb-2 d-flex gap-2">
+    <input name="category" class="form-control" placeholder="Categoria">
+    <input name="platform" class="form-control" placeholder="Plataforma">
+  </div>
+  <div class="mb-2">
+    <input name="aliases" class="form-control" placeholder="Aliases (coma-separados)">
+  </div>
+  <div class="mb-2">
+    <input name="notes" class="form-control" placeholder="Notas">
+  </div>
+  <div class="mb-2">
+    <select name="status" class="form-select">
+      <option value="prohibido">Prohibido</option>
+      <option value="permitido">Permitido</option>
+    </select>
+  </div>
+  <button class="btn btn-primary">Guardar</button>
+  <a href="/" class="btn btn-secondary ms-2">Volver</a>
+</form>
+{% endblock %}

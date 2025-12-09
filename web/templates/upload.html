@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+{% block content %}
+<h4>Buscar log (archivo)</h4>
+<form action="/upload" method="post" enctype="multipart/form-data">
+  <div class="mb-2">
+    <input type="file" name="logfile" class="form-control" accept=".log,.txt">
+  </div>
+  <button class="btn btn-primary">Subir y analizar</button>
+  <a href="/" class="btn btn-secondary">Volver</a>
+</form>
+{% endblock %}

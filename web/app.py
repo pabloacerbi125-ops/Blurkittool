@@ -1,0 +1,155 @@
+"""Flask web application for BlurkitModsTool.
+
+Provides simple routes to list, add, edit and analyze mods using the
+`web/core.py` utilities. Designed to be run locally and optionally
+packaged with PyInstaller.
+"""
+
+import sys
+from pathlib import Path
+from flask import Flask, render_template, request, redirect, url_for
+
+# helper to locate resources when packaged with PyInstaller
+def resource_path(relative_path):
+    if getattr(sys, "frozen", False):
+        base = Path(sys._MEIPASS)
+    else:
+        base = Path(__file__).resolve().parent
+    return base / relative_path
+
+# make sure web module can import core
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from core import load_mods, save_mods, analizar_log_desde_lineas
+
+# Flask app with proper paths
+app = Flask(__name__)
+app.config['TEMPLATES_AUTO_RELOAD'] = True
+
+
+@app.route('/')
+def menu():
+    try:
+        return render_template('menu.html')
+    except Exception as e:
+        import traceback
+        return f"<pre>Error: {str(e)}\n\n{traceback.format_exc()}</pre>", 500
+
+
+@app.route('/mods')
+def index():
+    mods = load_mods()
+    # Crear listas con tuplas (índice_real, mod)
+    prohibidos = [(i, m) for i, m in enumerate(mods) if m.get('status') == 'prohibido']
+    permitidos = [(i, m) for i, m in enumerate(mods) if m.get('status') == 'permitido']
+    return render_template('index.html', prohibidos=prohibidos, permitidos=permitidos)
+
+
+@app.route('/add_mod', methods=['POST'])
+def add_mod():
+    mods = load_mods()
+    nuevo = {
+        'name': request.form.get('name', '').strip(),
+        'status': request.form.get('status', 'prohibido'),
+        'category': request.form.get('category', '').strip(),
+        'platform': request.form.get('platform', '').strip(),
+        'notes': request.form.get('notes', '').strip(),
+        'aliases': [x.strip() for x in request.form.get('aliases', '').split(',') if x.strip()]
+    }
+    mods.append(nuevo)
+    save_mods(mods)
+    return redirect(url_for('index'))
+
+
+@app.route('/add', methods=['GET'])
+def add_page():
+    return render_template('add.html')
+
+
+@app.route('/edit/<int:idx>', methods=['GET', 'POST'])
+def edit(idx):
+    mods = load_mods()
+    if idx < 0 or idx >= len(mods):
+        return redirect(url_for('index'))
+    if request.method == 'POST':
+        mods[idx] = {
+            'name': request.form.get('name', '').strip(),
+            'status': request.form.get('status', 'prohibido'),
+            'category': request.form.get('category', '').strip(),
+            'platform': request.form.get('platform', '').strip(),
+            'notes': request.form.get('notes', '').strip(),
+            'aliases': [x.strip() for x in request.form.get('aliases', '').split(',') if x.strip()]
+        }
+        save_mods(mods)
+        return redirect(url_for('index'))
+    mod = mods[idx]
+    return render_template('edit.html', idx=idx, mod=mod)
+
+
+@app.route('/delete/<int:idx>', methods=['POST'])
+def delete(idx):
+    mods = load_mods()
+    if 0 <= idx < len(mods):
+        mods.pop(idx)
+        save_mods(mods)
+    return redirect(url_for('index'))
+
+
+@app.route('/analyze', methods=['POST'])
+def analyze():
+    mods = load_mods()
+    log_text = request.form.get('log', '')
+    resultado = ''
+    if log_text.strip():
+        resultado = analizar_log_desde_lineas(log_text.splitlines(), mods)
+    return render_template('analysis.html', resultado=resultado)
+
+
+@app.route('/paste', methods=['GET'])
+def paste_page():
+    return render_template('paste.html')
+
+
+@app.route('/upload', methods=['GET', 'POST'])
+def upload():
+    if request.method == 'GET':
+        return render_template('upload.html')
+    f = request.files.get('logfile')
+    if not f:
+        return render_template('analysis.html', resultado='No se subió archivo.')
+    try:
+        content = f.read().decode('utf-8', errors='ignore')
+    except Exception:
+        content = f.read().decode('latin-1', errors='ignore')
+    mods = load_mods()
+    resultado = analizar_log_desde_lineas(content.splitlines(), mods)
+    return render_template('analysis.html', resultado=resultado)
+
+
+@app.route('/search', methods=['GET', 'POST'])
+def search():
+    resultado = None
+    if request.method == 'POST':
+        term = request.form.get('term', '').lower().strip()
+        mods = load_mods()
+        encontrados = [m for m in mods if term in m.get('name','').lower()]
+        resultado = encontrados
+    return render_template('search.html', resultado=resultado)
+
+
+@app.route('/edit_lookup', methods=['GET', 'POST'])
+def edit_lookup():
+    mensaje = None
+    if request.method == 'POST':
+        nombre = request.form.get('name', '').lower().strip()
+        mods = load_mods()
+        for i, m in enumerate(mods):
+            if m.get('name','').lower() == nombre:
+                return redirect(url_for('edit', idx=i))
+        mensaje = 'No encontrado.'
+    return render_template('edit_lookup.html', mensaje=mensaje)
+
+
+if __name__ == '__main__':
+    # run on localhost only; open browser manually
+    app.run(port=5000, debug=True)

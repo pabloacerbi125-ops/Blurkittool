@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+{% block content %}
+<h4>Pegar log manualmente</h4>
+<form action="/analyze" method="post">
+  <div class="mb-2">
+    <textarea name="log" class="form-control bg-dark text-light" rows="12" placeholder="Pega el contenido del log aquí"></textarea>
+  </div>
+  <button class="btn btn-warning">Analizar</button>
+  <a href="/" class="btn btn-secondary">Volver</a>
+</form>
+{% endblock %}

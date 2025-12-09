@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg-info/
+dist-python/
+.venv/
+venv/
+
+# PyInstaller
+build/
+*.spec
+
+# Node
+node_modules/
+package-lock.json
+
+# Electron builds
+dist/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project specific
+mods.json
+*.log

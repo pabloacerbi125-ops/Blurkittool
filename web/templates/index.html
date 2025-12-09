@@ -1,0 +1,109 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="row">
+  <div class="col-lg-8">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h4 class="mb-0" style="color: #ffffff;">Lista de mods</h4>
+      <div class="d-flex align-items-center gap-2">
+        <button onclick="location.reload()" class="btn btn-sm btn-outline-primary" style="border-color: #ff8c42; color: #ff8c42;">
+          🔄 Actualizar
+        </button>
+        <div style="color: #b8c1ca;">Total: {{ prohibidos|length + permitidos|length }}</div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col-md-6 left-col">
+        <div class="section-title" style="color: #ff6b6b; font-weight: 700;">Prohibidos</div>
+        {% for idx, m in prohibidos %}
+        <div class="card-mod d-flex justify-content-between align-items-start">
+          <div>
+            <div class="title">✗ {{ m.name }}</div>
+            <div class="meta">{{ m.category or '-' }} • {{ m.platform or '-' }}</div>
+          </div>
+          <div class="btn-group">
+            <a href="/edit/{{ idx }}" class="btn btn-sm btn-outline-light btn-sm-custom">Editar</a>
+            <button class="btn btn-sm btn-outline-danger btn-sm-custom delete-btn" data-delete-idx="{{ idx }}">Eliminar</button>
+          </div>
+        </div>
+        {% else %}
+        <div class="card-mod">(ninguno)</div>
+        {% endfor %}
+      </div>
+
+      <div class="col-md-6 left-col">
+        <div class="section-title" style="color: #51cf66; font-weight: 700;">Permitidos</div>
+        {% for idx, m in permitidos %}
+        <div class="card-mod d-flex justify-content-between align-items-start">
+          <div>
+            <div class="title">✔ {{ m.name }}</div>
+            <div class="meta">{{ m.category or '-' }} • {{ m.platform or '-' }}</div>
+          </div>
+          <div class="btn-group">
+            <a href="/edit/{{ idx }}" class="btn btn-sm btn-outline-light btn-sm-custom">Editar</a>
+            <button class="btn btn-sm btn-outline-danger btn-sm-custom delete-btn" data-delete-idx="{{ idx }}">Eliminar</button>
+          </div>
+        </div>
+        {% else %}
+        <div class="card-mod">(ninguno)</div>
+        {% endfor %}
+      </div>
+    </div>
+
+  </div>
+
+  <div class="col-lg-4 right-col">
+    <div class="card p-3" style="background:var(--panel); border:1px solid var(--card-border)">
+      <h5 class="mb-3" style="color: #ffffff;">Agregar mod</h5>
+      <form action="/add_mod" method="post">
+        <div class="mb-2">
+          <input name="name" class="form-control" placeholder="Nombre" required>
+        </div>
+        <div class="mb-2 d-flex gap-2">
+          <input name="category" class="form-control" placeholder="Categoria">
+          <input name="platform" class="form-control" placeholder="Plataforma">
+        </div>
+        <div class="mb-2">
+          <input name="aliases" class="form-control" placeholder="Aliases (coma-separados)">
+        </div>
+        <div class="mb-2">
+          <input name="notes" class="form-control" placeholder="Notas">
+        </div>
+        <div class="mb-2">
+          <select name="status" class="form-select">
+            <option value="prohibido">Prohibido</option>
+            <option value="permitido">Permitido</option>
+          </select>
+        </div>
+        <div class="d-flex">
+          <button class="btn btn-primary">Guardar</button>
+          <a href="/" class="btn btn-secondary ms-2">Volver</a>
+        </div>
+      </form>
+      <hr class="my-3" />
+      <p class="footer-note">mods.json se guarda en la carpeta del proyecto.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Manejar botones de eliminar sin formularios (evita bloqueo de inputs)
+  document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.delete-btn').forEach(function(btn) {
+      btn.addEventListener('click', function(e) {
+        e.preventDefault();
+        var idx = this.getAttribute('data-delete-idx');
+        if (confirm('¿Eliminar este mod?')) {
+          fetch('/delete/' + idx, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'}
+          }).then(function() {
+            window.location.reload();
+          });
+        }
+      });
+    });
+  });
+</script>
+
+{% endblock %}

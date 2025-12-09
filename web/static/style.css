@@ -1,0 +1,120 @@
+/* Custom theme for BlurkitTool */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+
+:root{
+  --bg:#0f1113;
+  --panel:#17181a;
+  --muted:#9aa3ab;
+  --accent:#ffcc00;
+  --good:#2ecc71;
+  --bad:#e74c3c;
+  --card-border: rgba(255,255,255,0.04);
+}
+
+body{
+  background: var(--bg);
+  color: #e6eef3;
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+}
+
+.navbar-brand{ font-weight:700; font-size:1.1rem; }
+.navbar{ background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.02)); }
+
+.container-main{ max-width:1200px; margin:0 auto; }
+
+.card-mod{ background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); border:1px solid var(--card-border); padding:10px; border-radius:8px; margin-bottom:10px; }
+.card-mod .title{ font-weight:600; font-size:0.98rem; color: #ffffff; }
+.card-mod .meta{ color: #b8c1ca; font-size:0.86rem; }
+
+.badge-good{ background:var(--good); color:#07210f; font-weight:600; }
+.badge-bad{ background:var(--bad); color:#3a0a08; font-weight:600; }
+
+.btn-sm-custom{ padding:4px 8px; font-size:0.8rem; border-radius:6px; }
+
+.btn-primary {
+  background-color: #ff8c42 !important;
+  border-color: #ff8c42 !important;
+  color: #ffffff !important;
+}
+
+.btn-primary:hover {
+  background-color: #ff7628 !important;
+  border-color: #ff7628 !important;
+}
+
+.section-title{ font-weight:700; margin-bottom:8px; }
+
+.left-col{ max-height:70vh; overflow:auto; padding-right:8px; }
+.right-col{ position:sticky; top:80px; }
+
+.footer-note{ color:var(--muted); font-size:0.85rem; }
+
+/* Menu grid styles */
+.menu-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  margin-top: 2rem;
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+  justify-content: center;
+}
+
+.menu-card {
+  flex: 0 0 calc(33.333% - 14px);
+  min-width: 320px;
+}
+
+.menu-card:nth-child(4),
+.menu-card:nth-child(5) {
+  flex: 0 0 calc(33.333% - 14px);
+}
+
+.menu-card {
+  background: linear-gradient(135deg, rgba(35, 45, 55, 0.5), rgba(25, 35, 45, 0.7));
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  padding: 24px 20px;
+  text-decoration: none;
+  color: #e6eef3;
+  transition: all 0.25s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.menu-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(255, 204, 0, 0.4);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+  background: linear-gradient(135deg, rgba(40, 50, 60, 0.6), rgba(30, 40, 50, 0.8));
+}
+
+.menu-icon {
+  font-size: 2rem;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.menu-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0;
+  color: #ffffff;
+}
+
+.menu-description {
+  font-size: 0.875rem;
+  color: #b8c1ca;
+  margin: 0;
+  line-height: 1.45;
+}
+
+/* responsive tweaks */
+@media (max-width:900px){
+  .right-col{ position:static; margin-top:18px; }
+  .menu-grid {
+    grid-template-columns: 1fr;
+  }
+}

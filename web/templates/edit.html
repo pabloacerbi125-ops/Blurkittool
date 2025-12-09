@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+{% block content %}
+<h4>Editar mod</h4>
+<form method="post">
+  <div class="mb-2">
+    <input name="name" class="form-control" value="{{ mod.name }}" required>
+  </div>
+  <div class="mb-2 d-flex gap-2">
+    <input name="category" class="form-control" value="{{ mod.category }}">
+    <input name="platform" class="form-control" value="{{ mod.platform }}">
+  </div>
+  <div class="mb-2">
+    <input name="aliases" class="form-control" value="{{ mod.aliases | join(', ') }}">
+  </div>
+  <div class="mb-2">
+    <input name="notes" class="form-control" value="{{ mod.notes }}">
+  </div>
+  <div class="mb-2">
+    <select name="status" class="form-select">
+      <option value="prohibido" {% if mod.status=='prohibido' %}selected{% endif %}>Prohibido</option>
+      <option value="permitido" {% if mod.status=='permitido' %}selected{% endif %}>Permitido</option>
+    </select>
+  </div>
+  <button class="btn btn-primary">Guardar cambios</button>
+  <a href="/mods" class="btn btn-secondary ms-2">Volver</a>
+</form>
+{% endblock %}

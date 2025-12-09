@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+{% block content %}
+<h4>Buscar mod por nombre</h4>
+<form method="post">
+  <div class="mb-2">
+    <input name="term" class="form-control" placeholder="Termino de busqueda" autofocus autocomplete="off">
+  </div>
+  <button class="btn btn-primary">Buscar</button>
+  <a href="/" class="btn btn-secondary">Volver</a>
+</form>
+
+{% if resultado is not none %}
+  <hr>
+  <h5>Resultados</h5>
+  {% if resultado %}
+    <div class="row">
+      {% for m in resultado %}
+      <div class="col-md-6 mb-3">
+        <div class="card" style="background:var(--panel); border:1px solid var(--card-border);">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start mb-2">
+              <h5 class="mb-0" style="color: #ffffff;">{{ m.name }}</h5>
+              {% if m.status == 'prohibido' %}
+              <span class="badge bg-danger">Prohibido</span>
+              {% else %}
+              <span class="badge bg-success">Permitido</span>
+              {% endif %}
+            </div>
+            
+            <div class="mb-2">
+              <span class="badge bg-secondary">{{ m.category or 'Sin categoría' }}</span>
+              <span class="badge bg-info">{{ m.platform or 'Sin plataforma' }}</span>
+            </div>
+            
+            {% if m.aliases %}
+            <div class="mb-2">
+              <strong style="color: #b8c1ca;">Otros nombres:</strong>
+              <div style="color: #8b95a0;">{{ m.aliases | join(', ') }}</div>
+            </div>
+            {% endif %}
+            
+            {% if m.notes %}
+            <div class="mb-2">
+              <strong style="color: #b8c1ca;">Notas:</strong>
+              <div style="color: #8b95a0;">{{ m.notes }}</div>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="text-muted">No se encontraron coincidencias.</p>
+  {% endif %}
+{% endif %}
+
+{% endblock %}

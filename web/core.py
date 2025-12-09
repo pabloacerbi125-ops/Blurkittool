@@ -1,0 +1,273 @@
+"""Core utilities for Blurkit web UI.
+
+Contains functions to load/save `mods.json` and to extract / classify mods
+from Minecraft logs. Kept intentionally small and dependency-free.
+"""
+
+import json
+import os
+import re
+import sys
+from pathlib import Path
+
+# Detectar si está empaquetado con PyInstaller
+if getattr(sys, 'frozen', False):
+    # Si está empaquetado, usar el directorio del ejecutable para guardar datos
+    BASE_DIR = Path(sys.executable).parent
+    # El mods.json dentro del paquete está en _MEIPASS
+    BUNDLED_MODS = Path(sys._MEIPASS) / "mods.json"
+else:
+    # En desarrollo, usar parent.parent desde web/core.py
+    BASE_DIR = Path(__file__).resolve().parent.parent
+    BUNDLED_MODS = None
+
+DATA_FILE = BASE_DIR / "mods.json"
+FIRST_RUN_FLAG = BASE_DIR / "first_run.flag"
+
+DEFAULT_MODS = [
+    {
+        "name": "Optifine",
+        "status": "permitido",
+        "category": "rendimiento",
+        "platform": "Java",
+        "notes": "Mejora graficos y rendimiento.",
+        "aliases": ["optifine", "optifime"],
+    }
+]
+
+
+def load_mods():
+    """Load mods from `mods.json`, creating it with defaults if missing.
+
+    Returns a list of mod dictionaries.
+    """
+    if not DATA_FILE.exists():
+        # Si está empaquetado y existe mods.json en el bundle, copiarlo
+        if BUNDLED_MODS and BUNDLED_MODS.exists():
+            try:
+                import shutil
+                shutil.copy2(BUNDLED_MODS, DATA_FILE)
+                print(f"Copiado mods.json desde el paquete a {DATA_FILE}")
+            except Exception as e:
+                print(f"Error copiando mods.json: {e}")
+                # Si falla, crear con defaults
+                with DATA_FILE.open("w", encoding="utf-8") as f:
+                    json.dump(DEFAULT_MODS, f, ensure_ascii=False, indent=2)
+        else:
+            # Crear con defaults
+            try:
+                with DATA_FILE.open("w", encoding="utf-8") as f:
+                    json.dump(DEFAULT_MODS, f, ensure_ascii=False, indent=2)
+                try:
+                    FIRST_RUN_FLAG.write_text("1", encoding="utf-8")
+                except Exception:
+                    pass
+            except Exception:
+                return DEFAULT_MODS.copy()
+
+    try:
+        with DATA_FILE.open("r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return DEFAULT_MODS.copy()
+
+
+def save_mods(mods):
+    """Persist `mods` to `mods.json` (overwrites).
+
+    `mods` should be a serializable list/dict structure.
+    """
+    with DATA_FILE.open("w", encoding="utf-8") as f:
+        json.dump(mods, f, ensure_ascii=False, indent=2)
+
+
+# Normalizacion
+
+def normalizar(texto: str) -> str:
+    """Return a simplified lower-alphanumeric-only form for comparisons."""
+    texto = (texto or "").lower()
+    return re.sub(r"[^a-z0-9]", "", texto)
+
+
+# Extraccion de mods desde logs
+
+def extraer_mods_cargados(lines):
+    """Extract a list of detected mods from `lines` of a log file.
+
+    Returns a list of dicts with keys `id` and `display`.
+    """
+    vistos = set()
+    orden = []
+
+    def add(mod_id, display=None):
+        mod_id = (mod_id or "").strip()
+        if not mod_id or mod_id in vistos:
+            return
+        vistos.add(mod_id)
+        orden.append({"id": mod_id, "display": display or mod_id})
+
+    # A) Bloque "Loading X mods:"
+    start = None
+    for i, l in enumerate(lines):
+        if "Loading" in l and "mods:" in l and "Loading Minecraft" not in l:
+            start = i
+            break
+    if start is not None:
+        for l in lines[start + 1:]:
+            s = l.lstrip()
+            if s.startswith("["):
+                break
+            if s.startswith("-"):
+                content = s[1:].strip()
+                if not content:
+                    continue
+                tokens = content.split()
+                mod_id = tokens[0]
+                version = " ".join(tokens[1:]) if len(tokens) > 1 else ""
+                display = f"{mod_id} {version}".strip()
+                add(mod_id, display)
+
+    # B) "Loaded configuration file for X:"
+    for l in lines:
+        m = re.search(r"Loaded configuration file for (.+?):", l)
+        if m:
+            add(m.group(1))
+
+    # C) Entrypoint Fabric
+    for l in lines:
+        if "Found Entrypoint(" not in l:
+            continue
+        m = re.search(r"Found Entrypoint\([^)]*\)\s+([A-Za-z0-9_.$:]+)", l)
+        if not m:
+            continue
+        full_cls = m.group(1)
+        full_cls = re.split(r"[:(]", full_cls)[0]
+        simple = full_cls.split(".")[-1]
+        simple_limpio = re.sub(r"(ClientMod|Client|Mod|Initializer|Init)$", "", simple, flags=re.IGNORECASE)
+        add(simple_limpio or simple)
+
+    # D) Forge variantes
+    for i, l in enumerate(lines):
+        if "Mod List:" not in l:
+            continue
+        for seg in lines[i + 1:]:
+            if seg.startswith("["):
+                break
+            m = re.search(r"^\s*[-\t]*([A-Za-z0-9_.-]+)(?:\s+([^\s]+))?", seg)
+            if not m:
+                if not seg.startswith((" ", "\t", "-")):
+                    break
+                continue
+            mod_id = m.group(1)
+            version = m.group(2) or ""
+            display = f"{mod_id} {version}".strip()
+            add(mod_id, display)
+
+    for l in lines:
+        m = re.search(r"Found mod (\S+) version ([^\s]+)", l)
+        if m:
+            add(m.group(1), f"{m.group(1)} {m.group(2)}")
+
+    for l in lines:
+        m = re.search(r"contains mod (\S+)", l)
+        if m:
+            add(m.group(1))
+
+    for l in lines:
+        m = re.search(r"Registering new mod:\s+(\S+)\s+([^\s]+)", l)
+        if m:
+            add(m.group(1), f"{m.group(1)} {m.group(2)}")
+
+    # E) Detectar referencias a archivos .jar en el log (ej: mods/SomeMod-1.2.3.jar)
+    # Extrae el nombre del fichero, quita la extension y sufijos de version simples
+    jar_re = re.compile(r"([A-Za-z0-9_\-./\\]+\.jar)", flags=re.IGNORECASE)
+    for l in lines:
+        for match in jar_re.findall(l):
+            fname = os.path.basename(match)
+            name = re.sub(r"\.jar$", "", fname, flags=re.IGNORECASE)
+            # Quitar sufijos de version como -1.2.3 o _v1.2
+            name_clean = re.sub(r"[-_ ]v?\d+(?:[\.\-]\d+)*(?:[A-Za-z0-9]*)$", "", name)
+            add(name_clean or name, name)
+
+    return orden
+
+
+def clasificar_mod(nombre, mods):
+    nombre_norm = normalizar(nombre)
+    for m in mods:
+        patrones = [m.get("name")] + m.get("aliases", [])
+        for p in patrones:
+            if not p:
+                continue
+            if normalizar(p) == nombre_norm:
+                return m
+    return None
+
+
+def analizar_log_desde_lineas(lines, mods):
+    utiles = []
+    for line in lines:
+        if "Connecting to " in line or "[System] [CHAT]" in line:
+            break
+        utiles.append(line)
+
+    usuario = None
+    for l in utiles:
+        m = re.search(r"Setting user:\s*(\S+)", l)
+        if m:
+            usuario = m.group(1)
+            break
+
+    mods_cargados = extraer_mods_cargados(utiles)
+    prohibidos_detectados = []
+    cuenta_permitidos = 0
+    cuenta_prohibidos = 0
+    cuenta_desconocidos = 0
+
+    out = []
+    out.append("=== USUARIO DETECTADO ===")
+    out.append(usuario or "No se encontro el usuario (linea 'Setting user: ...').")
+
+    out.append("=== RESUMEN DE MODS CARGADOS ===")
+    out.append("Estado       | Mod")
+    out.append("-------------+----------------------------------------")
+
+    if not mods_cargados:
+        out.append("No se encontro 'Loading X mods:' ni entradas reconocibles en el log.")
+    else:
+        for mc in mods_cargados:
+            mod_id = mc.get("id")
+            display = mc.get("display", mod_id)
+            info = clasificar_mod(mod_id, mods)
+            if not info:
+                out.append(f"? DESCONOCIDO | {display}")
+                cuenta_desconocidos += 1
+                continue
+            estado = info.get("status")
+            if estado == "permitido":
+                out.append(f"PERMITIDO    | {display}")
+                cuenta_permitidos += 1
+            elif estado == "prohibido":
+                out.append(f"PROHIBIDO    | {display}")
+                prohibidos_detectados.append(display)
+                cuenta_prohibidos += 1
+            else:
+                out.append(f"? DESCONOCIDO | {display}")
+                cuenta_desconocidos += 1
+
+    out.append("\n=== MODS PROHIBIDOS DETECTADOS (inicio del log / antes de lobby) ===")
+    if not prohibidos_detectados:
+        out.append("No se detectaron mods PROHIBIDOS en la lista de mods cargados.")
+    else:
+        for nombre in sorted(set(prohibidos_detectados)):
+            out.append(f"- {nombre}")
+
+    out.append("\n=== MINI INFORME ===")
+    if usuario:
+        out.append(f"Usuario: {usuario}")
+    out.append(f"Total de mods detectados: {len(mods_cargados)}")
+    out.append(f"Permitidos: {cuenta_permitidos}")
+    out.append(f"Prohibidos: {cuenta_prohibidos}")
+    out.append(f"Desconocidos: {cuenta_desconocidos}")
+
+    return "\n".join(out)
