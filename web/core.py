@@ -30,8 +30,8 @@ DEFAULT_MODS = [
         "status": "permitido",
         "category": "rendimiento",
         "platform": "Java",
-        "notes": "Mejora graficos y rendimiento.",
-        "aliases": ["optifine", "optifime"],
+        "description": "Mejora graficos y rendimiento.",
+        "alias": ["optifine", "optifime"],
     }
 ]
 
@@ -67,7 +67,23 @@ def load_mods():
 
     try:
         with DATA_FILE.open("r", encoding="utf-8") as f:
-            return json.load(f)
+            mods = json.load(f)
+            
+        # Migrar formato antiguo a nuevo (aliases->alias, notes->description)
+        migrated = False
+        for mod in mods:
+            if "aliases" in mod and "alias" not in mod:
+                mod["alias"] = mod.pop("aliases")
+                migrated = True
+            if "notes" in mod and "description" not in mod:
+                mod["description"] = mod.pop("notes")
+                migrated = True
+        
+        # Si hubo migración, guardar automáticamente
+        if migrated:
+            save_mods(mods)
+            
+        return mods
     except Exception:
         return DEFAULT_MODS.copy()
 
@@ -195,7 +211,7 @@ def extraer_mods_cargados(lines):
 def clasificar_mod(nombre, mods):
     nombre_norm = normalizar(nombre)
     for m in mods:
-        patrones = [m.get("name")] + m.get("aliases", [])
+        patrones = [m.get("name")] + m.get("alias", [])
         for p in patrones:
             if not p:
                 continue

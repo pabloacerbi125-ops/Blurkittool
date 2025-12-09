@@ -48,13 +48,23 @@ def index():
 @app.route('/add_mod', methods=['POST'])
 def add_mod():
     mods = load_mods()
+    nuevo_nombre = request.form.get('name', '').strip()
+    
+    # Validar que no exista duplicado
+    for m in mods:
+        if m.get('name', '').lower() == nuevo_nombre.lower():
+            return render_template('index.html', 
+                prohibidos=[(i, m) for i, m in enumerate(mods) if m.get('status') == 'prohibido'],
+                permitidos=[(i, m) for i, m in enumerate(mods) if m.get('status') == 'permitido'],
+                error=f'Ya existe un mod con el nombre "{nuevo_nombre}"')
+    
     nuevo = {
-        'name': request.form.get('name', '').strip(),
+        'name': nuevo_nombre,
         'status': request.form.get('status', 'prohibido'),
         'category': request.form.get('category', '').strip(),
         'platform': request.form.get('platform', '').strip(),
-        'notes': request.form.get('notes', '').strip(),
-        'aliases': [x.strip() for x in request.form.get('aliases', '').split(',') if x.strip()]
+        'description': request.form.get('description', '').strip(),
+        'alias': [x.strip() for x in request.form.get('alias', '').replace('-', ',').split(',') if x.strip()]
     }
     mods.append(nuevo)
     save_mods(mods)
@@ -72,13 +82,21 @@ def edit(idx):
     if idx < 0 or idx >= len(mods):
         return redirect(url_for('index'))
     if request.method == 'POST':
+        nuevo_nombre = request.form.get('name', '').strip()
+        
+        # Validar que no exista duplicado (excepto el mismo mod)
+        for i, m in enumerate(mods):
+            if i != idx and m.get('name', '').lower() == nuevo_nombre.lower():
+                return render_template('edit.html', idx=idx, mod=mods[idx],
+                    error=f'Ya existe otro mod con el nombre "{nuevo_nombre}"')
+        
         mods[idx] = {
-            'name': request.form.get('name', '').strip(),
+            'name': nuevo_nombre,
             'status': request.form.get('status', 'prohibido'),
             'category': request.form.get('category', '').strip(),
             'platform': request.form.get('platform', '').strip(),
-            'notes': request.form.get('notes', '').strip(),
-            'aliases': [x.strip() for x in request.form.get('aliases', '').split(',') if x.strip()]
+            'description': request.form.get('description', '').strip(),
+            'alias': [x.strip() for x in request.form.get('alias', '').replace('-', ',').split(',') if x.strip()]
         }
         save_mods(mods)
         return redirect(url_for('index'))
@@ -132,7 +150,16 @@ def search():
     if request.method == 'POST':
         term = request.form.get('term', '').lower().strip()
         mods = load_mods()
-        encontrados = [m for m in mods if term in m.get('name','').lower()]
+        encontrados = []
+        for m in mods:
+            # Buscar en nombre
+            if term in m.get('name','').lower():
+                encontrados.append(m)
+                continue
+            # Buscar en alias
+            alias_list = m.get('alias', [])
+            if any(term in alias.lower() for alias in alias_list):
+                encontrados.append(m)
         resultado = encontrados
     return render_template('search.html', resultado=resultado)
 

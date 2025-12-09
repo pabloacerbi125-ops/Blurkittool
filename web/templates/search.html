@@ -32,17 +32,17 @@
               <span class="badge bg-info">{{ m.platform or 'Sin plataforma' }}</span>
             </div>
             
-            {% if m.aliases %}
+            {% if m.alias %}
             <div class="mb-2">
-              <strong style="color: #b8c1ca;">Otros nombres:</strong>
-              <div style="color: #8b95a0;">{{ m.aliases | join(', ') }}</div>
+              <strong style="color: #b8c1ca;">Alias:</strong>
+              <div style="color: #8b95a0;">{{ m.alias | join(', ') }}</div>
             </div>
             {% endif %}
             
-            {% if m.notes %}
+            {% if m.description %}
             <div class="mb-2">
-              <strong style="color: #b8c1ca;">Notas:</strong>
-              <div style="color: #8b95a0;">{{ m.notes }}</div>
+              <strong style="color: #b8c1ca;">Descripción:</strong>
+              <div style="color: #8b95a0;">{{ m.description }}</div>
             </div>
             {% endif %}
           </div>

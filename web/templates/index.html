@@ -11,6 +11,12 @@
         <div style="color: #b8c1ca;">Total: {{ prohibidos|length + permitidos|length }}</div>
       </div>
     </div>
+    
+    {% if error %}
+    <div class="alert alert-danger" role="alert">
+      {{ error }}
+    </div>
+    {% endif %}
 
     <div class="row">
       <div class="col-md-6 left-col">
@@ -64,10 +70,10 @@
           <input name="platform" class="form-control" placeholder="Plataforma">
         </div>
         <div class="mb-2">
-          <input name="aliases" class="form-control" placeholder="Aliases (coma-separados)">
+          <input name="alias" class="form-control" placeholder="Alias (coma-separados)">
         </div>
         <div class="mb-2">
-          <input name="notes" class="form-control" placeholder="Notas">
+          <input name="description" class="form-control" placeholder="Descripción">
         </div>
         <div class="mb-2">
           <select name="status" class="form-select">
@@ -87,21 +93,54 @@
 </div>
 
 <script>
-  // Manejar botones de eliminar sin formularios (evita bloqueo de inputs)
+  // Protección agresiva de inputs
+  (function() {
+    // Guardar referencias originales
+    var originalAddEventListener = EventTarget.prototype.addEventListener;
+    var protectedInputs = new WeakSet();
+    
+    // Marcar todos los inputs como protegidos al cargar
+    function protectInputs() {
+      document.querySelectorAll('input, textarea, select').forEach(function(el) {
+        protectedInputs.add(el);
+        Object.defineProperty(el, 'disabled', {
+          get: function() { return false; },
+          set: function() { },
+          configurable: true
+        });
+      });
+    }
+    
+    // Ejecutar inmediatamente y en DOMContentLoaded
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', protectInputs);
+    } else {
+      protectInputs();
+    }
+    
+    // Re-proteger cada 100ms
+    setInterval(protectInputs, 100);
+  })();
+  
+  // Manejar botones de eliminar
   document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('.delete-btn').forEach(function(btn) {
-      btn.addEventListener('click', function(e) {
+      btn.onclick = function(e) {
         e.preventDefault();
+        e.stopPropagation();
+        
         var idx = this.getAttribute('data-delete-idx');
+        
         if (confirm('¿Eliminar este mod?')) {
-          fetch('/delete/' + idx, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/x-www-form-urlencoded'}
-          }).then(function() {
-            window.location.reload();
-          });
+          // Crear formulario y enviarlo
+          var form = document.createElement('form');
+          form.method = 'POST';
+          form.action = '/delete/' + idx;
+          document.body.appendChild(form);
+          form.submit();
         }
-      });
+        return false;
+      };
     });
   });
 </script>

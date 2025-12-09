@@ -32,20 +32,62 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-      // Fix para inputs bloqueados en Electron
-      window.addEventListener('load', function() {
-        function enableInputs() {
-          document.querySelectorAll('input, textarea, select, button').forEach(function(el) {
+      // Protección ultra-agresiva contra bloqueo de inputs en Electron
+      (function() {
+        function forceEnableInputs() {
+          var inputs = document.querySelectorAll('input, textarea, select');
+          for (var i = 0; i < inputs.length; i++) {
+            var el = inputs[i];
+            // Eliminar atributos
             el.removeAttribute('disabled');
             el.removeAttribute('readonly');
+            // Forzar estilos
             el.style.pointerEvents = 'auto';
-          });
+            el.style.opacity = '1';
+            el.style.userSelect = 'auto';
+            // Redefinir propiedad disabled para que siempre sea false
+            try {
+              Object.defineProperty(el, 'disabled', {
+                get: function() { return false; },
+                set: function(v) { /* ignorar */ },
+                configurable: true
+              });
+            } catch(e) {}
+          }
         }
         
-        enableInputs();
-        // Re-ejecutar periódicamente
-        setInterval(enableInputs, 300);
-      });
+        // Ejecutar múltiples veces al inicio
+        forceEnableInputs();
+        setTimeout(forceEnableInputs, 50);
+        setTimeout(forceEnableInputs, 100);
+        setTimeout(forceEnableInputs, 200);
+        
+        // DOMContentLoaded
+        document.addEventListener('DOMContentLoaded', function() {
+          forceEnableInputs();
+          // Observer para detectar cambios en el DOM
+          var observer = new MutationObserver(function() {
+            forceEnableInputs();
+          });
+          observer.observe(document.body, {
+            attributes: true,
+            subtree: true,
+            attributeFilter: ['disabled', 'readonly']
+          });
+        });
+        
+        // Intervalo constante
+        setInterval(forceEnableInputs, 50);
+        
+        // Interceptar eventos globales que puedan bloquear
+        window.addEventListener('click', function() {
+          setTimeout(forceEnableInputs, 0);
+        }, true);
+        
+        window.addEventListener('mousedown', function() {
+          setTimeout(forceEnableInputs, 0);
+        }, true);
+      })();
     </script>
   </body>
 </html>

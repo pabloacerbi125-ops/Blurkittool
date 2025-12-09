@@ -1,6 +1,11 @@
 {% extends 'base.html' %}
 {% block content %}
 <h4>Editar mod</h4>
+{% if error %}
+<div class="alert alert-danger" role="alert">
+  {{ error }}
+</div>
+{% endif %}
 <form method="post">
   <div class="mb-2">
     <input name="name" class="form-control" value="{{ mod.name }}" required>
@@ -10,10 +15,10 @@
     <input name="platform" class="form-control" value="{{ mod.platform }}">
   </div>
   <div class="mb-2">
-    <input name="aliases" class="form-control" value="{{ mod.aliases | join(', ') }}">
+    <input name="alias" class="form-control" value="{{ mod.alias | join(', ') }}" placeholder="Alias (coma-separados)">
   </div>
   <div class="mb-2">
-    <input name="notes" class="form-control" value="{{ mod.notes }}">
+    <input name="description" class="form-control" value="{{ mod.description }}" placeholder="Descripción">
   </div>
   <div class="mb-2">
     <select name="status" class="form-select">
