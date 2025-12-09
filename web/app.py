@@ -30,6 +30,13 @@ from core import analizar_log_desde_lineas
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
 
+# Security configurations
+app.config['SESSION_COOKIE_SECURE'] = os.environ.get('FLASK_ENV') == 'production'
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['PERMANENT_SESSION_LIFETIME'] = 3600  # 1 hour
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+
 # Database path - use absolute path
 basedir = Path(__file__).resolve().parent
 db_path = basedir / 'instance' / 'blurkit.db'
@@ -48,22 +55,44 @@ login_manager.login_message_category = 'info'
 
 @login_manager.user_loader
 def load_user(user_id):
-    return User.query.get(int(user_id))
+    try:
+        return db.session.get(User, int(user_id))
+    except:
+        return None
 
 
 # ============================================================================
 # PUBLIC ROUTES (No login required)
 # ============================================================================
 
+# Rate limiting - simple in-memory storage (use Redis in production)
+login_attempts = {}
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    """Login page."""
+    """Login page with rate limiting."""
     if current_user.is_authenticated:
         return redirect(url_for('menu'))
     
     if request.method == 'POST':
         username = request.form.get('username', '').strip()
         password = request.form.get('password', '')
+        ip_address = request.remote_addr
+        
+        # Simple rate limiting (5 attempts per IP)
+        current_time = datetime.now()
+        if ip_address in login_attempts:
+            attempts, last_attempt = login_attempts[ip_address]
+            # Reset after 15 minutes
+            if (current_time - last_attempt).total_seconds() > 900:
+                login_attempts[ip_address] = (1, current_time)
+            elif attempts >= 5:
+                flash('Demasiados intentos fallidos. Intenta de nuevo en 15 minutos.', 'danger')
+                return render_template('login.html')
+            else:
+                login_attempts[ip_address] = (attempts + 1, current_time)
+        else:
+            login_attempts[ip_address] = (1, current_time)
         
         user = User.query.filter_by(username=username).first()
         
@@ -72,15 +101,22 @@ def login():
                 flash('Tu cuenta está desactivada. Contacta al administrador.', 'danger')
                 return redirect(url_for('login'))
             
+            # Reset login attempts on success
+            if ip_address in login_attempts:
+                del login_attempts[ip_address]
+            
             # Update last login
-            user.last_login = datetime.utcnow()
+            user.last_login = datetime.now()
             db.session.commit()
             
             login_user(user, remember=True)
             flash(f'¡Bienvenido, {user.username}!', 'success')
             
+            # Validate next parameter to prevent open redirect
             next_page = request.args.get('next')
-            return redirect(next_page) if next_page else redirect(url_for('menu'))
+            if next_page and next_page.startswith('/'):
+                return redirect(next_page)
+            return redirect(url_for('menu'))
         else:
             flash('Usuario o contraseña incorrectos.', 'danger')
     
@@ -448,6 +484,27 @@ def admin_delete_user(user_id):
 
 
 # ============================================================================
+# SECURITY HEADERS
+# ============================================================================
+
+@app.after_request
+def set_security_headers(response):
+    """Add security headers to all responses."""
+    # Prevent clickjacking
+    response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+    # Prevent MIME sniffing
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    # Enable XSS protection
+    response.headers['X-XSS-Protection'] = '1; mode=block'
+    # Referrer policy
+    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    # Content Security Policy (adjust as needed)
+    if os.environ.get('FLASK_ENV') == 'production':
+        response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data:; font-src 'self' https://cdn.jsdelivr.net"
+    return response
+
+
+# ============================================================================
 # ERROR HANDLERS
 # ============================================================================
 
@@ -466,8 +523,6 @@ def forbidden(e):
 @app.errorhandler(404)
 def not_found(e):
     """Handle 404 Not Found errors."""
-    # Extract the path from the request
-    from flask import request
     requested_path = request.path
     error_msg = f'La página "{requested_path}" no se ha encontrado.'
     return render_template('error.html', error_code=404, error_message=error_msg), 404
@@ -478,6 +533,13 @@ def internal_error(e):
     """Handle 500 Internal Server errors."""
     db.session.rollback()
     return render_template('error.html', error_code=500, error_message='Error interno del servidor.'), 500
+
+
+@app.errorhandler(413)
+def request_entity_too_large(e):
+    """Handle file too large errors."""
+    flash('El archivo es demasiado grande. Máximo 16MB.', 'danger')
+    return redirect(url_for('upload'))
 
 
 # ============================================================================
