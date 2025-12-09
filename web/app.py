@@ -71,11 +71,6 @@ def add_mod():
     return redirect(url_for('index'))
 
 
-@app.route('/add', methods=['GET'])
-def add_page():
-    return render_template('add.html')
-
-
 @app.route('/edit/<int:idx>', methods=['GET', 'POST'])
 def edit(idx):
     mods = load_mods()
@@ -162,19 +157,6 @@ def search():
                 encontrados.append(m)
         resultado = encontrados
     return render_template('search.html', resultado=resultado)
-
-
-@app.route('/edit_lookup', methods=['GET', 'POST'])
-def edit_lookup():
-    mensaje = None
-    if request.method == 'POST':
-        nombre = request.form.get('name', '').lower().strip()
-        mods = load_mods()
-        for i, m in enumerate(mods):
-            if m.get('name','').lower() == nombre:
-                return redirect(url_for('edit', idx=i))
-        mensaje = 'No encontrado.'
-    return render_template('edit_lookup.html', mensaje=mensaje)
 
 
 if __name__ == '__main__':
