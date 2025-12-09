@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+
+{% block title %}Seguridad - BlurkitModsTool{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Panel de Seguridad</h2>
+        <a href="{{ url_for('admin_users') }}" class="btn btn-secondary">
+            ← Volver a Usuarios
+        </a>
+    </div>
+    
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card text-white bg-warning">
+                <div class="card-body">
+                    <h5 class="card-title">IPs Monitoreadas</h5>
+                    <h2 class="card-text">{{ blocked_ips|length }}</h2>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card text-white bg-danger">
+                <div class="card-body">
+                    <h5 class="card-title">IPs Bloqueadas</h5>
+                    <h2 class="card-text">{{ blocked_ips|selectattr('blocked')|list|length }}</h2>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card text-white bg-info">
+                <div class="card-body">
+                    <h5 class="card-title">Intentos Activos</h5>
+                    <h2 class="card-text">{{ blocked_ips|rejectattr('blocked')|list|length }}</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    {% if blocked_ips %}
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">IPs Monitoreadas</h5>
+            <form method="POST" action="{{ url_for('admin_clear_all_blocks') }}" style="display: inline;">
+                <button type="submit" class="btn btn-sm btn-danger" 
+                        onclick="return confirm('¿Desbloquear todas las IPs?')">
+                    🗑️ Limpiar Todo
+                </button>
+            </form>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Dirección IP</th>
+                            <th>Intentos Fallidos</th>
+                            <th>Estado</th>
+                            <th>Tiempo Restante</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in blocked_ips %}
+                        <tr class="{% if item.blocked %}table-danger{% else %}table-warning{% endif %}">
+                            <td>
+                                <code>{{ item.ip }}</code>
+                            </td>
+                            <td>
+                                <span class="badge {% if item.attempts >= 5 %}bg-danger{% elif item.attempts >= 3 %}bg-warning{% else %}bg-info{% endif %}">
+                                    {{ item.attempts }} intentos
+                                </span>
+                            </td>
+                            <td>
+                                {% if item.blocked %}
+                                    <span class="badge bg-danger">🔒 Bloqueada</span>
+                                {% else %}
+                                    <span class="badge bg-warning">⚠️ Monitoreando</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if item.blocked %}
+                                    <span class="text-danger">
+                                        {{ item.time_remaining }} min restantes
+                                    </span>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <form method="POST" action="{{ url_for('admin_unblock_ip', ip=item.ip) }}" style="display: inline;">
+                                    <button type="submit" class="btn btn-sm btn-success"
+                                            onclick="return confirm('¿Desbloquear {{ item.ip }}?')">
+                                        🔓 Desbloquear
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-success" role="alert">
+        <h4 class="alert-heading">✅ Todo está limpio</h4>
+        <p>No hay direcciones IP bloqueadas o monitoreadas en este momento.</p>
+        <hr>
+        <p class="mb-0">El sistema bloqueará automáticamente IPs después de 5 intentos fallidos de login.</p>
+    </div>
+    {% endif %}
+    
+    <div class="card mt-4">
+        <div class="card-header">
+            <h5 class="mb-0">ℹ️ Información del Sistema</h5>
+        </div>
+        <div class="card-body">
+            <ul>
+                <li><strong>Límite de intentos:</strong> 5 intentos por IP</li>
+                <li><strong>Tiempo de bloqueo:</strong> 15 minutos</li>
+                <li><strong>Reinicio automático:</strong> Después de 15 minutos sin actividad</li>
+                <li><strong>Protección:</strong> Anti fuerza bruta activa</li>
+            </ul>
+            <div class="alert alert-info mt-3 mb-0">
+                <strong>💡 Consejo:</strong> Si te bloqueaste por error, puedes desbloquearte desde aquí. 
+                El sistema mantiene la lista de IPs bloqueadas en memoria, por lo que se limpiará al reiniciar el servidor.
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

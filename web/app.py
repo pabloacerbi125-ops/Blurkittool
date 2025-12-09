@@ -483,6 +483,50 @@ def admin_delete_user(user_id):
     return redirect(url_for('admin_users'))
 
 
+@app.route('/admin/security')
+@admin_required
+def admin_security():
+    """Security dashboard - admin only."""
+    # Get blocked IPs with attempt info
+    blocked_ips = []
+    current_time = datetime.now()
+    
+    for ip, (attempts, last_attempt) in login_attempts.items():
+        time_remaining = 900 - (current_time - last_attempt).total_seconds()
+        if time_remaining > 0:
+            blocked_ips.append({
+                'ip': ip,
+                'attempts': attempts,
+                'blocked': attempts >= 5,
+                'time_remaining': max(0, int(time_remaining / 60))  # minutes
+            })
+    
+    return render_template('admin_security.html', blocked_ips=blocked_ips)
+
+
+@app.route('/admin/security/unblock/<ip>', methods=['POST'])
+@admin_required
+def admin_unblock_ip(ip):
+    """Unblock an IP - admin only."""
+    if ip in login_attempts:
+        del login_attempts[ip]
+        flash(f'IP {ip} desbloqueada exitosamente.', 'success')
+    else:
+        flash(f'IP {ip} no está bloqueada.', 'info')
+    
+    return redirect(url_for('admin_security'))
+
+
+@app.route('/admin/security/clear-all', methods=['POST'])
+@admin_required
+def admin_clear_all_blocks():
+    """Clear all blocked IPs - admin only."""
+    count = len(login_attempts)
+    login_attempts.clear()
+    flash(f'{count} direcciones IP desbloqueadas.', 'success')
+    return redirect(url_for('admin_security'))
+
+
 # ============================================================================
 # SECURITY HEADERS
 # ============================================================================
