@@ -13,7 +13,7 @@
         <a class="navbar-brand d-flex align-items-center" href="{{ url_for('menu') if current_user.is_authenticated else url_for('login') }}">
           <div style="width:34px;height:34px;background:#2b2b2b;border-radius:6px;display:flex;align-items:center;justify-content:center;margin-right:8px;font-weight:800;color:var(--accent)">BK</div>
           <div>
-            BlurkitTool<br><small style="color: #b8c1ca;">Staff helper</small>
+            BlurkitTool
           </div>
         </a>
         
@@ -23,6 +23,7 @@
         </button>
         
         <div class="collapse navbar-collapse" id="navbarNav">
+          {% if request.endpoint != 'menu' %}
           <ul class="navbar-nav me-auto">
             <li class="nav-item">
               <a class="nav-link" href="{{ url_for('index') }}">Lista de Mods</a>
@@ -45,8 +46,9 @@
             </li>
             {% endif %}
           </ul>
+          {% endif %}
           
-          <div class="d-flex align-items-center">
+          <div class="d-flex align-items-center ms-auto">
             <span class="text-light me-3">
               <strong>{{ current_user.username }}</strong>
               <span class="badge 
