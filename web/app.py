@@ -645,6 +645,8 @@ def admin_create_user():
     
     db.session.add(new_user)
     db.session.commit()
+    print(f'[User Management] Creating user: {username}', flush=True)
+    auto_commit_and_push(f'Add user: {username}')
     
     flash(f'Usuario "{username}" creado exitosamente.', 'success')
     return redirect(url_for('admin_users'))
@@ -662,8 +664,10 @@ def admin_toggle_user(user_id):
     
     user.is_active = not user.is_active
     db.session.commit()
-    
     status = 'activado' if user.is_active else 'desactivado'
+    print(f'[User Management] Toggle user {user.username}: {status}', flush=True)
+    auto_commit_and_push(f'Toggle user {user.username}: {status}')
+    
     flash(f'Usuario "{user.username}" {status}.', 'success')
     return redirect(url_for('admin_users'))
 
@@ -681,6 +685,8 @@ def admin_change_role(user_id):
     
     user.role = new_role
     db.session.commit()
+    print(f'[User Management] Change role {user.username}: {new_role}', flush=True)
+    auto_commit_and_push(f'Change role {user.username}: {new_role}')
     
     flash(f'Rol de "{user.username}" cambiado a "{new_role}".', 'success')
     return redirect(url_for('admin_users'))
@@ -730,6 +736,8 @@ def admin_edit_user(user_id):
         user.password_hash = bcrypt.generate_password_hash(password).decode('utf-8')
     
     db.session.commit()
+    print(f'[User Management] Update user: {username}', flush=True)
+    auto_commit_and_push(f'Update user: {username}')
     
     flash(f'Usuario "{username}" actualizado exitosamente.', 'success')
     return redirect(url_for('admin_users'))
@@ -748,6 +756,8 @@ def admin_delete_user(user_id):
     username = user.username
     db.session.delete(user)
     db.session.commit()
+    print(f'[User Management] Delete user: {username}', flush=True)
+    auto_commit_and_push(f'Delete user: {username}')
     
     flash(f'Usuario "{username}" eliminado.', 'success')
     return redirect(url_for('admin_users'))
