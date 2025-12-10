@@ -158,6 +158,11 @@ def auto_commit_and_push(message):
     Only works on Render or environments with git configured.
     """
     try:
+        # Only run in production (Render) to avoid local pushes
+        if os.environ.get('FLASK_ENV') != 'production':
+            print("[Auto-sync] Skipped: Not running in production", flush=True)
+            return False
+
         # Only run if token is configured (production/Render)
         github_token = os.environ.get('GITHUB_TOKEN')
         if not github_token:
@@ -212,7 +217,7 @@ def auto_commit_and_push(message):
             # Format: https://<token>@github.com/<user>/<repo>.git
             remote_url = f'https://{github_token}@github.com/pabloacerbi125-ops/Blurkittool.git'
             push_result = subprocess.run(
-                ['git', 'push', remote_url, 'main'],
+                ['git', 'push', remote_url, 'HEAD:main'],  # use HEAD because Render runs in detached HEAD
                 cwd=repo_path,
                 capture_output=True,
                 timeout=10
