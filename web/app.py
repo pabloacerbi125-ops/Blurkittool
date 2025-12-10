@@ -12,6 +12,53 @@ from flask_login import LoginManager, login_user, logout_user, current_user
 from flask_bcrypt import Bcrypt
 from datetime import datetime
 
+# ============================================================================
+# AUTO GIT PULL ON STARTUP (keep database in sync)
+# ============================================================================
+
+def auto_git_pull_on_startup():
+    """Pull latest changes from GitHub on app startup.
+    
+    Ensures database is always in sync between local and Render.
+    Runs silently - doesn't interrupt app if git is unavailable.
+    """
+    try:
+        repo_path = Path(__file__).resolve().parent.parent
+        
+        # Only pull if .git folder exists
+        if not (repo_path / '.git').exists():
+            return
+        
+        # Configure git
+        subprocess.run(
+            ['git', 'config', 'user.email', 'auto-sync@blurkittool.local'],
+            cwd=repo_path,
+            capture_output=True,
+            timeout=5
+        )
+        subprocess.run(
+            ['git', 'config', 'user.name', 'Auto Sync'],
+            cwd=repo_path,
+            capture_output=True,
+            timeout=5
+        )
+        
+        # Pull latest changes
+        result = subprocess.run(
+            ['git', 'pull', '--quiet'],
+            cwd=repo_path,
+            capture_output=True,
+            timeout=10
+        )
+        
+        if result.returncode == 0:
+            print("[Auto-sync] Database synced from GitHub", flush=True)
+        else:
+            print(f"[Auto-sync warning] Git pull failed: {result.stderr.decode()}", flush=True)
+    except Exception as e:
+        # Silently fail - don't interrupt app startup
+        print(f"[Auto-sync error] {str(e)}", flush=True)
+
 # Helper to locate resources when packaged with PyInstaller
 def resource_path(relative_path):
     if getattr(sys, "frozen", False):
@@ -52,6 +99,9 @@ login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 login_manager.login_message = 'Por favor inicia sesión para acceder a esta página.'
 login_manager.login_message_category = 'info'
+
+# Auto-pull database changes on app startup
+auto_git_pull_on_startup()
 
 
 @login_manager.user_loader
