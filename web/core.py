@@ -10,14 +10,11 @@ import re
 import sys
 from pathlib import Path
 
-# Detectar si está empaquetado con PyInstaller
+# PyInstaller detection for bundled mods.json
 if getattr(sys, 'frozen', False):
-    # Si está empaquetado, usar el directorio del ejecutable para guardar datos
     BASE_DIR = Path(sys.executable).parent
-    # El mods.json dentro del paquete está en _MEIPASS
     BUNDLED_MODS = Path(sys._MEIPASS) / "mods.json"
 else:
-    # En desarrollo, usar parent.parent desde web/core.py
     BASE_DIR = Path(__file__).resolve().parent.parent
     BUNDLED_MODS = None
 

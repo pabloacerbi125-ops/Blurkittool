@@ -80,10 +80,10 @@ def restore_session_history():
 # Rate limiting - simple in-memory storage (use Redis in production)
 login_attempts = {}
 
-# Historial temporal de análisis de logs (se almacena en memoria)
-# Estructura: {username: [{'timestamp': str, 'filename': str, 'resultado': dict}, ...]}
+# In-memory history cache for session support (primary storage is in Flask sessions)
+# Structure: {username: [{'timestamp': str, 'filename': str, 'resultado': dict}, ...]}
 logs_history = {}
-MAX_HISTORY_ITEMS = 20  # Mantener los últimos 20 análisis por usuario
+MAX_HISTORY_ITEMS = 20
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -250,12 +250,10 @@ def analyze():
     resultado = None
     
     if log_text.strip():
-        # Get all mods as dict for analysis
         mods = Mod.query.all()
         mods_data = [m.to_dict() for m in mods]
         resultado = analizar_log_desde_lineas(log_text.splitlines(), mods_data)
         
-        # Agregar al historial en memoria
         user_key = current_user.username
         if user_key not in logs_history:
             logs_history[user_key] = []
@@ -268,18 +266,14 @@ def analyze():
         }
         logs_history[user_key].insert(0, history_item)
         
-        # Mantener solo los últimos MAX_HISTORY_ITEMS
         if len(logs_history[user_key]) > MAX_HISTORY_ITEMS:
             logs_history[user_key].pop()
         
-        # Guardar en sesión para persistencia
         session['logs_history'] = logs_history.get(current_user.username, [])
         session.permanent = True
         session.modified = True
     
-    # Restaurar historial desde sesión si existe
     history_to_display = session.get('logs_history', logs_history.get(current_user.username, []))
-    # Actualizar logs_history global con datos de sesión
     if history_to_display:
         logs_history[current_user.username] = history_to_display
     
@@ -319,7 +313,6 @@ def upload():
     mods_data = [m.to_dict() for m in mods]
     resultado = analizar_log_desde_lineas(content.splitlines(), mods_data)
     
-    # Agregar al historial
     user_key = current_user.username
     if user_key not in logs_history:
         logs_history[user_key] = []
@@ -332,18 +325,14 @@ def upload():
     }
     logs_history[user_key].insert(0, history_item)
     
-    # Mantener solo los últimos MAX_HISTORY_ITEMS
     if len(logs_history[user_key]) > MAX_HISTORY_ITEMS:
         logs_history[user_key].pop()
     
-    # Guardar en sesión para persistencia
     session['logs_history'] = logs_history.get(current_user.username, [])
     session.permanent = True
     session.modified = True
     
-    # Restaurar historial desde sesión si existe
     history_to_display = session.get('logs_history', logs_history.get(current_user.username, []))
-    # Actualizar logs_history global con datos de sesión
     if history_to_display:
         logs_history[current_user.username] = history_to_display
     
