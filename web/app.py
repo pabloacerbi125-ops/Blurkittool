@@ -21,8 +21,13 @@ def auto_git_pull_on_startup():
     
     Ensures database is always in sync between local and Render.
     Runs silently - doesn't interrupt app if git is unavailable.
+    Only runs in production (Render), not in local development.
     """
     try:
+        # Skip auto-pull in local development
+        if os.environ.get('FLASK_ENV') != 'production':
+            return
+        
         repo_path = Path(__file__).resolve().parent.parent
         
         # Only pull if .git folder exists
