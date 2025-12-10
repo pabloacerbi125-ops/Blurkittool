@@ -111,6 +111,27 @@ body{
   line-height: 1.45;
 }
 
+/* Estilos para el input de búsqueda */
+input[name="search"]::placeholder {
+  color: #ffffff !important;
+  opacity: 1;
+}
+
+input[name="search"]::-moz-placeholder {
+  color: #ffffff !important;
+  opacity: 1;
+}
+
+input[name="search"]::-webkit-input-placeholder {
+  color: #ffffff !important;
+  opacity: 1;
+}
+
+input[name="search"]:-ms-input-placeholder {
+  color: #ffffff !important;
+  opacity: 1;
+}
+
 /* responsive tweaks */
 @media (max-width:900px){
   .right-col{ position:static; margin-top:18px; }

@@ -157,10 +157,22 @@ def menu():
 @login_required
 def index():
     """List all mods - viewable by all roles."""
-    mods = Mod.query.order_by(Mod.name).all()
+    search_term = request.args.get('search', '').strip()
+    
+    if search_term:
+        # Filtrar mods por nombre o alias
+        mods = Mod.query.filter(
+            db.or_(
+                Mod.name.ilike(f'%{search_term}%'),
+                Mod.aliases.ilike(f'%{search_term}%')
+            )
+        ).order_by(Mod.name).all()
+    else:
+        mods = Mod.query.order_by(Mod.name).all()
+    
     prohibidos = [(m.id, m) for m in mods if m.status == 'prohibido']
     permitidos = [(m.id, m) for m in mods if m.status == 'permitido']
-    return render_template('index.html', prohibidos=prohibidos, permitidos=permitidos)
+    return render_template('index.html', prohibidos=prohibidos, permitidos=permitidos, search_term=search_term)
 
 
 @app.route('/search', methods=['GET', 'POST'])

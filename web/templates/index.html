@@ -12,6 +12,22 @@
       </div>
     </div>
     
+    <!-- Barra de búsqueda -->
+    <div class="mb-3">
+      <form method="get" action="/mods" class="d-flex gap-2">
+        <input type="text" name="search" class="form-control" placeholder="🔍 Buscar mod por nombre o alias..." value="{{ search_term or '' }}" style="background: var(--panel); border: 1px solid var(--card-border); color: #ffffff;" autocomplete="off">
+        <button type="submit" class="btn btn-primary">Buscar</button>
+        {% if search_term %}
+        <a href="/mods" class="btn btn-secondary">Limpiar</a>
+        {% endif %}
+      </form>
+      {% if search_term %}
+      <div class="mt-2" style="color: #ffc107;">
+        Mostrando resultados para: <strong>"{{ search_term }}"</strong>
+      </div>
+      {% endif %}
+    </div>
+    
     {% if error %}
     <div class="alert alert-danger" role="alert">
       {{ error }}
@@ -99,15 +115,20 @@
 </div>
 
 <script>
-  // Protección agresiva de inputs
+  // Protección agresiva de inputs (excepto búsqueda)
   (function() {
     // Guardar referencias originales
     var originalAddEventListener = EventTarget.prototype.addEventListener;
     var protectedInputs = new WeakSet();
     
-    // Marcar todos los inputs como protegidos al cargar
+    // Marcar todos los inputs como protegidos al cargar (excepto el de búsqueda)
     function protectInputs() {
       document.querySelectorAll('input, textarea, select').forEach(function(el) {
+        // No proteger el input de búsqueda
+        if (el.name === 'search') {
+          return;
+        }
+        
         protectedInputs.add(el);
         Object.defineProperty(el, 'disabled', {
           get: function() { return false; },
