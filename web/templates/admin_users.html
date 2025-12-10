@@ -132,7 +132,7 @@
                                 {% if user.id != current_user.id %}
                                 <form method="POST" action="{{ url_for('admin_toggle_user', user_id=user.id) }}" class="d-inline">
                                     {% if user.is_active %}
-                                    <button type="submit" class="btn btn-sm btn-warning" title="Desactivar">
+                                    <button type="submit" class="btn btn-sm btn-warning" title="Kick (desactivar)">
                                         🚫
                                     </button>
                                     {% else %}
@@ -143,8 +143,8 @@
                                 </form>
                                 
                                 <form method="POST" action="{{ url_for('admin_delete_user', user_id=user.id) }}" class="d-inline" 
-                                      onsubmit="return confirm('¿Eliminar usuario {{ user.username }}?')">
-                                    <button type="submit" class="btn btn-sm btn-danger" title="Eliminar">
+                                      onsubmit="return confirm('¿Banear y eliminar usuario {{ user.username }}?')">
+                                    <button type="submit" class="btn btn-sm btn-danger" title="Ban (eliminar)">
                                         🗑️
                                     </button>
                                 </form>
