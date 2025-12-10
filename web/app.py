@@ -210,6 +210,7 @@ def auto_commit_and_push(message):
         return False
 
 
+@app.route('/login', methods=['GET', 'POST'])
 def login():
     """Login page with rate limiting."""
     if current_user.is_authenticated:
