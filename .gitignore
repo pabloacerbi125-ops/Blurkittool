@@ -40,9 +40,6 @@ mods.json
 .env
 .env.local
 .env.*.local
-*.db
-instance/
-web/instance/*.db
 *.key
 *.pem
 *.crt
