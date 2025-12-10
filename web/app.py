@@ -5,6 +5,7 @@ Multi-user system with role-based permissions and SQLite database.
 
 import sys
 import os
+import subprocess
 from pathlib import Path
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 from flask_login import LoginManager, login_user, logout_user, current_user
@@ -85,7 +86,80 @@ login_attempts = {}
 logs_history = {}
 MAX_HISTORY_ITEMS = 20
 
-@app.route('/login', methods=['GET', 'POST'])
+# ============================================================================
+# GIT AUTO-SYNC FUNCTION (for Render deployment)
+# ============================================================================
+
+def auto_commit_and_push(message):
+    """Auto-commit database changes and push to GitHub.
+    
+    Uses GITHUB_TOKEN environment variable for authentication.
+    Only works on Render or environments with git configured.
+    """
+    try:
+        # Only run if token is configured (production/Render)
+        github_token = os.environ.get('GITHUB_TOKEN')
+        if not github_token:
+            return False
+        
+        repo_path = Path(__file__).resolve().parent.parent
+        
+        # Configure git with token (temporary, for this session)
+        subprocess.run(
+            ['git', 'config', 'user.email', 'render-auto-sync@blurkittool.local'],
+            cwd=repo_path,
+            capture_output=True,
+            timeout=5
+        )
+        subprocess.run(
+            ['git', 'config', 'user.name', 'Render Auto-Sync'],
+            cwd=repo_path,
+            capture_output=True,
+            timeout=5
+        )
+        
+        # Stage database file
+        subprocess.run(
+            ['git', 'add', 'web/instance/blurkit.db'],
+            cwd=repo_path,
+            capture_output=True,
+            timeout=5
+        )
+        
+        # Check if there are changes
+        result = subprocess.run(
+            ['git', 'diff', '--cached', '--quiet'],
+            cwd=repo_path,
+            capture_output=True,
+            timeout=5
+        )
+        
+        if result.returncode != 0:  # There are changes
+            # Commit
+            subprocess.run(
+                ['git', 'commit', '-m', message],
+                cwd=repo_path,
+                capture_output=True,
+                timeout=5
+            )
+            
+            # Push with token
+            # Format: https://<token>@github.com/<user>/<repo>.git
+            remote_url = f'https://{github_token}@github.com/pabloacerbi125-ops/Blurkittool.git'
+            subprocess.run(
+                ['git', 'push', remote_url, 'main'],
+                cwd=repo_path,
+                capture_output=True,
+                timeout=10
+            )
+            return True
+        return False
+    except Exception as e:
+        # Silently fail - don't interrupt the app
+        print(f"[Auto-sync error] {str(e)}", flush=True)
+        return False
+
+
 def login():
     """Login page with rate limiting."""
     if current_user.is_authenticated:
@@ -378,6 +452,9 @@ def add_mod():
     db.session.add(nuevo)
     db.session.commit()
     
+    # Auto-sync to GitHub
+    auto_commit_and_push(f'Add mod: {nuevo_nombre}')
+    
     flash(f'Mod "{nuevo_nombre}" agregado exitosamente.', 'success')
     return redirect(url_for('index'))
 
@@ -418,6 +495,9 @@ def edit(idx):
         
         db.session.commit()
         
+        # Auto-sync to GitHub
+        auto_commit_and_push(f'Update mod: {nuevo_nombre}')
+        
         flash(f'Mod "{nuevo_nombre}" actualizado exitosamente.', 'success')
         return redirect(url_for('index'))
     
@@ -433,6 +513,9 @@ def delete(idx):
     
     db.session.delete(mod)
     db.session.commit()
+    
+    # Auto-sync to GitHub
+    auto_commit_and_push(f'Delete mod: {mod_name}')
     
     flash(f'Mod "{mod_name}" eliminado exitosamente.', 'success')
     return redirect(url_for('index'))
