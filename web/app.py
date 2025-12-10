@@ -340,13 +340,13 @@ def upload():
 
 
 # ============================================================================
-# MOD ROUTES (Require mod, smod or admin role)
+# MOD ROUTES (Require smod or admin role)
 # ============================================================================
 
 @app.route('/add_mod', methods=['POST'])
 @mod_required
 def add_mod():
-    """Add new mod - requires mod, smod or admin."""
+    """Add new mod - requires smod or admin."""
     nuevo_nombre = request.form.get('name', '').strip()
     
     if not nuevo_nombre:
@@ -385,7 +385,7 @@ def add_mod():
 @app.route('/edit/<int:idx>', methods=['GET', 'POST'])
 @mod_required
 def edit(idx):
-    """Edit mod - requires mod, smod or admin."""
+    """Edit mod - requires smod or admin."""
     mod = Mod.query.get_or_404(idx)
     
     if request.method == 'POST':
@@ -427,7 +427,7 @@ def edit(idx):
 @app.route('/delete/<int:idx>', methods=['POST'])
 @mod_required
 def delete(idx):
-    """Delete mod - requires mod, smod or admin."""
+    """Delete mod - requires smod or admin."""
     mod = Mod.query.get_or_404(idx)
     mod_name = mod.name
     

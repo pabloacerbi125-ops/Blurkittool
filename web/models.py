@@ -33,7 +33,7 @@ class User(UserMixin, db.Model):
     
     def can_edit(self):
         """Check if user can edit mods."""
-        return self.role in ('mod', 'smod', 'admin')
+        return self.role in ('smod', 'admin')
     
     def is_admin(self):
         """Check if user is admin."""

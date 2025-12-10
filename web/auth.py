@@ -43,8 +43,8 @@ def roles_required(*roles):
 
 
 def mod_required(f):
-    """Decorator to require mod, smod or admin role."""
-    return roles_required('mod', 'smod', 'admin')(f)
+    """Decorator to require smod or admin role (mod no longer edits)."""
+    return roles_required('smod', 'admin')(f)
 
 
 def smod_required(f):

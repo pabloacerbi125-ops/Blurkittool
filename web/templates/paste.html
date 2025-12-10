@@ -27,9 +27,7 @@
         <tbody>
           {% for item in logs_history[:5] %}
           <tr class="history-row-clickable" data-index="{{ loop.index0 }}" 
-              style="border-color: var(--card-border); font-size: 0.85rem; cursor: pointer;"
-              onmouseover="this.style.background='rgba(255, 193, 7, 0.1)'" 
-              onmouseout="this.style.background=''">
+              style="border-color: var(--card-border); font-size: 0.85rem; cursor: pointer; transition: background 0.2s;">
             <td>
               <small style="color: #b8c1ca;">{{ item.timestamp }}</small>
             </td>
