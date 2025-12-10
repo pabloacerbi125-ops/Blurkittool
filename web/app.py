@@ -43,9 +43,15 @@ def auto_git_pull_on_startup():
             timeout=5
         )
         
-        # Pull latest changes
+        # Fetch and reset to origin/main (works in detached HEAD state on Render)
+        subprocess.run(
+            ['git', 'fetch', 'origin', 'main', '--quiet'],
+            cwd=repo_path,
+            capture_output=True,
+            timeout=10
+        )
         result = subprocess.run(
-            ['git', 'pull', '--quiet'],
+            ['git', 'reset', '--hard', 'origin/main'],
             cwd=repo_path,
             capture_output=True,
             timeout=10
