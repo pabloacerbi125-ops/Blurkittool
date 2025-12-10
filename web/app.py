@@ -161,7 +161,10 @@ def auto_commit_and_push(message):
         # Only run if token is configured (production/Render)
         github_token = os.environ.get('GITHUB_TOKEN')
         if not github_token:
+            print(f"[Auto-sync] Skipped: No GITHUB_TOKEN configured", flush=True)
             return False
+        
+        print(f"[Auto-sync] Starting push: {message}", flush=True)
         
         repo_path = Path(__file__).resolve().parent.parent
         
@@ -197,24 +200,32 @@ def auto_commit_and_push(message):
         
         if result.returncode != 0:  # There are changes
             # Commit
-            subprocess.run(
+            commit_result = subprocess.run(
                 ['git', 'commit', '-m', message],
                 cwd=repo_path,
                 capture_output=True,
                 timeout=5
             )
+            print(f"[Auto-sync] Commit result: {commit_result.returncode}", flush=True)
             
             # Push with token
             # Format: https://<token>@github.com/<user>/<repo>.git
             remote_url = f'https://{github_token}@github.com/pabloacerbi125-ops/Blurkittool.git'
-            subprocess.run(
+            push_result = subprocess.run(
                 ['git', 'push', remote_url, 'main'],
                 cwd=repo_path,
                 capture_output=True,
                 timeout=10
             )
-            return True
-        return False
+            print(f"[Auto-sync] Push result: {push_result.returncode}", flush=True)
+            if push_result.returncode == 0:
+                print(f"[Auto-sync] SUCCESS: {message}", flush=True)
+            else:
+                print(f"[Auto-sync] Push failed: {push_result.stderr.decode()}", flush=True)
+            return push_result.returncode == 0
+        else:
+            print(f"[Auto-sync] No changes to commit", flush=True)
+            return False
     except Exception as e:
         # Silently fail - don't interrupt the app
         print(f"[Auto-sync error] {str(e)}", flush=True)
