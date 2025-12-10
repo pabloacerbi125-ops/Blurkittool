@@ -6,7 +6,7 @@ Multi-user system with role-based permissions and SQLite database.
 import sys
 import os
 from pathlib import Path
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, url_for, flash, session
 from flask_login import LoginManager, login_user, logout_user, current_user
 from flask_bcrypt import Bcrypt
 from datetime import datetime
@@ -61,12 +61,29 @@ def load_user(user_id):
         return None
 
 
+@app.before_request
+def restore_session_history():
+    """Restore history from session to memory before each request."""
+    if current_user.is_authenticated:
+        user_key = current_user.username
+        # Si hay historial en sesión y no en memoria, restaurarlo
+        if 'logs_history' in session and user_key not in logs_history:
+            logs_history[user_key] = session.get('logs_history', [])
+        # Hacer sesiones permanentes
+        session.permanent = True
+
+
 # ============================================================================
 # PUBLIC ROUTES (No login required)
 # ============================================================================
 
 # Rate limiting - simple in-memory storage (use Redis in production)
 login_attempts = {}
+
+# Historial temporal de análisis de logs (se almacena en memoria)
+# Estructura: {username: [{'timestamp': str, 'filename': str, 'resultado': dict}, ...]}
+logs_history = {}
+MAX_HISTORY_ITEMS = 20  # Mantener los últimos 20 análisis por usuario
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -196,27 +213,86 @@ def search():
     return render_template('search.html', resultado=resultado)
 
 
+@app.route('/analysis', methods=['GET'])
+@login_required
+def analysis_page():
+    """View analysis history - accessible to all roles."""
+    # Load history from session if available
+    user_key = current_user.username
+    history = session.get('logs_history', logs_history.get(user_key, []))
+    # Restaurar en memoria para consistencia
+    if history:
+        logs_history[user_key] = history
+        session.permanent = True
+    return render_template('analysis.html', resultado=None, logs_history=history)
+
+
+@app.route('/clear_history', methods=['POST'])
+@login_required
+def clear_history():
+    """Clear analysis history for current user."""
+    user_key = current_user.username
+    # Limpiar de memoria
+    if user_key in logs_history:
+        del logs_history[user_key]
+    # Limpiar de sesión
+    session.pop('logs_history', None)
+    session.modified = True
+    flash('Historial limpiado correctamente', 'success')
+    return redirect(url_for('analysis_page'))
+
+
 @app.route('/analyze', methods=['POST'])
 @login_required
 def analyze():
     """Analyze log - accessible to all roles."""
     log_text = request.form.get('log', '')
-    resultado = ''
+    resultado = None
     
     if log_text.strip():
         # Get all mods as dict for analysis
         mods = Mod.query.all()
         mods_data = [m.to_dict() for m in mods]
         resultado = analizar_log_desde_lineas(log_text.splitlines(), mods_data)
+        
+        # Agregar al historial en memoria
+        user_key = current_user.username
+        if user_key not in logs_history:
+            logs_history[user_key] = []
+        
+        history_item = {
+            'timestamp': datetime.now().strftime('%d/%m/%Y %H:%M:%S'),
+            'user': current_user.username,
+            'filename': 'pasted_log',
+            'resultado': resultado
+        }
+        logs_history[user_key].insert(0, history_item)
+        
+        # Mantener solo los últimos MAX_HISTORY_ITEMS
+        if len(logs_history[user_key]) > MAX_HISTORY_ITEMS:
+            logs_history[user_key].pop()
+        
+        # Guardar en sesión para persistencia
+        session['logs_history'] = logs_history.get(current_user.username, [])
+        session.permanent = True
+        session.modified = True
     
-    return render_template('analysis.html', resultado=resultado)
+    # Restaurar historial desde sesión si existe
+    history_to_display = session.get('logs_history', logs_history.get(current_user.username, []))
+    # Actualizar logs_history global con datos de sesión
+    if history_to_display:
+        logs_history[current_user.username] = history_to_display
+    
+    return render_template('analysis.html', resultado=resultado, logs_history=history_to_display)
 
 
 @app.route('/paste', methods=['GET'])
 @login_required
 def paste_page():
     """Paste log page - accessible to all roles."""
-    return render_template('paste.html')
+    user_key = current_user.username
+    history = session.get('logs_history', logs_history.get(user_key, []))
+    return render_template('paste.html', logs_history=history)
 
 
 @app.route('/upload', methods=['GET', 'POST'])
@@ -224,12 +300,16 @@ def paste_page():
 def upload():
     """Upload log file - accessible to all roles."""
     if request.method == 'GET':
-        return render_template('upload.html')
+        user_key = current_user.username
+        history = session.get('logs_history', logs_history.get(user_key, []))
+        return render_template('upload.html', logs_history=history)
     
     f = request.files.get('logfile')
-    if not f:
-        return render_template('analysis.html', resultado='No se subió archivo.')
+    if not f or f.filename == '':
+        flash('No se seleccionó archivo', 'danger')
+        return render_template('upload.html')
     
+    filename = f.filename
     try:
         content = f.read().decode('utf-8', errors='ignore')
     except Exception:
@@ -239,7 +319,35 @@ def upload():
     mods_data = [m.to_dict() for m in mods]
     resultado = analizar_log_desde_lineas(content.splitlines(), mods_data)
     
-    return render_template('analysis.html', resultado=resultado)
+    # Agregar al historial
+    user_key = current_user.username
+    if user_key not in logs_history:
+        logs_history[user_key] = []
+    
+    history_item = {
+        'timestamp': datetime.now().strftime('%d/%m/%Y %H:%M:%S'),
+        'user': current_user.username,
+        'filename': filename,
+        'resultado': resultado
+    }
+    logs_history[user_key].insert(0, history_item)
+    
+    # Mantener solo los últimos MAX_HISTORY_ITEMS
+    if len(logs_history[user_key]) > MAX_HISTORY_ITEMS:
+        logs_history[user_key].pop()
+    
+    # Guardar en sesión para persistencia
+    session['logs_history'] = logs_history.get(current_user.username, [])
+    session.permanent = True
+    session.modified = True
+    
+    # Restaurar historial desde sesión si existe
+    history_to_display = session.get('logs_history', logs_history.get(current_user.username, []))
+    # Actualizar logs_history global con datos de sesión
+    if history_to_display:
+        logs_history[current_user.username] = history_to_display
+    
+    return render_template('analysis.html', resultado=resultado, logs_history=history_to_display)
 
 
 # ============================================================================

@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="row">
+  <div class="col-lg-10 mx-auto">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h2 style="color: #ffffff;">📋 Historial de Análisis</h2>
+      <a href="/" class="btn btn-secondary">Volver</a>
+    </div>
+
+    {% if history %}
+    <div class="card p-3" style="background: var(--panel); border: 1px solid var(--card-border);">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 style="color: #ffffff; margin: 0;">Tus últimos análisis</h5>
+        <form action="/history/clear" method="POST" style="display: inline;">
+          <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('¿Limpiar el historial? Esta acción no se puede deshacer.')">
+            🗑️ Limpiar historial
+          </button>
+        </form>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table table-dark table-striped">
+          <thead>
+            <tr style="border-color: var(--card-border);">
+              <th style="color: #ffc107;">Fecha/Hora</th>
+              <th style="color: #ffc107;">Archivo</th>
+              <th style="color: #ffc107;">Mods Encontrados</th>
+              <th style="color: #ffc107;">Prohibidos</th>
+              <th style="color: #ffc107;">Permitidos</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in history %}
+            <tr style="border-color: var(--card-border); vertical-align: middle;">
+              <td>
+                <small style="color: #b8c1ca;">{{ item.timestamp.strftime('%d/%m/%Y %H:%M:%S') }}</small>
+              </td>
+              <td>
+                <span style="color: #ffffff;">{{ item.filename }}</span>
+              </td>
+              <td>
+                <span style="color: #20c997; font-weight: 600;">{{ item.total_analizados }}</span>
+              </td>
+              <td>
+                <span class="badge" style="background: #dc3545; color: #ffffff;">{{ item.mods_prohibidos }}</span>
+              </td>
+              <td>
+                <span class="badge" style="background: #51cf66; color: #07210f;">{{ item.mods_permitidos }}</span>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="mt-4 p-3" style="background: rgba(255, 193, 7, 0.1); border-left: 4px solid #ffc107; border-radius: 4px;">
+      <small style="color: #ffc107;">
+        <strong>Nota:</strong> El historial se almacena temporalmente en memoria y se limpia cuando se reinicia la aplicación.
+        Cada usuario solo ve su propio historial.
+      </small>
+    </div>
+
+    {% else %}
+    <div class="alert alert-info" role="alert">
+      <strong>Sin historial</strong><br>
+      Aún no has analizado ningún log. Sube o pega un log para empezar.
+    </div>
+
+    <div class="d-flex gap-2 mt-3">
+      <a href="/upload" class="btn btn-primary">📁 Subir Log</a>
+      <a href="/paste" class="btn btn-primary">📋 Pegar Log</a>
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+{% endblock %}

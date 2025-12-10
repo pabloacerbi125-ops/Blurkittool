@@ -1,6 +1,303 @@
 {% extends 'base.html' %}
 {% block content %}
-<h4>Resultado del analisis</h4>
-<pre class="bg-black text-light p-3 rounded">{{ resultado }}</pre>
-<a href="/" class="btn btn-primary mt-3">Volver</a>
+<div class="container-main">
+  <!-- Contenedor para el resultado (se llenará dinámicamente o por servidor) -->
+  <div id="analysis-result-container">
+  <!-- Resultado del análisis -->
+  {% if resultado %}
+  <div class="mb-4">
+    <h4 style="color: #ffc107; margin-bottom: 1rem;">📊 Resultado del análisis</h4>
+    
+    <!-- Usuario detectado -->
+    {% if resultado.usuario %}
+    <div class="alert alert-info mb-3">
+      <strong>👤 Usuario:</strong> {{ resultado.usuario }}
+    </div>
+    {% endif %}
+
+    <!-- Resumen general -->
+    <div class="card mb-3" style="background: rgba(23, 24, 26, 0.8); border: 1px solid var(--card-border);">
+      <div class="card-body">
+        <h5 style="color: #ffc107;">📈 Resumen</h5>
+        <div class="row text-center">
+          <div class="col-3">
+            <h3 style="color: #dc3545;">{{ resultado.mods_prohibidos|length }}</h3>
+            <small style="color: #b8c1ca;">Prohibidos</small>
+          </div>
+          <div class="col-3">
+            <h3 style="color: #51cf66;">{{ resultado.mods_permitidos|length }}</h3>
+            <small style="color: #b8c1ca;">Permitidos</small>
+          </div>
+          <div class="col-3">
+            <h3 style="color: #868e96;">{{ resultado.mods_desconocidos|length }}</h3>
+            <small style="color: #b8c1ca;">Desconocidos</small>
+          </div>
+          <div class="col-3">
+            <h3 style="color: #ffc107;">{{ resultado.total }}</h3>
+            <small style="color: #b8c1ca;">Total</small>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mods Prohibidos (DESTACADO) -->
+    {% if resultado.mods_prohibidos %}
+    <div class="alert alert-danger mb-3" style="border: 2px solid #dc3545; background: rgba(220, 53, 69, 0.15);">
+      <h5 style="color: #dc3545; margin-bottom: 1rem;">⚠️ MODS PROHIBIDOS DETECTADOS</h5>
+      <div class="table-responsive">
+        <table class="table table-dark table-sm mb-0">
+          <thead>
+            <tr>
+              <th style="color: #dc3545; border-color: #dc3545;">Mod</th>
+              <th style="color: #dc3545; border-color: #dc3545;">Categoría</th>
+              <th style="color: #dc3545; border-color: #dc3545;">Plataforma</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for mod in resultado.mods_prohibidos %}
+            <tr style="background: rgba(220, 53, 69, 0.1);">
+              <td><strong style="color: #ff6b6b;">❌ {{ mod.name }}</strong></td>
+              <td style="color: #b8c1ca;">{{ mod.category }}</td>
+              <td style="color: #b8c1ca;">{{ mod.platform }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Mods Permitidos -->
+    {% if resultado.mods_permitidos %}
+    <div class="card mb-3" style="background: rgba(23, 24, 26, 0.8); border: 1px solid #51cf66;">
+      <div class="card-body">
+        <h5 style="color: #51cf66; margin-bottom: 1rem;">✅ Mods Permitidos</h5>
+        <div class="row">
+          {% for mod in resultado.mods_permitidos %}
+          <div class="col-md-6 mb-2">
+            <div class="p-2" style="background: rgba(81, 207, 102, 0.1); border-radius: 5px; border-left: 3px solid #51cf66;">
+              <strong style="color: #51cf66;">{{ mod.name }}</strong><br>
+              <small style="color: #b8c1ca;">{{ mod.category }} • {{ mod.platform }}</small>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Mods Desconocidos -->
+    {% if resultado.mods_desconocidos %}
+    <div class="card mb-3" style="background: rgba(23, 24, 26, 0.8); border: 1px solid #868e96;">
+      <div class="card-body">
+        <h5 style="color: #868e96; margin-bottom: 1rem;">❓ Mods Desconocidos</h5>
+        <div class="row">
+          {% for mod in resultado.mods_desconocidos %}
+          <div class="col-md-6 mb-2">
+            <div class="p-2" style="background: rgba(134, 142, 150, 0.1); border-radius: 5px;">
+              <strong style="color: #868e96;">{{ mod.name }}</strong>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+  </div>
+  {% endif %}
+  </div>
+
+  <!-- Botones de acción -->
+  <div class="mb-4">
+    <a href="/upload" class="btn btn-primary">📁 Subir otro log</a>
+    <a href="/paste" class="btn btn-primary">📋 Pegar otro log</a>
+    <a href="/" class="btn btn-secondary">🏠 Volver al inicio</a>
+  </div>
+
+  <!-- Historial de análisis -->
+  <div class="mt-5">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h4 style="color: #ffc107; margin-bottom: 0;">📜 Historial de análisis</h4>
+      {% set history = session.get('logs_history', logs_history) %}
+      {% if history %}
+      <button onclick="clearHistory()" class="btn btn-sm btn-danger">
+        🗑️ Limpiar historial
+      </button>
+      {% endif %}
+    </div>
+    
+    {% if history %}
+    <div class="table-responsive">
+      <table class="table table-dark table-striped table-sm">
+        <thead>
+          <tr style="border-color: var(--card-border);">
+            <th style="color: #ffc107; width: 150px;">Fecha/Hora</th>
+            <th style="color: #ffc107;">Archivo</th>
+            <th style="color: #ffc107; width: 100px;">Usuario</th>
+            <th style="color: #ffc107; width: 80px;">Prohibidos</th>
+            <th style="color: #ffc107; width: 80px;">Permitidos</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in history %}
+          <tr class="history-row" data-index="{{ loop.index0 }}" style="border-color: var(--card-border); font-size: 0.9rem; cursor: pointer;" 
+              onmouseover="this.style.background='rgba(255, 193, 7, 0.1)'" 
+              onmouseout="this.style.background=''">
+            <td>
+              <small style="color: #b8c1ca;">{{ item.timestamp }}</small>
+            </td>
+            <td>
+              <span style="color: #ffffff;">{{ item.filename }}</span>
+            </td>
+            <td>
+              <span style="color: #20c997;">{{ item.user }}</span>
+            </td>
+            <td>
+              <span class="badge" style="background: #dc3545;">{{ item.resultado.mods_prohibidos|length }}</span>
+            </td>
+            <td>
+              <span class="badge" style="background: #51cf66; color: #07210f;">{{ item.resultado.mods_permitidos|length }}</span>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="alert alert-info">
+      <small>Sin historial de análisis aún.</small>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+
+<script>
+  // Pasar el historial de servidor a JavaScript
+  var logsHistory = {{ logs_history|tojson }};
+
+  // Función para mostrar el análisis de un log del historial
+  function showAnalysis(index) {
+    const log = logsHistory[index];
+    if (!log || !log.resultado) return;
+
+    const resultado = log.resultado;
+    
+    // Construir el HTML del resultado
+    let html = '<div class="mb-4">';
+    html += '<h4 style="color: #ffc107; margin-bottom: 1rem;">📊 Resultado del análisis</h4>';
+    
+    // Usuario detectado
+    if (resultado.usuario) {
+      html += '<div class="alert alert-info mb-3">';
+      html += '<strong>👤 Usuario:</strong> ' + resultado.usuario;
+      html += '</div>';
+    }
+    
+    // Resumen general
+    html += '<div class="card mb-3" style="background: rgba(23, 24, 26, 0.8); border: 1px solid var(--card-border);">';
+    html += '<div class="card-body">';
+    html += '<h5 style="color: #ffc107;">📈 Resumen</h5>';
+    html += '<div class="row text-center">';
+    html += '<div class="col-3"><h3 style="color: #dc3545;">' + resultado.mods_prohibidos.length + '</h3><small style="color: #b8c1ca;">Prohibidos</small></div>';
+    html += '<div class="col-3"><h3 style="color: #51cf66;">' + resultado.mods_permitidos.length + '</h3><small style="color: #b8c1ca;">Permitidos</small></div>';
+    html += '<div class="col-3"><h3 style="color: #868e96;">' + resultado.mods_desconocidos.length + '</h3><small style="color: #b8c1ca;">Desconocidos</small></div>';
+    html += '<div class="col-3"><h3 style="color: #ffc107;">' + resultado.total + '</h3><small style="color: #b8c1ca;">Total</small></div>';
+    html += '</div></div></div>';
+    
+    // Mods Prohibidos
+    if (resultado.mods_prohibidos.length > 0) {
+      html += '<div class="alert alert-danger mb-3" style="border: 2px solid #dc3545; background: rgba(220, 53, 69, 0.15);">';
+      html += '<h5 style="color: #dc3545; margin-bottom: 1rem;">⚠️ MODS PROHIBIDOS DETECTADOS</h5>';
+      html += '<div class="table-responsive">';
+      html += '<table class="table table-dark table-sm mb-0">';
+      html += '<thead><tr>';
+      html += '<th style="color: #dc3545; border-color: #dc3545;">Mod</th>';
+      html += '<th style="color: #dc3545; border-color: #dc3545;">Categoría</th>';
+      html += '<th style="color: #dc3545; border-color: #dc3545;">Plataforma</th>';
+      html += '</tr></thead><tbody>';
+      resultado.mods_prohibidos.forEach(mod => {
+        html += '<tr style="background: rgba(220, 53, 69, 0.1);">';
+        html += '<td><strong style="color: #ff6b6b;">❌ ' + mod.name + '</strong></td>';
+        html += '<td style="color: #b8c1ca;">' + mod.category + '</td>';
+        html += '<td style="color: #b8c1ca;">' + mod.platform + '</td>';
+        html += '</tr>';
+      });
+      html += '</tbody></table></div></div>';
+    }
+    
+    // Mods Permitidos
+    if (resultado.mods_permitidos.length > 0) {
+      html += '<div class="card mb-3" style="background: rgba(23, 24, 26, 0.8); border: 1px solid #51cf66;">';
+      html += '<div class="card-body">';
+      html += '<h5 style="color: #51cf66; margin-bottom: 1rem;">✅ Mods Permitidos</h5>';
+      html += '<div class="row">';
+      resultado.mods_permitidos.forEach(mod => {
+        html += '<div class="col-md-6 mb-2">';
+        html += '<div class="p-2" style="background: rgba(81, 207, 102, 0.1); border-radius: 5px; border-left: 3px solid #51cf66;">';
+        html += '<strong style="color: #51cf66;">' + mod.name + '</strong><br>';
+        html += '<small style="color: #b8c1ca;">' + mod.category + ' • ' + mod.platform + '</small>';
+        html += '</div></div>';
+      });
+      html += '</div></div></div>';
+    }
+    
+    // Mods Desconocidos
+    if (resultado.mods_desconocidos.length > 0) {
+      html += '<div class="card mb-3" style="background: rgba(23, 24, 26, 0.8); border: 1px solid #868e96;">';
+      html += '<div class="card-body">';
+      html += '<h5 style="color: #868e96; margin-bottom: 1rem;">❓ Mods Desconocidos</h5>';
+      html += '<div class="row">';
+      resultado.mods_desconocidos.forEach(mod => {
+        html += '<div class="col-md-6 mb-2">';
+        html += '<div class="p-2" style="background: rgba(134, 142, 150, 0.1); border-radius: 5px;">';
+        html += '<strong style="color: #868e96;">' + mod.name + '</strong>';
+        html += '</div></div>';
+      });
+      html += '</div></div></div>';
+    }
+    
+    html += '</div>';
+    
+    // Insertar o reemplazar el contenido en el contenedor correcto
+    const container = document.getElementById('analysis-result-container');
+    if (container) {
+      container.innerHTML = html;
+      // Scroll suave al inicio después de insertar
+      setTimeout(() => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }, 100);
+    }
+  }
+
+  // Función para limpiar el historial
+  function clearHistory() {
+    if (confirm('¿Estás seguro de que quieres eliminar todo el historial de análisis?')) {
+      // Crear un formulario y enviarlo
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = '/clear_history';
+      document.body.appendChild(form);
+      form.submit();
+    }
+  }
+
+  // Event listener para las filas del historial
+  document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.history-row').forEach(row => {
+      row.addEventListener('click', function() {
+        const index = parseInt(this.dataset.index);
+        showAnalysis(index);
+      });
+    });
+    
+    // Verificar si hay un log seleccionado desde otra página
+    const selectedIndex = sessionStorage.getItem('selectedLogIndex');
+    if (selectedIndex !== null) {
+      showAnalysis(parseInt(selectedIndex));
+      sessionStorage.removeItem('selectedLogIndex'); // Limpiar después de usar
+    }
+  });
+</script>
 {% endblock %}

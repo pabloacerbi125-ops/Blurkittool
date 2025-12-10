@@ -1,11 +1,69 @@
 {% extends 'base.html' %}
 {% block content %}
-<h4>Buscar log (archivo)</h4>
-<form action="/upload" method="post" enctype="multipart/form-data">
-  <div class="mb-2">
-    <input type="file" name="logfile" class="form-control" accept=".log,.txt">
+<div class="container-main">
+  <h4>Buscar log (archivo)</h4>
+  <form action="/upload" method="post" enctype="multipart/form-data">
+    <div class="mb-2">
+      <input type="file" name="logfile" class="form-control" accept=".log,.txt">
+    </div>
+    <button class="btn btn-primary">Subir y analizar</button>
+    <a href="/" class="btn btn-secondary">Volver</a>
+  </form>
+
+  <!-- Logs leídos recientemente -->
+  {% if logs_history %}
+  <div class="mt-5">
+    <h5 style="color: #ffc107; margin-bottom: 1rem;">📜 Logs leídos recientemente</h5>
+    <div class="table-responsive">
+      <table class="table table-dark table-striped table-sm">
+        <thead>
+          <tr style="border-color: var(--card-border);">
+            <th style="color: #ffc107; width: 140px;">Fecha/Hora</th>
+            <th style="color: #ffc107;">Archivo</th>
+            <th style="color: #ffc107; width: 90px;">Prohibidos</th>
+            <th style="color: #ffc107; width: 90px;">Permitidos</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in logs_history[:5] %}
+          <tr class="history-row-clickable" data-index="{{ loop.index0 }}" 
+              style="border-color: var(--card-border); font-size: 0.85rem; cursor: pointer;"
+              onmouseover="this.style.background='rgba(255, 193, 7, 0.1)'" 
+              onmouseout="this.style.background=''">
+            <td>
+              <small style="color: #b8c1ca;">{{ item.timestamp }}</small>
+            </td>
+            <td>
+              <span style="color: #ffffff;">{{ item.filename }}</span>
+            </td>
+            <td>
+              <span class="badge" style="background: #dc3545;">{{ item.resultado.mods_prohibidos|length }}</span>
+            </td>
+            <td>
+              <span class="badge" style="background: #51cf66; color: #07210f;">{{ item.resultado.mods_permitidos|length }}</span>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <a href="/analysis" class="btn btn-sm btn-info">📊 Ver historial completo</a>
   </div>
-  <button class="btn btn-primary">Subir y analizar</button>
-  <a href="/" class="btn btn-secondary">Volver</a>
-</form>
+  {% endif %}
+</div>
+
+<script>
+  var logsHistory = {{ logs_history|tojson if logs_history else '[]' }};
+  
+  document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.history-row-clickable').forEach(row => {
+      row.addEventListener('click', function() {
+        const index = parseInt(this.dataset.index);
+        // Guardar el índice en sessionStorage y redirigir a /analysis
+        sessionStorage.setItem('selectedLogIndex', index);
+        window.location.href = '/analysis';
+      });
+    });
+  });
+</script>
 {% endblock %}

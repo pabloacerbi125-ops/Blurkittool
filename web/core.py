@@ -235,55 +235,47 @@ def analizar_log_desde_lineas(lines, mods):
             break
 
     mods_cargados = extraer_mods_cargados(utiles)
-    prohibidos_detectados = []
-    cuenta_permitidos = 0
-    cuenta_prohibidos = 0
-    cuenta_desconocidos = 0
-
-    out = []
-    out.append("=== USUARIO DETECTADO ===")
-    out.append(usuario or "No se encontro el usuario (linea 'Setting user: ...').")
-
-    out.append("=== RESUMEN DE MODS CARGADOS ===")
-    out.append("Estado       | Mod")
-    out.append("-------------+----------------------------------------")
+    mods_prohibidos = []
+    mods_permitidos = []
+    mods_desconocidos = []
 
     if not mods_cargados:
-        out.append("No se encontro 'Loading X mods:' ni entradas reconocibles en el log.")
-    else:
-        for mc in mods_cargados:
-            mod_id = mc.get("id")
-            display = mc.get("display", mod_id)
-            info = clasificar_mod(mod_id, mods)
-            if not info:
-                out.append(f"? DESCONOCIDO | {display}")
-                cuenta_desconocidos += 1
-                continue
-            estado = info.get("status")
-            if estado == "permitido":
-                out.append(f"PERMITIDO    | {display}")
-                cuenta_permitidos += 1
-            elif estado == "prohibido":
-                out.append(f"PROHIBIDO    | {display}")
-                prohibidos_detectados.append(display)
-                cuenta_prohibidos += 1
-            else:
-                out.append(f"? DESCONOCIDO | {display}")
-                cuenta_desconocidos += 1
+        return {
+            'usuario': usuario,
+            'mods_prohibidos': [],
+            'mods_permitidos': [],
+            'mods_desconocidos': [],
+            'total': 0
+        }
+    
+    for mc in mods_cargados:
+        mod_id = mc.get("id")
+        display = mc.get("display", mod_id)
+        info = clasificar_mod(mod_id, mods)
+        
+        mod_item = {
+            'name': display,
+            'id': mod_id,
+            'category': info.get('category', 'desconocido') if info else 'desconocido',
+            'platform': info.get('platform', 'Unknown') if info else 'Unknown'
+        }
+        
+        if not info:
+            mods_desconocidos.append(mod_item)
+            continue
+            
+        estado = info.get("status")
+        if estado == "permitido":
+            mods_permitidos.append(mod_item)
+        elif estado == "prohibido":
+            mods_prohibidos.append(mod_item)
+        else:
+            mods_desconocidos.append(mod_item)
 
-    out.append("\n=== MODS PROHIBIDOS DETECTADOS (inicio del log / antes de lobby) ===")
-    if not prohibidos_detectados:
-        out.append("No se detectaron mods PROHIBIDOS en la lista de mods cargados.")
-    else:
-        for nombre in sorted(set(prohibidos_detectados)):
-            out.append(f"- {nombre}")
-
-    out.append("\n=== MINI INFORME ===")
-    if usuario:
-        out.append(f"Usuario: {usuario}")
-    out.append(f"Total de mods detectados: {len(mods_cargados)}")
-    out.append(f"Permitidos: {cuenta_permitidos}")
-    out.append(f"Prohibidos: {cuenta_prohibidos}")
-    out.append(f"Desconocidos: {cuenta_desconocidos}")
-
-    return "\n".join(out)
+    return {
+        'usuario': usuario,
+        'mods_prohibidos': mods_prohibidos,
+        'mods_permitidos': mods_permitidos,
+        'mods_desconocidos': mods_desconocidos,
+        'total': len(mods_cargados)
+    }
