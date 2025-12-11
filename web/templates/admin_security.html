@@ -3,57 +3,305 @@
 {% block title %}Seguridad - BlurkitModsTool{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2>Panel de Seguridad</h2>
-        <a href="{{ url_for('admin_users') }}" class="btn btn-secondary">
+<style>
+    .security-header {
+        background: linear-gradient(135deg, rgba(255, 204, 0, 0.1), rgba(255, 140, 66, 0.05));
+        border-radius: 16px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        border: 1px solid rgba(255, 204, 0, 0.2);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .security-header h2 {
+        color: #ffc107;
+        font-weight: 700;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    .stat-card {
+        background: rgba(23, 24, 26, 0.8);
+        border-radius: 16px;
+        padding: 2rem;
+        border: 2px solid;
+        transition: all 0.3s ease;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    }
+    .stat-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+    }
+    .stat-card-warning {
+        border-color: rgba(255, 204, 0, 0.5);
+        background: linear-gradient(135deg, rgba(255, 204, 0, 0.15), rgba(255, 140, 66, 0.05));
+    }
+    .stat-card-danger {
+        border-color: rgba(231, 76, 60, 0.5);
+        background: linear-gradient(135deg, rgba(231, 76, 60, 0.15), rgba(192, 57, 43, 0.05));
+    }
+    .stat-card-info {
+        border-color: rgba(23, 162, 184, 0.5);
+        background: linear-gradient(135deg, rgba(23, 162, 184, 0.15), rgba(13, 110, 253, 0.05));
+    }
+    .stat-card h5 {
+        font-size: 1rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+        opacity: 0.9;
+    }
+    .stat-card h2 {
+        font-size: 3rem;
+        font-weight: 700;
+        margin: 0;
+    }
+    .stat-card-warning h5, .stat-card-warning h2 {
+        color: #ffc107;
+    }
+    .stat-card-danger h5, .stat-card-danger h2 {
+        color: #e74c3c;
+    }
+    .stat-card-info h5, .stat-card-info h2 {
+        color: #17a2b8;
+    }
+    .ips-table-card {
+        background: rgba(23, 24, 26, 0.6);
+        border: 1px solid rgba(255, 204, 0, 0.2);
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    }
+    .ips-table-header {
+        background: linear-gradient(135deg, rgba(255, 204, 0, 0.15), rgba(255, 140, 66, 0.1));
+        padding: 1.5rem;
+        border-bottom: 2px solid rgba(255, 204, 0, 0.2);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .ips-table-header h5 {
+        color: #ffc107;
+        font-weight: 700;
+        margin: 0;
+    }
+    .btn-clear-all {
+        background: linear-gradient(135deg, #e74c3c, #c0392b);
+        border: none;
+        border-radius: 10px;
+        color: #fff;
+        font-weight: 700;
+        padding: 0.6rem 1.2rem;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
+    }
+    .btn-clear-all:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(231, 76, 60, 0.5);
+        color: #fff;
+    }
+    .table {
+        margin: 0;
+        color: #e6eef3;
+    }
+    .table thead th {
+        background: rgba(255, 204, 0, 0.1);
+        color: #ffc107;
+        font-weight: 700;
+        border: none;
+        padding: 1rem;
+        font-size: 0.9rem;
+        text-transform: uppercase;
+    }
+    .table tbody tr {
+        border-bottom: 1px solid rgba(255, 204, 0, 0.1);
+        transition: all 0.3s ease;
+    }
+    .table tbody tr:hover {
+        background: rgba(255, 204, 0, 0.05);
+    }
+    .table tbody td {
+        padding: 1rem;
+        vertical-align: middle;
+        border: none;
+    }
+    .ip-code {
+        background: rgba(255, 204, 0, 0.1);
+        border: 1px solid rgba(255, 204, 0, 0.3);
+        border-radius: 8px;
+        padding: 0.4rem 0.8rem;
+        color: #ffc107;
+        font-family: monospace;
+        font-weight: 600;
+    }
+    .badge-attempts {
+        padding: 0.4rem 0.8rem;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.85rem;
+    }
+    .badge-attempts-danger {
+        background: #e74c3c;
+        color: #fff;
+    }
+    .badge-attempts-warning {
+        background: #ffc107;
+        color: #000;
+    }
+    .badge-attempts-info {
+        background: #17a2b8;
+        color: #fff;
+    }
+    .badge-blocked {
+        background: #e74c3c;
+        color: #fff;
+        padding: 0.4rem 0.8rem;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.85rem;
+    }
+    .badge-monitoring {
+        background: #ffc107;
+        color: #000;
+        padding: 0.4rem 0.8rem;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.85rem;
+    }
+    .btn-unblock {
+        background: linear-gradient(135deg, #51cf66, #2ecc71);
+        border: none;
+        border-radius: 8px;
+        color: #000;
+        font-weight: 700;
+        padding: 0.5rem 1rem;
+        transition: all 0.3s ease;
+        font-size: 0.9rem;
+        box-shadow: 0 4px 12px rgba(46, 204, 113, 0.3);
+    }
+    .btn-unblock:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(46, 204, 113, 0.5);
+        color: #000;
+    }
+    .alert-clean {
+        background: linear-gradient(135deg, rgba(46, 204, 113, 0.15), rgba(46, 204, 113, 0.05));
+        border: 2px solid rgba(46, 204, 113, 0.3);
+        border-radius: 16px;
+        padding: 2rem;
+        color: #e6eef3;
+    }
+    .alert-clean h4 {
+        color: #2ecc71;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .alert-clean hr {
+        border-color: rgba(46, 204, 113, 0.3);
+        margin: 1.5rem 0;
+    }
+    .info-card {
+        background: rgba(23, 24, 26, 0.6);
+        border: 1px solid rgba(255, 204, 0, 0.2);
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    }
+    .info-card-header {
+        background: linear-gradient(135deg, rgba(23, 162, 184, 0.15), rgba(13, 110, 253, 0.1));
+        padding: 1.5rem;
+        border-bottom: 2px solid rgba(23, 162, 184, 0.2);
+    }
+    .info-card-header h5 {
+        color: #17a2b8;
+        font-weight: 700;
+        margin: 0;
+    }
+    .info-card-body {
+        padding: 2rem;
+    }
+    .info-card-body ul {
+        color: #e6eef3;
+        line-height: 2;
+    }
+    .info-card-body ul li strong {
+        color: #ffc107;
+    }
+    .info-tip {
+        background: linear-gradient(135deg, rgba(23, 162, 184, 0.15), rgba(13, 110, 253, 0.05));
+        border: 2px solid rgba(23, 162, 184, 0.3);
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-top: 1.5rem;
+        color: #e6eef3;
+    }
+    .info-tip strong {
+        color: #17a2b8;
+    }
+    .btn-back {
+        background: rgba(108, 117, 125, 0.8);
+        border: 2px solid rgba(108, 117, 125, 0.5);
+        border-radius: 10px;
+        color: #fff;
+        font-weight: 600;
+        padding: 0.7rem 1.5rem;
+        transition: all 0.3s ease;
+    }
+    .btn-back:hover {
+        background: rgba(108, 117, 125, 1);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(108, 117, 125, 0.5);
+        color: #fff;
+    }
+</style>
+
+<div class="container-main mt-4">
+    <div class="security-header">
+        <h2>🔒 Panel de Seguridad</h2>
+        <a href="{{ url_for('admin_users') }}" class="btn btn-back">
             ← Volver a Usuarios
         </a>
     </div>
     
     <div class="row mb-4">
-        <div class="col-md-4">
-            <div class="card text-white bg-warning">
-                <div class="card-body">
-                    <h5 class="card-title">IPs Monitoreadas</h5>
-                    <h2 class="card-text">{{ blocked_ips|length }}</h2>
-                </div>
+        <div class="col-md-4 mb-3">
+            <div class="stat-card stat-card-warning">
+                <h5>IPs Monitoreadas</h5>
+                <h2>{{ blocked_ips|length }}</h2>
             </div>
         </div>
         
-        <div class="col-md-4">
-            <div class="card text-white bg-danger">
-                <div class="card-body">
-                    <h5 class="card-title">IPs Bloqueadas</h5>
-                    <h2 class="card-text">{{ blocked_ips|selectattr('blocked')|list|length }}</h2>
-                </div>
+        <div class="col-md-4 mb-3">
+            <div class="stat-card stat-card-danger">
+                <h5>IPs Bloqueadas</h5>
+                <h2>{{ blocked_ips|selectattr('blocked')|list|length }}</h2>
             </div>
         </div>
         
-        <div class="col-md-4">
-            <div class="card text-white bg-info">
-                <div class="card-body">
-                    <h5 class="card-title">Intentos Activos</h5>
-                    <h2 class="card-text">{{ blocked_ips|rejectattr('blocked')|list|length }}</h2>
-                </div>
+        <div class="col-md-4 mb-3">
+            <div class="stat-card stat-card-info">
+                <h5>Intentos Activos</h5>
+                <h2>{{ blocked_ips|rejectattr('blocked')|list|length }}</h2>
             </div>
         </div>
     </div>
     
     {% if blocked_ips %}
-    <div class="card">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <h5 class="mb-0">IPs Monitoreadas</h5>
+    <div class="ips-table-card">
+        <div class="ips-table-header">
+            <h5>📋 IPs Monitoreadas</h5>
             <form method="POST" action="{{ url_for('admin_clear_all_blocks') }}" style="display: inline;">
-                <button type="submit" class="btn btn-sm btn-danger" 
+                <button type="submit" class="btn-clear-all" 
                         onclick="return confirm('¿Desbloquear todas las IPs?')">
                     🗑️ Limpiar Todo
                 </button>
             </form>
         </div>
-        <div class="card-body">
-            <div class="table-responsive">
-                <table class="table table-hover">
+        <div class="table-responsive">
+                <table class="table">
                     <thead>
                         <tr>
                             <th>Dirección IP</th>
@@ -65,34 +313,32 @@
                     </thead>
                     <tbody>
                         {% for item in blocked_ips %}
-                        <tr class="{% if item.blocked %}table-danger{% else %}table-warning{% endif %}">
+                        <tr>
                             <td>
-                                <code>{{ item.ip }}</code>
+                                <code class="ip-code">{{ item.ip }}</code>
                             </td>
                             <td>
-                                <span class="badge {% if item.attempts >= 5 %}bg-danger{% elif item.attempts >= 3 %}bg-warning{% else %}bg-info{% endif %}">
+                                <span class="badge-attempts {% if item.attempts >= 5 %}badge-attempts-danger{% elif item.attempts >= 3 %}badge-attempts-warning{% else %}badge-attempts-info{% endif %}">
                                     {{ item.attempts }} intentos
                                 </span>
                             </td>
                             <td>
                                 {% if item.blocked %}
-                                    <span class="badge bg-danger">🔒 Bloqueada</span>
+                                    <span class="badge-blocked">🔒 Bloqueada</span>
                                 {% else %}
-                                    <span class="badge bg-warning">⚠️ Monitoreando</span>
+                                    <span class="badge-monitoring">⚠️ Monitoreando</span>
                                 {% endif %}
                             </td>
-                            <td>
+                            <td style="color: {% if item.blocked %}#e74c3c{% else %}#6c757d{% endif %};">
                                 {% if item.blocked %}
-                                    <span class="text-danger">
-                                        {{ item.time_remaining }} min restantes
-                                    </span>
+                                    {{ item.time_remaining }} min restantes
                                 {% else %}
-                                    <span class="text-muted">-</span>
+                                    -
                                 {% endif %}
                             </td>
                             <td>
                                 <form method="POST" action="{{ url_for('admin_unblock_ip', ip=item.ip) }}" style="display: inline;">
-                                    <button type="submit" class="btn btn-sm btn-success"
+                                    <button type="submit" class="btn-unblock"
                                             onclick="return confirm('¿Desbloquear {{ item.ip }}?')">
                                         🔓 Desbloquear
                                     </button>
@@ -108,26 +354,26 @@
     {% else %}
     <div class="alert alert-success" role="alert">
         <h4 class="alert-heading">✅ Todo está limpio</h4>
+        <p>No hay dir-clean">
+        <h4>✅ Todo está limpio</h4>
         <p>No hay direcciones IP bloqueadas o monitoreadas en este momento.</p>
         <hr>
         <p class="mb-0">El sistema bloqueará automáticamente IPs después de 5 intentos fallidos de login.</p>
     </div>
     {% endif %}
     
-    <div class="card mt-4">
-        <div class="card-header">
-            <h5 class="mb-0">ℹ️ Información del Sistema</h5>
+    <div class="info-card mt-4">
+        <div class="info-card-header">
+            <h5>ℹ️ Información del Sistema</h5>
         </div>
-        <div class="card-body">
+        <div class="info-card-body">
             <ul>
                 <li><strong>Límite de intentos:</strong> 5 intentos por IP</li>
                 <li><strong>Tiempo de bloqueo:</strong> 15 minutos</li>
                 <li><strong>Reinicio automático:</strong> Después de 15 minutos sin actividad</li>
                 <li><strong>Protección:</strong> Anti fuerza bruta activa</li>
             </ul>
-            <div class="alert alert-info mt-3 mb-0">
-                <strong>💡 Consejo:</strong> Si te bloqueaste por error, puedes desbloquearte desde aquí. 
-                El sistema mantiene la lista de IPs bloqueadas en memoria, por lo que se limpiará al reiniciar el servidor.
+            <div class="info-tips bloqueadas en memoria, por lo que se limpiará al reiniciar el servidor.
             </div>
         </div>
     </div>

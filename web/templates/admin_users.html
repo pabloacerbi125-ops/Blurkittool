@@ -3,23 +3,241 @@
 {% block title %}Gestión de Usuarios - BlurkitModsTool{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <div>
-            <h2>Gestión de Usuarios</h2>
-            <p class="text-white">Administración de usuarios y roles</p>
+<style>
+    .admin-header {
+        background: linear-gradient(135deg, rgba(255, 204, 0, 0.1), rgba(255, 140, 66, 0.05));
+        border-radius: 16px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        border: 1px solid rgba(255, 204, 0, 0.2);
+    }
+    .admin-header h2 {
+        color: #ffc107;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    .admin-header p {
+        color: #b8c1ca;
+        margin: 0;
+    }
+    .create-user-card {
+        background: linear-gradient(135deg, rgba(13, 110, 253, 0.15), rgba(13, 110, 253, 0.05));
+        border: 2px solid rgba(13, 110, 253, 0.3);
+        border-radius: 16px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 8px 24px rgba(13, 110, 253, 0.15);
+    }
+    .create-user-card h5 {
+        color: #0d6efd;
+        font-weight: 700;
+        margin-bottom: 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .form-label {
+        color: #ffc107;
+        font-weight: 600;
+        font-size: 0.9rem;
+        margin-bottom: 0.5rem;
+    }
+    .form-control, .form-select {
+        background: rgba(15, 17, 19, 0.6);
+        border: 2px solid rgba(255, 204, 0, 0.15);
+        border-radius: 10px;
+        color: #ffffff;
+        padding: 0.65rem 1rem;
+        transition: all 0.3s ease;
+    }
+    .form-control:focus, .form-select:focus {
+        background: rgba(15, 17, 19, 0.8);
+        border-color: #ffc107;
+        box-shadow: 0 0 0 0.2rem rgba(255, 204, 0, 0.15);
+        color: #ffffff;
+    }
+    .btn-create {
+        background: linear-gradient(135deg, #51cf66, #2ecc71);
+        border: none;
+        border-radius: 10px;
+        color: #000;
+        font-weight: 700;
+        padding: 0.65rem 1.5rem;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 12px rgba(46, 204, 113, 0.3);
+    }
+    .btn-create:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(46, 204, 113, 0.5);
+        color: #000;
+    }
+    .users-table-card {
+        background: rgba(23, 24, 26, 0.6);
+        border: 1px solid rgba(255, 204, 0, 0.2);
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    }
+    .users-table-header {
+        background: linear-gradient(135deg, rgba(255, 204, 0, 0.15), rgba(255, 140, 66, 0.1));
+        padding: 1.5rem;
+        border-bottom: 2px solid rgba(255, 204, 0, 0.2);
+    }
+    .users-table-header h5 {
+        color: #ffc107;
+        font-weight: 700;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .table {
+        margin: 0;
+        color: #e6eef3;
+    }
+    .table thead th {
+        background: rgba(255, 204, 0, 0.1);
+        color: #ffc107;
+        font-weight: 700;
+        border: none;
+        padding: 1rem;
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .table tbody tr {
+        border-bottom: 1px solid rgba(255, 204, 0, 0.1);
+        transition: all 0.3s ease;
+    }
+    .table tbody tr:hover {
+        background: rgba(255, 204, 0, 0.05);
+    }
+    .table tbody td {
+        padding: 1rem;
+        vertical-align: middle;
+        border: none;
+    }
+    .badge-you {
+        background: #17a2b8;
+        color: #fff;
+        padding: 0.25rem 0.6rem;
+        border-radius: 6px;
+        font-weight: 600;
+        font-size: 0.75rem;
+        margin-left: 0.5rem;
+    }
+    .badge-active {
+        background: #2ecc71;
+        color: #000;
+        padding: 0.35rem 0.75rem;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.85rem;
+    }
+    .badge-inactive {
+        background: #e74c3c;
+        color: #fff;
+        padding: 0.35rem 0.75rem;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.85rem;
+    }
+    .btn-action {
+        padding: 0.4rem 0.75rem;
+        border-radius: 8px;
+        border: none;
+        font-size: 1.1rem;
+        transition: all 0.2s ease;
+        margin: 0 0.15rem;
+    }
+    .btn-action:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+    .btn-edit {
+        background: linear-gradient(135deg, #ff8c42, #ffc107);
+        color: #000;
+    }
+    .btn-kick {
+        background: linear-gradient(135deg, #ffc107, #ff8c42);
+        color: #000;
+    }
+    .btn-activate {
+        background: linear-gradient(135deg, #51cf66, #2ecc71);
+        color: #000;
+    }
+    .btn-delete {
+        background: linear-gradient(135deg, #e74c3c, #c0392b);
+        color: #fff;
+    }
+    .btn-security {
+        background: linear-gradient(135deg, #ffc107, #ff8c42);
+        border: none;
+        border-radius: 10px;
+        color: #000;
+        font-weight: 700;
+        padding: 0.7rem 1.5rem;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 12px rgba(255, 204, 0, 0.3);
+    }
+    .btn-security:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(255, 204, 0, 0.5);
+        color: #000;
+    }
+    .form-select-role {
+        background: rgba(15, 17, 19, 0.8);
+        border: 2px solid rgba(255, 204, 0, 0.2);
+        border-radius: 8px;
+        color: #ffc107;
+        font-weight: 600;
+        padding: 0.4rem 0.8rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    .form-select-role:focus {
+        border-color: #ffc107;
+        box-shadow: 0 0 0 0.2rem rgba(255, 204, 0, 0.15);
+        color: #ffc107;
+    }
+    .modal-content {
+        background: #17181a;
+        border: 2px solid rgba(255, 204, 0, 0.3);
+        border-radius: 16px;
+    }
+    .modal-header {
+        border-bottom: 2px solid rgba(255, 204, 0, 0.2);
+        background: linear-gradient(135deg, rgba(255, 204, 0, 0.1), rgba(255, 140, 66, 0.05));
+    }
+    .modal-title {
+        color: #ffc107;
+        font-weight: 700;
+    }
+    .modal-footer {
+        border-top: 2px solid rgba(255, 204, 0, 0.2);
+    }
+</style>
+
+<div class="container-main mt-4">
+    <div class="admin-header">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h2>👥 Gestión de Usuarios</h2>
+                <p>Administración de usuarios y roles</p>
+            </div>
+            <a href="{{ url_for('admin_security') }}" class="btn btn-security">
+                🔒 Panel de Seguridad
+            </a>
         </div>
-        <a href="{{ url_for('admin_security') }}" class="btn btn-warning">
-            🔒 Panel de Seguridad
-        </a>
     </div>
     
     <!-- Create User Form -->
-    <div class="card mb-4">
-        <div class="card-header bg-primary text-white">
-            <h5 class="mb-0">Crear Nuevo Usuario</h5>
-        </div>
-        <div class="card-body">
+    <div class="create-user-card">
+        <h5>➕ Crear Nuevo Usuario</h5>
+        <div>
             <form method="POST" action="{{ url_for('admin_create_user') }}">
                 <div class="row">
                     <div class="col-md-3">
@@ -64,42 +282,41 @@
     </div>
     
     <!-- Users Table -->
-    <div class="card">
-        <div class="card-header">
-            <h5 class="mb-0">Lista de Usuarios ({{ users|length }})</h5>
+    <div class="users-table-card">
+        <div class="users-table-header">
+            <h5>📋 Lista de Usuarios ({{ users|length }})</h5>
         </div>
-        <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table table-hover mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th>ID</th>
-                            <th>Usuario</th>
-                            <th>Email</th>
-                            <th>Rol</th>
-                            <th>Estado</th>
-                            <th>Último login</th>
-                            <th>Creado</th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
+        <div class="table-responsive">
+            <table class="table mb-0">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Usuario</th>
+                        <th>Email</th>
+                        <th>Rol</th>
+                        <th>Estado</th>
+                        <th>Último login</th>
+                        <th>Creado</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
                         {% for user in users %}
-                        <tr {% if not user.is_active %}class="table-secondary"{% endif %}>
-                            <td>{{ user.id }}</td>
+                        <tr {% if not user.is_active %}style="opacity: 0.6;"{% endif %}>
+                            <td><strong>{{ user.id }}</strong></td>
                             <td>
-                                <strong>{{ user.username }}</strong>
+                                <strong style="color: #ffffff;">{{ user.username }}</strong>
                                 {% if user.id == current_user.id %}
-                                <span class="badge bg-info">Tú</span>
+                                <span class="badge-you">Tú</span>
                                 {% endif %}
                             </td>
-                            <td>{{ user.email }}</td>
+                            <td style="color: #b8c1ca;">{{ user.email }}</td>
                             <td>
                                 {% if user.id == current_user.id %}
-                                <span class="badge bg-secondary">{{ user.role }}</span>
+                                <span class="badge bg-secondary" style="padding: 0.4rem 0.8rem; border-radius: 8px;">{{ user.role }}</span>
                                 {% else %}
                                 <form method="POST" action="{{ url_for('admin_change_role', user_id=user.id) }}" class="d-inline">
-                                    <select name="role" class="form-select form-select-sm" onchange="this.form.submit()" style="width: auto; display: inline-block;">
+                                    <select name="role" class="form-select-role" onchange="this.form.submit()">
                                         <option value="helper" {% if user.role == 'helper' %}selected{% endif %}>helper</option>
                                         <option value="mod" {% if user.role == 'mod' %}selected{% endif %}>mod</option>
                                         <option value="smod" {% if user.role == 'smod' %}selected{% endif %}>smod</option>
@@ -110,21 +327,21 @@
                             </td>
                             <td>
                                 {% if user.is_active %}
-                                <span class="badge bg-success">Activo</span>
+                                <span class="badge-active">Activo</span>
                                 {% else %}
-                                <span class="badge bg-danger">Inactivo</span>
+                                <span class="badge-inactive">Inactivo</span>
                                 {% endif %}
                             </td>
-                            <td>
+                            <td style="color: #b8c1ca;">
                                 {% if user.last_login %}
                                 {{ user.last_login.strftime('%Y-%m-%d %H:%M') }}
                                 {% else %}
-                                <span class="text-muted">Nunca</span>
+                                <span style="color: #6c757d;">Nunca</span>
                                 {% endif %}
                             </td>
-                            <td>{{ user.created_at.strftime('%Y-%m-%d') }}</td>
+                            <td style="color: #b8c1ca;">{{ user.created_at.strftime('%Y-%m-%d') }}</td>
                             <td>
-                                <button type="button" class="btn btn-sm btn-primary" title="Editar" 
+                                <button type="button" class="btn btn-action btn-edit" title="Editar" 
                                         data-bs-toggle="modal" data-bs-target="#editModal{{ user.id }}">
                                     ✏️
                                 </button>
@@ -132,11 +349,11 @@
                                 {% if user.id != current_user.id %}
                                 <form method="POST" action="{{ url_for('admin_toggle_user', user_id=user.id) }}" class="d-inline">
                                     {% if user.is_active %}
-                                    <button type="submit" class="btn btn-sm btn-warning" title="Kick (desactivar)">
+                                    <button type="submit" class="btn btn-action btn-kick" title="Kick (desactivar)">
                                         🚫
                                     </button>
                                     {% else %}
-                                    <button type="submit" class="btn btn-sm btn-success" title="Activar">
+                                    <button type="submit" class="btn btn-action btn-activate" title="Activar">
                                         ✓
                                     </button>
                                     {% endif %}
@@ -144,7 +361,7 @@
                                 
                                 <form method="POST" action="{{ url_for('admin_delete_user', user_id=user.id) }}" class="d-inline" 
                                       onsubmit="return confirm('¿Banear y eliminar usuario {{ user.username }}?')">
-                                    <button type="submit" class="btn btn-sm btn-danger" title="Ban (eliminar)">
+                                    <button type="submit" class="btn btn-action btn-delete" title="Ban (eliminar)">
                                         🗑️
                                     </button>
                                 </form>
@@ -158,8 +375,8 @@
         </div>
     </div>
     
-    <div class="mt-3">
-        <a href="{{ url_for('menu') }}" class="btn btn-secondary">← Volver al Menú</a>
+    <div class="mt-4">
+        <a href="{{ url_for('menu') }}" class="btn btn-secondary" style="border-radius: 10px; padding: 0.7rem 1.5rem;">← Volver al Menú</a>
     </div>
 </div>
 
@@ -167,9 +384,9 @@
 {% for user in users %}
 <div class="modal fade" id="editModal{{ user.id }}" tabindex="-1" aria-labelledby="editModalLabel{{ user.id }}" aria-hidden="true">
     <div class="modal-dialog">
-        <div class="modal-content bg-dark text-light">
+        <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="editModalLabel{{ user.id }}">Editar Usuario: {{ user.username }}</h5>
+                <h5 class="modal-title" id="editModalLabel{{ user.id }}">✏️ Editar Usuario: {{ user.username }}</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form method="POST" action="{{ url_for('admin_edit_user', user_id=user.id) }}">
@@ -185,8 +402,9 @@
                     </div>
                     
                     <div class="mb-3">
-                        <label for="edit_password{{ user.id }}" class="form-label">Nueva Contraseña (dejar en blanco para no cambiar)</label>
+                        <label for="edit_password{{ user.id }}" class="form-label">Nueva Contraseña</label>
                         <input type="password" class="form-control" id="edit_password{{ user.id }}" name="password" placeholder="Dejar vacío si no deseas cambiarla">
+                        <small style="color: #6c757d;">Dejar en blanco para no cambiar</small>
                     </div>
                     
                     <div class="mb-3">
@@ -195,8 +413,8 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" style="border-radius: 10px;">Cancelar</button>
+                    <button type="submit" class="btn btn-create" style="border-radius: 10px;">Guardar Cambios</button>
                 </div>
             </form>
         </div>

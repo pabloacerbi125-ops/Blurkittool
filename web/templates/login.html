@@ -6,50 +6,257 @@
     <title>Login - BlurkitModsTool</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        body {
+            background: linear-gradient(135deg, #0f1113 0%, #1a1d21 50%, #0f1113 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+        body::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255, 204, 0, 0.03) 0%, transparent 70%);
+            animation: pulse 15s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 0.5; }
+            50% { transform: scale(1.1); opacity: 0.8; }
+        }
+        .login-container {
+            position: relative;
+            z-index: 10;
+            width: 100%;
+            max-width: 450px;
+            padding: 2rem;
+        }
+        .login-card {
+            background: rgba(23, 24, 26, 0.95);
+            border: 1px solid rgba(255, 204, 0, 0.2);
+            border-radius: 20px;
+            padding: 3rem 2.5rem;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5),
+                        0 0 40px rgba(255, 204, 0, 0.05);
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+        .login-card:hover {
+            border-color: rgba(255, 204, 0, 0.4);
+            box-shadow: 0 25px 70px rgba(0, 0, 0, 0.6),
+                        0 0 60px rgba(255, 204, 0, 0.1);
+        }
+        .logo-section {
+            text-align: center;
+            margin-bottom: 2.5rem;
+        }
+        .logo-icon {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #ffc107 0%, #ff8c42 100%);
+            border-radius: 20px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 10px 30px rgba(255, 204, 0, 0.3);
+            animation: float 3s ease-in-out infinite;
+        }
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+        .brand-title {
+            font-size: 1.8rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #ffc107, #ff8c42);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+            letter-spacing: 0.5px;
+        }
+        .brand-subtitle {
+            color: #b8c1ca;
+            font-size: 0.95rem;
+            font-weight: 500;
+        }
+        .form-label {
+            color: #ffc107;
+            font-weight: 600;
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .form-control {
+            background: rgba(15, 17, 19, 0.8);
+            border: 2px solid rgba(255, 204, 0, 0.15);
+            border-radius: 12px;
+            color: #ffffff;
+            padding: 0.85rem 1.2rem;
+            font-size: 0.95rem;
+            transition: all 0.3s ease;
+        }
+        .form-control:focus {
+            background: rgba(15, 17, 19, 0.95);
+            border-color: #ffc107;
+            box-shadow: 0 0 0 0.2rem rgba(255, 204, 0, 0.15),
+                        0 0 20px rgba(255, 204, 0, 0.1);
+            color: #ffffff;
+        }
+        .form-control::placeholder {
+            color: rgba(184, 193, 202, 0.5);
+        }
+        .btn-login {
+            background: linear-gradient(135deg, #ffc107 0%, #ff8c42 100%);
+            border: none;
+            border-radius: 12px;
+            color: #000000;
+            font-weight: 700;
+            font-size: 1.05rem;
+            padding: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(255, 204, 0, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+        .btn-login::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            transition: left 0.5s ease;
+        }
+        .btn-login:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 25px rgba(255, 204, 0, 0.5);
+        }
+        .btn-login:hover::before {
+            left: 100%;
+        }
+        .btn-login:active {
+            transform: translateY(0);
+        }
+        .alert {
+            border-radius: 12px;
+            border: none;
+            margin-bottom: 1.5rem;
+            animation: slideDown 0.3s ease;
+        }
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .alert-info {
+            background: rgba(23, 162, 184, 0.15);
+            color: #17a2b8;
+            border: 1px solid rgba(23, 162, 184, 0.3);
+        }
+        .alert-success {
+            background: rgba(46, 204, 113, 0.15);
+            color: #2ecc71;
+            border: 1px solid rgba(46, 204, 113, 0.3);
+        }
+        .alert-danger {
+            background: rgba(231, 76, 60, 0.15);
+            color: #e74c3c;
+            border: 1px solid rgba(231, 76, 60, 0.3);
+        }
+        .footer-text {
+            text-align: center;
+            margin-top: 2rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid rgba(255, 204, 0, 0.1);
+        }
+        .footer-text small {
+            color: #6c757d;
+            font-size: 0.85rem;
+        }
+        .back-link {
+            text-align: center;
+            margin-top: 1.5rem;
+        }
+        .back-link a {
+            color: #ffc107;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .back-link a:hover {
+            color: #ff8c42;
+            transform: translateX(-3px);
+        }
+    </style>
 </head>
 <body>
-    <div class="container mt-5">
-        <div class="row justify-content-center">
-            <div class="col-md-6 col-lg-4">
-                <div class="card shadow">
-                    <div class="card-body p-5">
-                        <h2 class="text-center mb-4">BlurkitModsTool</h2>
-                        <h5 class="text-center text-muted mb-4">Iniciar Sesión</h5>
-                        
-                        {% with messages = get_flashed_messages(with_categories=true) %}
-                            {% if messages %}
-                                {% for category, message in messages %}
-                                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-                                        {{ message }}
-                                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                                    </div>
-                                {% endfor %}
-                            {% endif %}
-                        {% endwith %}
-                        
-                        <form method="POST" action="{{ url_for('login') }}">
-                            <div class="mb-3">
-                                <label for="username" class="form-label">Usuario</label>
-                                <input type="text" class="form-control" id="username" name="username" required autofocus>
-                            </div>
-                            
-                            <div class="mb-4">
-                                <label for="password" class="form-label">Contraseña</label>
-                                <input type="password" class="form-control" id="password" name="password" required>
-                            </div>
-                            
-                            <div class="d-grid">
-                                <button type="submit" class="btn btn-primary btn-lg">Ingresar</button>
-                            </div>
-                        </form>
-                        
-                        <div class="text-center mt-3">
-                            <small class="text-muted">
-                                v1.0 - Sistema de autenticación
-                            </small>
+    <div class="login-container">
+        <div class="login-card">
+            <div class="logo-section">
+                <div class="logo-icon">🎮</div>
+                <h1 class="brand-title">BlurkitModsTool</h1>
+                <p class="brand-subtitle">Iniciar Sesión</p>
+            </div>
+            
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert"></button>
                         </div>
-                    </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            
+            <form method="POST" action="{{ url_for('login') }}">
+                <div class="mb-3">
+                    <label for="username" class="form-label">
+                        <span>👤</span> Usuario
+                    </label>
+                    <input type="text" class="form-control" id="username" name="username" 
+                           placeholder="Ingresa tu usuario" required autofocus>
                 </div>
+                
+                <div class="mb-4">
+                    <label for="password" class="form-label">
+                        <span>🔒</span> Contraseña
+                    </label>
+                    <input type="password" class="form-control" id="password" name="password" 
+                           placeholder="Ingresa tu contraseña" required>
+                </div>
+                
+                <div class="d-grid">
+                    <button type="submit" class="btn btn-login">
+                        🚀 Ingresar
+                    </button>
+                </div>
+            </form>
+            
+            <div class="back-link">
+                <a href="{{ url_for('home') }}">
+                    <span>←</span> Volver al inicio
+                </a>
+            </div>
+            
+            <div class="footer-text">
+                <small>v1.0 • Sistema de autenticación</small>
             </div>
         </div>
     </div>
