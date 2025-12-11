@@ -188,6 +188,14 @@ def auto_commit_and_push(message):
             timeout=5
         )
         
+        # Pull antes de hacer commit/push
+        subprocess.run(
+            ['git', 'pull', 'origin', 'main', '--rebase'],
+            cwd=repo_path,
+            capture_output=True,
+            timeout=10
+        )
+
         # Stage database file
         subprocess.run(
             ['git', 'add', 'web/instance/blurkit.db'],
