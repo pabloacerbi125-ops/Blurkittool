@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BlurkitTool - Lista de Mods</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
+  <style>
+    .public-nav {
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.02));
+      padding: 1rem 0;
+      border-bottom: 1px solid var(--card-border);
+    }
+    .page-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 2px solid var(--card-border);
+    }
+    .page-title {
+      font-size: 2rem;
+      font-weight: 700;
+      color: #ffc107;
+      margin: 0;
+    }
+    .back-link {
+      display: inline-block;
+      padding: 0.4rem 1rem;
+      background: #6c757d;
+      color: #fff;
+      border-radius: 6px;
+      text-decoration: none;
+      font-weight: 500;
+      font-size: 0.9rem;
+      transition: background 0.2s;
+    }
+    .back-link:hover {
+      background: #5a6268;
+      color: #fff;
+    }
+    .login-link {
+      display: inline-block;
+      padding: 0.4rem 1rem;
+      background: #ff8c42;
+      color: #fff;
+      border-radius: 6px;
+      text-decoration: none;
+      font-weight: 500;
+      font-size: 0.9rem;
+      transition: background 0.2s;
+    }
+    .login-link:hover {
+      background: #ff7628;
+      color: #fff;
+    }
+  </style>
+</head>
+<body>
+  <!-- Public Navigation -->
+  <nav class="navbar navbar-expand-lg navbar-dark public-nav" style="display: flex; justify-content: space-between; padding: 1rem 2rem;">
+    <a class="navbar-brand" href="{{ url_for('home') }}" style="margin: 0; display: flex; align-items: center; gap: 0.5rem;">
+      <span style="background: linear-gradient(135deg, #ffc107, #ff8c42); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 700; font-size: 1.2rem;">BK</span>
+      <span style="color: #fff; font-weight: 600; font-size: 0.95rem;">BlurkitTool</span>
+    </a>
+    <a href="{{ url_for('login') }}" class="login-link">🔐 Acceso Staff</a>
+  </nav>
+
+  <div class="container-main" style="margin-top: 2rem;">
+    <!-- Page Header -->
+    <div class="page-header">
+      <h1 class="page-title">📦 Lista de Mods</h1>
+      <a href="{{ url_for('home') }}" class="back-link">← Volver al inicio</a>
+    </div>
+
+    <!-- Stats Grid -->
+    <div class="stats-grid" style="margin-bottom: 2rem;">
+      <div class="stat-card bad">
+        <div class="stat-label">Prohibidos</div>
+        <div class="stat-value">{{ prohibidos|length }}</div>
+      </div>
+      <div class="stat-card good">
+        <div class="stat-label">Permitidos</div>
+        <div class="stat-value">{{ permitidos|length }}</div>
+      </div>
+      <div class="stat-card neutral">
+        <div class="stat-label">Total</div>
+        <div class="stat-value">{{ prohibidos|length + permitidos|length }}</div>
+      </div>
+    </div>
+
+    <!-- Mods Sections -->
+    <div class="mods-sections">
+      <!-- Permitidos -->
+      <div class="mods-section">
+        <div class="section-title with-chip">
+          <span class="chip chip-good">Permitidos</span>
+          <span class="muted">{{ permitidos|length }} items</span>
+        </div>
+        <div class="mods-list">
+          {% for idx, m in permitidos %}
+          <div class="mod-card mod-card-good">
+            <div class="mod-main">
+              <div class="mod-title">{{ m.name }}</div>
+              <div class="mod-meta">
+                <span class="tag">{{ m.category or 'Sin categoría' }}</span>
+                <span class="tag">{{ m.platform or 'Sin plataforma' }}</span>
+                {% if m.aliases %}
+                  <span class="tag alt">Alias: {{ m.aliases }}</span>
+                {% endif %}
+              </div>
+              {% if m.description %}
+              <div class="mod-desc">{{ m.description }}</div>
+              {% endif %}
+            </div>
+          </div>
+          {% else %}
+          <div class="empty-state">No hay mods permitidos.</div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Prohibidos -->
+      <div class="mods-section">
+        <div class="section-title with-chip">
+          <span class="chip chip-bad">Prohibidos</span>
+          <span class="muted">{{ prohibidos|length }} items</span>
+        </div>
+        <div class="mods-list">
+          {% for idx, m in prohibidos %}
+          <div class="mod-card mod-card-bad">
+            <div class="mod-main">
+              <div class="mod-title">{{ m.name }}</div>
+              <div class="mod-meta">
+                <span class="tag">{{ m.category or 'Sin categoría' }}</span>
+                <span class="tag">{{ m.platform or 'Sin plataforma' }}</span>
+                {% if m.aliases %}
+                  <span class="tag alt">Alias: {{ m.aliases }}</span>
+                {% endif %}
+              </div>
+              {% if m.description %}
+              <div class="mod-desc">{{ m.description }}</div>
+              {% endif %}
+            </div>
+          </div>
+          {% else %}
+          <div class="empty-state">No hay mods prohibidos.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="text-center" style="padding: 2rem 0; color: var(--muted); font-size: 0.9rem;">
+      <p>BlurkitTool &copy; 2025 • by: PonyGamer_uwu</p>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

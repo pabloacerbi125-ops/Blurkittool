@@ -302,10 +302,46 @@ def logout():
 
 
 # ============================================================================
-# AUTHENTICATED ROUTES (Login required, all roles can access)
+# PUBLIC ROUTES (No login required)
 # ============================================================================
 
 @app.route('/')
+def home():
+    """Public homepage - shows mods list and rules without login."""
+    all_mods = Mod.query.order_by(Mod.name).all()
+    permitidos = [(idx, m.to_dict()) for idx, m in enumerate(all_mods) if m.status == 'permitido']
+    prohibidos = [(idx, m.to_dict()) for idx, m in enumerate(all_mods) if m.status == 'prohibido']
+    
+    return render_template('home.html', permitidos=permitidos, prohibidos=prohibidos)
+
+
+@app.route('/page')
+def page():
+    """Public page with menu buttons only."""
+    return render_template('page.html')
+
+
+@app.route('/modsjg')
+def modsjg():
+    """Public mods list page - separate page for viewing mods."""
+    all_mods = Mod.query.order_by(Mod.name).all()
+    permitidos = [(idx, m.to_dict()) for idx, m in enumerate(all_mods) if m.status == 'permitido']
+    prohibidos = [(idx, m.to_dict()) for idx, m in enumerate(all_mods) if m.status == 'prohibido']
+    
+    return render_template('modsjg.html', permitidos=permitidos, prohibidos=prohibidos)
+
+
+@app.route('/reglas')
+def reglas():
+    """Public rules page - separate page for viewing rules."""
+    return render_template('reglas.html')
+
+
+# ============================================================================
+# AUTHENTICATED ROUTES (Login required, all roles can access)
+# ============================================================================
+
+@app.route('/dashboard')
 @login_required
 def menu():
     """Visual menu with cards - accessible to all logged-in users."""
