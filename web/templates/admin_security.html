@@ -66,12 +66,120 @@
     .stat-card-info h5, .stat-card-info h2 {
         color: #17a2b8;
     }
-    .ips-table-card {
-        background: rgba(23, 24, 26, 0.6);
-        border: 1px solid rgba(255, 204, 0, 0.2);
+    .ips-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+        gap: 1.5rem;
+        margin-top: 1.5rem;
+    }
+    .ip-card {
+        background: linear-gradient(135deg, rgba(23, 24, 26, 0.8), rgba(20, 22, 24, 0.6));
+        border: 2px solid rgba(255, 140, 66, 0.2);
         border-radius: 16px;
-        overflow: hidden;
+        padding: 1.5rem;
+        transition: all 0.3s ease;
         box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+        position: relative;
+        overflow: hidden;
+    }
+    .ip-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, #ff6b35, #ff8c42);
+    }
+    .ip-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 12px 32px rgba(255, 107, 53, 0.2);
+        border-color: rgba(255, 140, 66, 0.4);
+    }
+    .ip-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+    .ip-address {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: #ffc107;
+        font-family: monospace;
+        letter-spacing: 0.5px;
+    }
+    .ip-status-badge {
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 700;
+    }
+    .ip-status-blocked {
+        background: linear-gradient(135deg, rgba(231, 76, 60, 0.3), rgba(192, 57, 43, 0.2));
+        border: 1px solid rgba(231, 76, 60, 0.5);
+        color: #e74c3c;
+    }
+    .ip-status-monitoring {
+        background: linear-gradient(135deg, rgba(255, 193, 7, 0.3), rgba(255, 140, 66, 0.2));
+        border: 1px solid rgba(255, 193, 7, 0.5);
+        color: #ffc107;
+    }
+    .ip-info {
+        display: flex;
+        flex-direction: column;
+        gap: 0.8rem;
+        margin-bottom: 1.2rem;
+    }
+    .ip-info-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.8rem;
+        background: rgba(255, 204, 0, 0.05);
+        border-left: 3px solid #ff8c42;
+        border-radius: 6px;
+    }
+    .ip-info-label {
+        color: #b8c1ca;
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+    .ip-info-value {
+        color: #ffffff;
+        font-weight: 700;
+        text-align: right;
+    }
+    .ip-timer {
+        color: #e74c3c;
+        font-weight: 700;
+        font-size: 1.1rem;
+    }
+    .ip-actions {
+        display: flex;
+        gap: 0.8rem;
+        margin-top: 1rem;
+    }
+    .btn-unblock-card {
+        flex: 1;
+        background: linear-gradient(135deg, #ff6b35, #ff8c42) !important;
+        border: none !important;
+        color: #fff !important;
+        padding: 0.6rem 1rem !important;
+        border-radius: 8px !important;
+        font-weight: 700 !important;
+        font-size: 0.9rem !important;
+        cursor: pointer !important;
+        transition: all 0.3s ease !important;
+        text-align: center;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+    }
+    .btn-unblock-card:hover {
+        transform: translateY(-2px) !important;
+        box-shadow: 0 6px 20px rgba(255, 107, 53, 0.4) !important;
+        color: #fff !important;
     }
     .ips-table-header {
         background: linear-gradient(135deg, rgba(255, 204, 0, 0.15), rgba(255, 140, 66, 0.1));
@@ -99,12 +207,14 @@
     .btn-clear-all:hover {
         transform: translateY(-2px);
         box-shadow: 0 6px 20px rgba(231, 76, 60, 0.5);
-        color: #fff;
-    }
-    .table {
-        margin: 0;
-        color: #e6eef3;
-    }
+            .ips-table-card {
+                background: rgba(20, 22, 24, 0.35);
+                border: 1px solid #3b4756;
+                border-radius: 16px;
+                overflow: hidden;
+                box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+                backdrop-filter: blur(4px);
+            }
     .table thead th {
         background: rgba(255, 204, 0, 0.1);
         color: #ffc107;
@@ -114,30 +224,69 @@
         font-size: 0.9rem;
         text-transform: uppercase;
     }
+    /* Forzar transparencia total en encabezado dentro del panel */
+    .ips-table-card .table thead { background: transparent !important; }
+    .ips-table-card .table thead tr { background: transparent !important; }
+    .ips-table-card .table thead th { background: transparent !important; }
+    /* Ajustar bordes del encabezado para que no se vea una franja clara */
+    .ips-table-card .table thead { border-bottom: 1px solid rgba(255, 204, 0, 0.15) !important; }
     .table tbody tr {
         border-bottom: 1px solid rgba(255, 204, 0, 0.1);
         transition: all 0.3s ease;
+            .table {
+                margin: 0;
+                color: #e6eef3;
+                background: transparent;
+                --bs-table-bg: transparent;
+                --bs-table-striped-bg: rgba(255, 204, 0, 0.03);
+                --bs-table-striped-color: inherit;
+                --bs-table-hover-bg: rgba(255, 204, 0, 0.05);
+                --bs-table-hover-color: inherit;
+                --bs-table-border-color: rgba(255, 204, 0, 0.1);
     }
-    .table tbody tr:hover {
-        background: rgba(255, 204, 0, 0.05);
-    }
+            /* Fuerza transparencia dentro de la tabla para vencer estilos de Bootstrap */
+            .ips-table-card .table thead,
+            .ips-table-card .table tbody,
+            .ips-table-card .table tr,
+            .ips-table-card .table th,
+            .ips-table-card .table td {
+                background: transparent !important;
+                background-color: transparent !important;
+            }
+            /* Regla genérica de Bootstrap 5: .table > :not(caption) > * > * */
+            .ips-table-card .table>:not(caption)>*>* {
+                background-color: transparent !important;
+                box-shadow: none !important;
+            }
+            /* Quitar franjas de .table-striped explícitamente */
+            .ips-table-card .table-striped>tbody>tr:nth-of-type(odd)>* {
+                --bs-table-accent-bg: transparent !important;
+                background-color: transparent !important;
+            }
+            /* Asegurar transparencia con .table-bordered y bordes tenues */
+            .ips-table-card .table-bordered { border-color: rgba(255, 204, 0, 0.1) !important; }
+            .ips-table-card .table-bordered> :not(caption)>* { border-color: rgba(255, 204, 0, 0.1) !important; }
     .table tbody td {
         padding: 1rem;
         vertical-align: middle;
         border: none;
-    }
-    .ip-code {
-        background: rgba(255, 204, 0, 0.1);
+            .table tbody tr {
+                border-bottom: 1px solid rgba(255, 204, 0, 0.1);
+                transition: all 0.3s ease;
+                background-color: transparent !important;
         border: 1px solid rgba(255, 204, 0, 0.3);
         border-radius: 8px;
         padding: 0.4rem 0.8rem;
         color: #ffc107;
         font-family: monospace;
         font-weight: 600;
-    }
-    .badge-attempts {
-        padding: 0.4rem 0.8rem;
-        border-radius: 8px;
+            .table tbody td {
+                padding: 1rem;
+                vertical-align: middle;
+                border: none;
+                background-color: transparent !important;
+            }
+            .table-responsive { background: transparent; }
         font-weight: 600;
         font-size: 0.85rem;
     }
@@ -145,12 +294,13 @@
         background: #e74c3c;
         color: #fff;
     }
-    .badge-attempts-warning {
-        background: #ffc107;
-        color: #000;
-    }
-    .badge-attempts-info {
-        background: #17a2b8;
+            .info-card {
+                background: rgba(20, 22, 24, 0.35);
+                border: 1px solid #3b4756;
+                border-radius: 16px;
+                overflow: hidden;
+                box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+                backdrop-filter: blur(4px);
         color: #fff;
     }
     .badge-blocked {
@@ -170,20 +320,46 @@
         font-size: 0.85rem;
     }
     .btn-unblock {
-        background: linear-gradient(135deg, #51cf66, #2ecc71);
-        border: none;
-        border-radius: 8px;
-        color: #000;
-        font-weight: 700;
-        padding: 0.5rem 1rem;
-        transition: all 0.3s ease;
-        font-size: 0.9rem;
-        box-shadow: 0 4px 12px rgba(46, 204, 113, 0.3);
+        background: linear-gradient(135deg, #ff6b35, #ff8c42) !important;
+        border: none !important;
+        border-radius: 8px !important;
+        color: #fff !important;
+        font-weight: 700 !important;
+        padding: 0.5rem 1rem !important;
+        transition: all 0.3s ease !important;
+        font-size: 0.9rem !important;
+        box-shadow: 0 4px 12px rgba(255, 107, 53, 0.35) !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: .35rem !important;
+        cursor: pointer !important;
+        appearance: none !important;
+        -webkit-appearance: none !important;
+        -moz-appearance: none !important;
+        background-clip: padding-box !important;
+        outline: none !important;
     }
     .btn-unblock:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(46, 204, 113, 0.5);
-        color: #000;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 6px 20px rgba(255, 107, 53, 0.55) !important;
+        color: #fff !important;
+    }
+    /* Refuerza estilos dentro del panel para evitar overrides blancos */
+    .ips-table-card .btn-unblock {
+        background: linear-gradient(135deg, #ff6b35, #ff8c42) !important;
+        background-color: transparent !important;
+        border-color: transparent !important;
+        border: none !important;
+        color: #fff !important;
+        appearance: none !important;
+        -webkit-appearance: none !important;
+        -moz-appearance: none !important;
+        background-clip: padding-box !important;
+    }
+    button.btn-unblock {
+        background: linear-gradient(135deg, #ff6b35, #ff8c42) !important;
+        border: none !important;
+        color: #fff !important;
     }
     .alert-clean {
         background: linear-gradient(135deg, rgba(46, 204, 113, 0.15), rgba(46, 204, 113, 0.05));
@@ -300,61 +476,61 @@
                 </button>
             </form>
         </div>
-        <div class="table-responsive">
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>Dirección IP</th>
-                            <th>Intentos Fallidos</th>
-                            <th>Estado</th>
-                            <th>Tiempo Restante</th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for item in blocked_ips %}
-                        <tr>
-                            <td>
-                                <code class="ip-code">{{ item.ip }}</code>
-                            </td>
-                            <td>
-                                <span class="badge-attempts {% if item.attempts >= 5 %}badge-attempts-danger{% elif item.attempts >= 3 %}badge-attempts-warning{% else %}badge-attempts-info{% endif %}">
-                                    {{ item.attempts }} intentos
-                                </span>
-                            </td>
-                            <td>
-                                {% if item.blocked %}
-                                    <span class="badge-blocked">🔒 Bloqueada</span>
-                                {% else %}
-                                    <span class="badge-monitoring">⚠️ Monitoreando</span>
-                                {% endif %}
-                            </td>
-                            <td style="color: {% if item.blocked %}#e74c3c{% else %}#6c757d{% endif %};">
-                                {% if item.blocked %}
-                                    {{ item.time_remaining }} min restantes
-                                {% else %}
-                                    -
-                                {% endif %}
-                            </td>
-                            <td>
-                                <form method="POST" action="{{ url_for('admin_unblock_ip', ip=item.ip) }}" style="display: inline;">
-                                    <button type="submit" class="btn-unblock"
-                                            onclick="return confirm('¿Desbloquear {{ item.ip }}?')">
-                                        🔓 Desbloquear
-                                    </button>
-                                </form>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+        <div class="ips-grid">
+            {% for item in blocked_ips %}
+            <div class="ip-card">
+                <div class="ip-header">
+                    <span class="ip-address">{{ item.ip }}</span>
+                    {% if item.blocked %}
+                        <span class="ip-status-badge ip-status-blocked">🔒 Bloqueada</span>
+                    {% else %}
+                        <span class="ip-status-badge ip-status-monitoring">⚠️ Monitoreando</span>
+                    {% endif %}
+                </div>
+                
+                <div class="ip-info">
+                    <div class="ip-info-item">
+                        <span class="ip-info-label">Cuenta Intentada</span>
+                        <span class="ip-info-value" style="color: #ff8c42; font-weight: 700;">
+                            {% if item.username and item.username != 'desconocido' %}
+                                👤 {{ item.username }}
+                            {% else %}
+                                📝 {{ item.username }}
+                            {% endif %}
+                        </span>
+                    </div>
+                    <div class="ip-info-item">
+                        <span class="ip-info-label">Intentos Fallidos</span>
+                        <span class="ip-info-value">
+                            {% if item.attempts >= 5 %}
+                                <span style="color: #e74c3c;">⚠️ {{ item.attempts }}/5</span>
+                            {% elif item.attempts >= 3 %}
+                                <span style="color: #ffc107;">⚠️ {{ item.attempts }}/5</span>
+                            {% else %}
+                                <span style="color: #51cf66;">{{ item.attempts }}/5</span>
+                            {% endif %}
+                        </span>
+                    </div>
+                    {% if item.blocked %}
+                    <div class="ip-info-item">
+                        <span class="ip-info-label">Tiempo Restante</span>
+                        <span class="ip-info-value ip-timer">{{ item.time_remaining }} min ⏱️</span>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <form method="POST" action="{{ url_for('admin_unblock_ip', ip=item.ip) }}" class="ip-actions">
+                    <button type="submit" class="btn-unblock-card"
+                            onclick="return confirm('¿Desbloquear {{ item.ip }}?')">
+                        🔓 Desbloquear
+                    </button>
+                </form>
             </div>
+            {% endfor %}
         </div>
     </div>
     {% else %}
-    <div class="alert alert-success" role="alert">
-        <h4 class="alert-heading">✅ Todo está limpio</h4>
-        <p>No hay dir-clean">
+    <div class="alert-clean">
         <h4>✅ Todo está limpio</h4>
         <p>No hay direcciones IP bloqueadas o monitoreadas en este momento.</p>
         <hr>
@@ -373,9 +549,14 @@
                 <li><strong>Reinicio automático:</strong> Después de 15 minutos sin actividad</li>
                 <li><strong>Protección:</strong> Anti fuerza bruta activa</li>
             </ul>
-            <div class="info-tips bloqueadas en memoria, por lo que se limpiará al reiniciar el servidor.
+            <div class="info-tip">
+                Las IPs bloqueadas se almacenan en memoria y se limpian al reiniciar el servidor.
             </div>
         </div>
+    </div>
+    
+    <div class="mt-4">
+        <a href="/admin/users" class="btn btn-secondary">← Volver a Usuarios</a>
     </div>
 </div>
 {% endblock %}

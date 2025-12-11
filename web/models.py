@@ -85,3 +85,19 @@ class Mod(db.Model):
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }
+
+
+class LoginAttempt(db.Model):
+    """Model to track failed login attempts by IP and username."""
+    
+    __tablename__ = 'login_attempts'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    ip_address = db.Column(db.String(45), nullable=False, index=True)  # IPv4 and IPv6
+    username = db.Column(db.String(80), nullable=False)
+    attempts = db.Column(db.Integer, default=1, nullable=False)
+    last_attempt = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    is_blocked = db.Column(db.Boolean, default=False, nullable=False)
+    
+    def __repr__(self):
+        return f'<LoginAttempt {self.ip_address} - {self.username} ({self.attempts})>'

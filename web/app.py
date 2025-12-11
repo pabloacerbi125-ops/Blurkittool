@@ -84,6 +84,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from models import db, User, Mod
 from auth import login_required, roles_required, mod_required, smod_required, admin_required
 from core import analizar_log_desde_lineas
+from models import LoginAttempt
 
 # Flask app with proper paths
 app = Flask(__name__)
@@ -251,17 +252,17 @@ def login():
         # Simple rate limiting (5 attempts per IP)
         current_time = datetime.now()
         if ip_address in login_attempts:
-            attempts, last_attempt = login_attempts[ip_address]
+            attempts, last_attempt, last_username = login_attempts[ip_address]
             # Reset after 15 minutes
             if (current_time - last_attempt).total_seconds() > 900:
-                login_attempts[ip_address] = (1, current_time)
+                login_attempts[ip_address] = (1, current_time, username)
             elif attempts >= 5:
                 flash('Demasiados intentos fallidos. Intenta de nuevo en 15 minutos.', 'danger')
                 return render_template('login.html')
             else:
-                login_attempts[ip_address] = (attempts + 1, current_time)
+                login_attempts[ip_address] = (attempts + 1, current_time, username)
         else:
-            login_attempts[ip_address] = (1, current_time)
+            login_attempts[ip_address] = (1, current_time, username)
         
         user = User.query.filter_by(username=username).first()
         
@@ -273,6 +274,10 @@ def login():
             # Reset login attempts on success
             if ip_address in login_attempts:
                 del login_attempts[ip_address]
+            
+            # Clear from database on successful login
+            LoginAttempt.query.filter_by(ip_address=ip_address).delete()
+            db.session.commit()
             
             # Update last login
             user.last_login = datetime.now()
@@ -287,6 +292,24 @@ def login():
                 return redirect(next_page)
             return redirect(url_for('menu'))
         else:
+            # Save failed attempt to database
+            attempt = LoginAttempt.query.filter_by(ip_address=ip_address).first()
+            if attempt:
+                attempt.attempts += 1
+                attempt.last_attempt = current_time
+                attempt.username = username
+                attempt.is_blocked = attempt.attempts >= 5
+            else:
+                attempt = LoginAttempt(
+                    ip_address=ip_address,
+                    username=username,
+                    attempts=1,
+                    last_attempt=current_time,
+                    is_blocked=False
+                )
+                db.session.add(attempt)
+            db.session.commit()
+            
             flash('Usuario o contraseña incorrectos.', 'danger')
     
     return render_template('login.html')
@@ -324,10 +347,17 @@ def page():
 @app.route('/modsjg')
 def modsjg():
     """Public mods list page - separate page for viewing mods."""
+    search = request.args.get('search', '').strip().lower()
     all_mods = Mod.query.order_by(Mod.name).all()
-    permitidos = [(idx, m.to_dict()) for idx, m in enumerate(all_mods) if m.status == 'permitido']
-    prohibidos = [(idx, m.to_dict()) for idx, m in enumerate(all_mods) if m.status == 'prohibido']
-    
+    filtered_mods = []
+    for m in all_mods:
+        m_dict = m.to_dict()
+        name = m_dict['name'].lower() if m_dict['name'] else ''
+        aliases = ','.join(m_dict.get('alias', [])).lower() if m_dict.get('alias') else ''
+        if not search or search in name or search in aliases:
+            filtered_mods.append(m_dict)
+    permitidos = [(idx, m) for idx, m in enumerate(filtered_mods) if m['status'] == 'permitido']
+    prohibidos = [(idx, m) for idx, m in enumerate(filtered_mods) if m['status'] == 'prohibido']
     return render_template('modsjg.html', permitidos=permitidos, prohibidos=prohibidos)
 
 
@@ -803,19 +833,53 @@ def admin_delete_user(user_id):
 @admin_required
 def admin_security():
     """Security dashboard - admin only."""
-    # Get blocked IPs with attempt info
     blocked_ips = []
     current_time = datetime.now()
     
-    for ip, (attempts, last_attempt) in login_attempts.items():
+    # Get from database first (persistent data)
+    db_attempts = LoginAttempt.query.all()
+    for attempt in db_attempts:
+        # Skip if older than 15 minutes
+        if (current_time - attempt.last_attempt).total_seconds() > 900:
+            db.session.delete(attempt)
+            continue
+            
+        blocked_ips.append({
+            'ip': attempt.ip_address,
+            'username': attempt.username if attempt.username else 'desconocido',
+            'attempts': attempt.attempts,
+            'blocked': attempt.is_blocked or attempt.attempts >= 5,
+            'time_remaining': max(0, int((900 - (current_time - attempt.last_attempt).total_seconds()) / 60))
+        })
+    db.session.commit()
+    
+    # Also get from memory for real-time updates
+    for ip, data in login_attempts.items():
+        try:
+            if isinstance(data, tuple):
+                if len(data) == 3:
+                    attempts, last_attempt, username = data
+                elif len(data) == 2:
+                    attempts, last_attempt = data
+                    username = 'desconocido'
+                else:
+                    continue
+            else:
+                continue
+        except (ValueError, TypeError):
+            continue
+        
         time_remaining = 900 - (current_time - last_attempt).total_seconds()
         if time_remaining > 0:
-            blocked_ips.append({
-                'ip': ip,
-                'attempts': attempts,
-                'blocked': attempts >= 5,
-                'time_remaining': max(0, int(time_remaining / 60))  # minutes
-            })
+            # Check if already in list from DB
+            if not any(item['ip'] == ip for item in blocked_ips):
+                blocked_ips.append({
+                    'ip': ip,
+                    'username': str(username) if username else 'desconocido',
+                    'attempts': attempts,
+                    'blocked': attempts >= 5,
+                    'time_remaining': max(0, int(time_remaining / 60))
+                })
     
     return render_template('admin_security.html', blocked_ips=blocked_ips)
 
@@ -824,12 +888,15 @@ def admin_security():
 @admin_required
 def admin_unblock_ip(ip):
     """Unblock an IP - admin only."""
+    # Remove from memory
     if ip in login_attempts:
         del login_attempts[ip]
-        flash(f'IP {ip} desbloqueada exitosamente.', 'success')
-    else:
-        flash(f'IP {ip} no está bloqueada.', 'info')
     
+    # Remove from database
+    LoginAttempt.query.filter_by(ip_address=ip).delete()
+    db.session.commit()
+    
+    flash(f'IP {ip} desbloqueada exitosamente.', 'success')
     return redirect(url_for('admin_security'))
 
 
@@ -837,9 +904,17 @@ def admin_unblock_ip(ip):
 @admin_required
 def admin_clear_all_blocks():
     """Clear all blocked IPs - admin only."""
-    count = len(login_attempts)
+    # Count from both memory and database
+    count_memory = len(login_attempts)
+    count_db = LoginAttempt.query.count()
+    
+    # Clear both
     login_attempts.clear()
-    flash(f'{count} direcciones IP desbloqueadas.', 'success')
+    LoginAttempt.query.delete()
+    db.session.commit()
+    
+    total = count_memory + count_db
+    flash(f'{total} direcciones IP desbloqueadas.', 'success')
     return redirect(url_for('admin_security'))
 
 

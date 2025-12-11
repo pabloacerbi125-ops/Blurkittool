@@ -75,11 +75,12 @@
         color: #000;
     }
     .users-table-card {
-        background: rgba(23, 24, 26, 0.6);
-        border: 1px solid rgba(255, 204, 0, 0.2);
+        background: rgba(20, 22, 24, 0.35); /* panel más gris/traslúcido acorde al tema */
+        border: 1px solid #3b4756;
         border-radius: 16px;
         overflow: hidden;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+        backdrop-filter: blur(4px);
     }
     .users-table-header {
         background: linear-gradient(135deg, rgba(255, 204, 0, 0.15), rgba(255, 140, 66, 0.1));
@@ -97,6 +98,14 @@
     .table {
         margin: 0;
         color: #e6eef3;
+        background: transparent; /* evitar fondo blanco */
+        /* Override Bootstrap table backgrounds */
+        --bs-table-bg: transparent;
+        --bs-table-striped-bg: rgba(255, 204, 0, 0.03);
+        --bs-table-striped-color: inherit;
+        --bs-table-hover-bg: rgba(255, 204, 0, 0.05);
+        --bs-table-hover-color: inherit;
+        --bs-table-border-color: rgba(255, 204, 0, 0.1);
     }
     .table thead th {
         background: rgba(255, 204, 0, 0.1);
@@ -111,9 +120,16 @@
     .table tbody tr {
         border-bottom: 1px solid rgba(255, 204, 0, 0.1);
         transition: all 0.3s ease;
+        background-color: transparent !important; /* filas transparentes */
+    }
+    .table tbody td {
+        background-color: transparent !important; /* celdas transparentes */
     }
     .table tbody tr:hover {
         background: rgba(255, 204, 0, 0.05);
+    }
+    .table-responsive {
+        background: transparent; /* evitar panel blanco en contenedor */
     }
     .table tbody td {
         padding: 1rem;
@@ -303,7 +319,7 @@
                 <tbody>
                         {% for user in users %}
                         <tr {% if not user.is_active %}style="opacity: 0.6;"{% endif %}>
-                            <td><strong>{{ user.id }}</strong></td>
+                            <td><strong style="color: #ffffff;">{{ user.id }}</strong></td>
                             <td>
                                 <strong style="color: #ffffff;">{{ user.username }}</strong>
                                 {% if user.id == current_user.id %}

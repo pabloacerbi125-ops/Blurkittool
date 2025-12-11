@@ -69,6 +69,14 @@
   </nav>
 
   <div class="container-main" style="margin-top: 2rem;">
+        <div class="search-card" style="max-width: 600px; margin: 0 auto 2rem auto;">
+          <form method="get" action="/modsjg" class="d-flex flex-wrap gap-2">
+            <div class="flex-grow-1">
+              <input type="text" name="search" class="form-control" placeholder="🔍 Buscar por nombre o alias" value="{{ request.args.get('search', '') }}" autocomplete="off" style="pointer-events: auto; opacity: 1; user-select: auto;">
+            </div>
+            <button type="submit" class="btn btn-primary">Buscar</button>
+          </form>
+        </div>
     <!-- Page Header -->
     <div class="page-header">
       <h1 class="page-title">📦 Lista de Modos</h1>

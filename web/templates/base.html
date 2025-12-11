@@ -6,6 +6,13 @@
     <title>{% block title %}BlurkitModsTool{% endblock %}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+      /* Overrides globales para tablas Bootstrap en tema oscuro */
+      .table { --bs-table-bg: transparent; --bs-table-border-color: rgba(255, 204, 0, 0.1); }
+      .table>:not(caption)>*>* { background-color: transparent !important; box-shadow: none !important; }
+      .table-striped>tbody>tr:nth-of-type(odd)>* { --bs-table-accent-bg: transparent !important; background-color: transparent !important; }
+      .table-responsive { background: transparent; }
+    </style>
   </head>
   <body>
     <nav class="navbar navbar-expand-lg navbar-dark">
