@@ -232,6 +232,46 @@ input[name="search"]:-ms-input-placeholder {
   opacity: 1;
 }
 
+/* When add-card is hidden (mods-only view), center and expand content */
+.mods-wrapper:has(.col-lg-4:hidden) .col-lg-8 {
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+  width: 100%;
+}
+
+.mods-wrapper:has(.col-lg-4:hidden) .mods-sections {
+  gap: 40px;
+}
+
+.mods-wrapper:has(.col-lg-4:hidden) .mods-section {
+  padding: 18px;
+}
+
+.mods-wrapper:has(.col-lg-4:hidden) .mod-card {
+  padding: 18px;
+}
+
+/* Fallback for when add-card is not rendered at all */
+.mods-wrapper .col-lg-8:only-child {
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+  width: 100%;
+}
+
+.mods-wrapper .col-lg-8:only-child ~ .mods-sections {
+  gap: 40px;
+}
+
+/* Direct selector when no col-lg-4 exists */
+.row.g-4 > .col-lg-8:last-child {
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+  width: 100%;
+}
+
 /* responsive tweaks */
 @media (max-width:900px){
   .right-col{ position:static; margin-top:18px; }
@@ -242,4 +282,5 @@ input[name="search"]:-ms-input-placeholder {
   .mod-card{ flex-direction:column; }
   .mod-actions{ width:100%; }
   .mods-sections{ grid-template-columns:1fr; }
+  .mods-wrapper .col-lg-8 { max-width: 100%; margin-left: auto; margin-right: auto; }
 }
