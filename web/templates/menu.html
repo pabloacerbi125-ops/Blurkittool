@@ -66,7 +66,7 @@
     </a>
   </div>
   
-  {% if current_user.is_admin() %}
+  {% if current_user.is_admin() or current_user.role == 'smod' %}
   <div class="col-md-4">
     <a href="/paste" class="text-decoration-none">
       <div class="card bg-dark border-secondary h-100 shadow-lg hover-card">
@@ -94,7 +94,7 @@
 </div>
 
 <div class="row justify-content-center g-4">
-  {% if current_user.is_admin() %}
+  {% if current_user.is_admin() or current_user.role == 'smod' %}
   <div class="col-md-4">
     <a href="/admin/users" class="text-decoration-none">
       <div class="card bg-dark border-secondary h-100 shadow-lg hover-card">

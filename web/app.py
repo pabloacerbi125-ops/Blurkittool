@@ -94,7 +94,7 @@ app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-i
 app.config['SESSION_COOKIE_SECURE'] = os.environ.get('FLASK_ENV') == 'production'
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-app.config['PERMANENT_SESSION_LIFETIME'] = 3600  # 1 hour
+app.config['PERMANENT_SESSION_LIFETIME'] = 600  # 10 minutos
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 
 # Database path - use absolute path
@@ -678,9 +678,9 @@ def delete(idx):
 # ============================================================================
 
 @app.route('/admin/users')
-@admin_required
+@smod_required
 def admin_users():
-    """Manage users - admin only."""
+    """Manage users - smod y admin."""
     users = User.query.order_by(User.created_at.desc()).all()
     return render_template('admin_users.html', users=users)
 

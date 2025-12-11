@@ -244,9 +244,11 @@
                 <h2>👥 Gestión de Usuarios</h2>
                 <p>Administración de usuarios y roles</p>
             </div>
+            {% if current_user.is_admin() %}
             <a href="{{ url_for('admin_security') }}" class="btn btn-security">
                 🔒 Panel de Seguridad
             </a>
+            {% endif %}
         </div>
     </div>
     

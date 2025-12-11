@@ -68,6 +68,52 @@
     <a href="{{ url_for('login') }}" class="login-link">🔐 Iniciar Sesión</a>
   </nav>
 
+    <!-- Alerta de aclaración general llamativa, fondo amarillo -->
+    <div class="alert d-flex flex-column align-items-start" style="
+      max-width: 900px;
+      margin: 2.5rem auto 2rem auto;
+      border-radius: 18px;
+      border: 3px solid #ffb300;
+      background: linear-gradient(135deg, #fffbe6 0%, #ffe082 100%, #fffde7 100%);
+      box-shadow: 0 4px 32px 0 rgba(255,193,7,0.18), 0 1.5px 8px 0 rgba(255,193,7,0.10);
+      padding: 2.2rem 2.5rem 2rem 2.5rem;
+      position: relative;
+      font-size: 1.18rem;
+      font-weight: 500;
+      color: #7a5600;
+      border-top: 7px solid #ffb300;
+      border-bottom: 7px solid #ffb300;
+      animation: pulse-alert 1.5s infinite alternate;
+    ">
+      <style>
+        @keyframes pulse-alert {
+          0% { box-shadow: 0 4px 32px 0 rgba(255,193,7,0.18), 0 1.5px 8px 0 rgba(255,193,7,0.10); }
+          100% { box-shadow: 0 8px 48px 0 rgba(255,193,7,0.32), 0 2.5px 16px 0 rgba(255,193,7,0.18); }
+        }
+        .alert-important-anim {
+          animation: shake-alert 0.7s infinite alternate;
+        }
+        @keyframes shake-alert {
+          0% { transform: rotate(-6deg) scale(1.08); }
+          100% { transform: rotate(6deg) scale(1.13); }
+        }
+      </style>
+      <div class="d-flex align-items-center mb-2" style="gap: 1.1rem;">
+        <span class="alert-important-anim" style="font-size: 2.7rem; color: #ff9100; filter: drop-shadow(0 0 6px #fff176);">⚠️</span>
+        <h3 class="mb-0" style="color: #ff9100; font-weight: 900; letter-spacing: 1px; font-size: 2.1rem; text-shadow: 0 2px 8px #fffde7;">ACLARACIÓN GENERAL</h3>
+      </div>
+      <ul style="margin-left: 2.5rem; color: #7a5600; font-size: 1.15rem; font-weight: 600;">
+        <li style="font-weight: 900; color: #d35400;">Están prohibidos todos los mods, clientes o herramientas que den ventajas ilegales, incluso si no están en la lista.</li>
+        <li>Si un mod hace lo mismo que un hack conocido (xray, aimbot, automine, auto-heal, radar, etc.), también está prohibido.</li>
+        <li>No importa el nombre, lo que cuenta es la función y la ventaja que otorga.</li>
+        <li style="color: #c0392b; font-weight: 700;">Usar mods prohibidos puede causar sanciones, según la gravedad o si se intenta ocultar.</li>
+        <li>Si crees que fue un error, puedes apelar mostrando pruebas (capturas o logs) al staff.</li>
+        <li>La lista puede actualizarse y los cambios serán anunciados por el staff.</li>
+        <li style="color: #1976d2; font-weight: 700;">Si no sabes si un mod es legal,puedes consultar aqui o preguntar al staff antes de usarlo para evitar problemas.</li>
+      </ul>
+    </div>
+
+
   <div class="container-main" style="margin-top: 2rem;">
         <div class="search-card" style="max-width: 600px; margin: 0 auto 2rem auto;">
           <form method="get" action="/modsjg" class="d-flex flex-wrap gap-2">
