@@ -1,114 +1,157 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="row">
+<div class="mods-wrapper row g-4">
   <div class="col-lg-8">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-      <h4 class="mb-0" style="color: #ffffff;">Lista de mods</h4>
+    <div class="mods-header">
+      <div>
+        <p class="eyebrow">Listado</p>
+        <h4 class="mods-title">Mods</h4>
+      </div>
       <div class="d-flex align-items-center gap-2">
-        <button onclick="location.reload()" class="btn btn-sm btn-outline-primary" style="border-color: #ff8c42; color: #ff8c42;">
-          🔄 Actualizar
-        </button>
-        <div style="color: #b8c1ca;">Total: {{ prohibidos|length + permitidos|length }}</div>
+        <button onclick="location.reload()" class="btn btn-sm btn-outline-primary pill-btn">🔄 Actualizar</button>
+        <span class="pill-muted">Total: {{ prohibidos|length + permitidos|length }}</span>
       </div>
     </div>
-    
-    <!-- Barra de búsqueda -->
-    <div class="mb-3">
-      <form method="get" action="/mods" class="d-flex gap-2">
-        <input type="text" name="search" class="form-control" placeholder="🔍 Buscar mod por nombre o alias..." value="{{ search_term or '' }}" style="background: var(--panel); border: 1px solid var(--card-border); color: #ffffff;" autocomplete="off">
+
+    <div class="stats-grid">
+      <div class="stat-card bad">
+        <div class="stat-label">Prohibidos</div>
+        <div class="stat-value">{{ prohibidos|length }}</div>
+      </div>
+      <div class="stat-card good">
+        <div class="stat-label">Permitidos</div>
+        <div class="stat-value">{{ permitidos|length }}</div>
+      </div>
+      <div class="stat-card neutral">
+        <div class="stat-label">Total</div>
+        <div class="stat-value">{{ prohibidos|length + permitidos|length }}</div>
+      </div>
+    </div>
+
+    <div class="search-card">
+      <form method="get" action="/mods" class="d-flex flex-wrap gap-2">
+        <div class="flex-grow-1">
+          <input type="text" name="search" class="form-control" placeholder="🔍 Buscar por nombre o alias" value="{{ search_term or '' }}" autocomplete="off">
+        </div>
         <button type="submit" class="btn btn-primary">Buscar</button>
         {% if search_term %}
         <a href="/mods" class="btn btn-secondary">Limpiar</a>
         {% endif %}
       </form>
       {% if search_term %}
-      <div class="mt-2" style="color: #ffc107;">
-        Mostrando resultados para: <strong>"{{ search_term }}"</strong>
-      </div>
+      <div class="mt-2 search-hint">Mostrando resultados para: <strong>{{ search_term }}</strong></div>
       {% endif %}
     </div>
-    
+
     {% if error %}
-    <div class="alert alert-danger" role="alert">
-      {{ error }}
-    </div>
+    <div class="alert alert-danger" role="alert">{{ error }}</div>
     {% endif %}
 
-    <div class="row">
-      <div class="col-md-6 left-col">
-        <div class="section-title" style="color: #ff6b6b; font-weight: 700;">Prohibidos</div>
-        {% for idx, m in prohibidos %}
-        <div class="card-mod d-flex justify-content-between align-items-start">
-          <div>
-            <div class="title">✗ {{ m.name }}</div>
-            <div class="meta">{{ m.category or '-' }} • {{ m.platform or '-' }}</div>
-          </div>
-          {% if current_user.can_edit() %}
-          <div class="btn-group">
-            <a href="/edit/{{ idx }}" class="btn btn-sm btn-outline-light btn-sm-custom">Editar</a>
-            <button class="btn btn-sm btn-outline-danger btn-sm-custom delete-btn" data-delete-idx="{{ idx }}">Eliminar</button>
-          </div>
-          {% endif %}
+    <div class="mods-sections">
+      <div class="mods-section">
+        <div class="section-title with-chip">
+          <span class="chip chip-good">Permitidos</span>
+          <span class="muted">{{ permitidos|length }} items</span>
         </div>
-        {% else %}
-        <div class="card-mod">(ninguno)</div>
-        {% endfor %}
+        <div class="mods-list">
+          {% for idx, m in permitidos %}
+          <div class="mod-card mod-card-good">
+            <div class="mod-main">
+              <div class="mod-title">{{ m.name }}</div>
+              <div class="mod-meta">
+                <span class="tag">{{ m.category or 'Sin categoría' }}</span>
+                <span class="tag">{{ m.platform or 'Sin plataforma' }}</span>
+                {% if m.aliases %}
+                  <span class="tag alt">Alias: {{ m.aliases }}</span>
+                {% endif %}
+              </div>
+              {% if m.description %}
+              <div class="mod-desc">{{ m.description }}</div>
+              {% endif %}
+            </div>
+            {% if current_user.can_edit() %}
+            <div class="mod-actions">
+              <a href="/edit/{{ idx }}" class="btn btn-sm btn-outline-light btn-sm-custom">Editar</a>
+              <button class="btn btn-sm btn-outline-danger btn-sm-custom delete-btn" data-delete-idx="{{ idx }}">Eliminar</button>
+            </div>
+            {% endif %}
+          </div>
+          {% else %}
+          <div class="empty-state">No hay mods permitidos.</div>
+          {% endfor %}
+        </div>
       </div>
 
-      <div class="col-md-6 left-col">
-        <div class="section-title" style="color: #51cf66; font-weight: 700;">Permitidos</div>
-        {% for idx, m in permitidos %}
-        <div class="card-mod d-flex justify-content-between align-items-start">
-          <div>
-            <div class="title">✔ {{ m.name }}</div>
-            <div class="meta">{{ m.category or '-' }} • {{ m.platform or '-' }}</div>
-          </div>
-          {% if current_user.can_edit() %}
-          <div class="btn-group">
-            <a href="/edit/{{ idx }}" class="btn btn-sm btn-outline-light btn-sm-custom">Editar</a>
-            <button class="btn btn-sm btn-outline-danger btn-sm-custom delete-btn" data-delete-idx="{{ idx }}">Eliminar</button>
-          </div>
-          {% endif %}
+      <div class="mods-section">
+        <div class="section-title with-chip">
+          <span class="chip chip-bad">Prohibidos</span>
+          <span class="muted">{{ prohibidos|length }} items</span>
         </div>
-        {% else %}
-        <div class="card-mod">(ninguno)</div>
-        {% endfor %}
+        <div class="mods-list">
+          {% for idx, m in prohibidos %}
+          <div class="mod-card mod-card-bad">
+            <div class="mod-main">
+              <div class="mod-title">{{ m.name }}</div>
+              <div class="mod-meta">
+                <span class="tag">{{ m.category or 'Sin categoría' }}</span>
+                <span class="tag">{{ m.platform or 'Sin plataforma' }}</span>
+                {% if m.aliases %}
+                  <span class="tag alt">Alias: {{ m.aliases }}</span>
+                {% endif %}
+              </div>
+              {% if m.description %}
+              <div class="mod-desc">{{ m.description }}</div>
+              {% endif %}
+            </div>
+            {% if current_user.can_edit() %}
+            <div class="mod-actions">
+              <a href="/edit/{{ idx }}" class="btn btn-sm btn-outline-light btn-sm-custom">Editar</a>
+              <button class="btn btn-sm btn-outline-danger btn-sm-custom delete-btn" data-delete-idx="{{ idx }}">Eliminar</button>
+            </div>
+            {% endif %}
+          </div>
+          {% else %}
+          <div class="empty-state">No hay mods prohibidos.</div>
+          {% endfor %}
+        </div>
       </div>
     </div>
-
   </div>
 
   {% if current_user.can_edit() %}
-  <div class="col-lg-4 right-col">
-    <div class="card p-3" style="background:var(--panel); border:1px solid var(--card-border)">
-      <h5 class="mb-3" style="color: #ffffff;">Agregar mod</h5>
-      <form action="/add_mod" method="post">
-        <div class="mb-2">
-          <input name="name" class="form-control" placeholder="Nombre" required>
+  <div class="col-lg-4">
+    <div class="card add-card p-3">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h5 class="mb-0">Agregar mod</h5>
+        <span class="pill-muted">Nuevo</span>
+      </div>
+      <form action="/add_mod" method="post" class="form-modern">
+        <label class="form-label">Nombre*</label>
+        <input name="name" class="form-control" placeholder="Nombre" required>
+        <div class="row g-2">
+          <div class="col">
+            <label class="form-label">Categoría</label>
+            <input name="category" class="form-control" placeholder="Ej: Texturas">
+          </div>
+          <div class="col">
+            <label class="form-label">Plataforma</label>
+            <input name="platform" class="form-control" placeholder="Ej: Java/Bedrock">
+          </div>
         </div>
-        <div class="mb-2 d-flex gap-2">
-          <input name="category" class="form-control" placeholder="Categoria">
-          <input name="platform" class="form-control" placeholder="Plataforma">
-        </div>
-        <div class="mb-2">
-          <input name="alias" class="form-control" placeholder="Alias (coma-separados)">
-        </div>
-        <div class="mb-2">
-          <input name="description" class="form-control" placeholder="Descripción">
-        </div>
-        <div class="mb-2">
-          <select name="status" class="form-select">
-            <option value="prohibido">Prohibido</option>
-            <option value="permitido">Permitido</option>
-          </select>
-        </div>
-        <div class="d-flex">
-          <button class="btn btn-primary">Guardar</button>
-          <a href="/" class="btn btn-secondary ms-2">Volver</a>
+        <label class="form-label">Alias (coma-separados)</label>
+        <input name="alias" class="form-control" placeholder="alias1, alias2">
+        <label class="form-label">Descripción</label>
+        <input name="description" class="form-control" placeholder="Descripción breve">
+        <label class="form-label">Estado</label>
+        <select name="status" class="form-select">
+          <option value="prohibido">Prohibido</option>
+          <option value="permitido">Permitido</option>
+        </select>
+        <div class="d-flex mt-3 gap-2">
+          <button class="btn btn-primary flex-grow-1">Guardar</button>
+          <a href="/" class="btn btn-secondary">Volver</a>
         </div>
       </form>
-      <hr class="my-3" />
-      <p class="footer-note">mods.json se guarda en la carpeta del proyecto.</p>
     </div>
   </div>
   {% endif %}
