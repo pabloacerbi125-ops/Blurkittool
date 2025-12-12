@@ -8,18 +8,24 @@
   <div class="mb-4">
     <h4 style="color: #ffc107; margin-bottom: 1rem;">📊 Resultado del análisis</h4>
     
-    <!-- Usuario detectado -->
-    {% if resultado.usuario %}
+
+    <!-- Usuario y versión detectados -->
+    {% if resultado.player_with_version %}
+    <div class="alert alert-info mb-3">
+      <strong>👤 Usuario:</strong> {{ resultado.player_with_version }}
+    </div>
+    {% elif resultado.usuario %}
     <div class="alert alert-info mb-3">
       <strong>👤 Usuario:</strong> {{ resultado.usuario }}
     </div>
     {% endif %}
 
+
     <!-- Resumen general -->
     <div class="card mb-3" style="background: rgba(23, 24, 26, 0.8); border: 1px solid var(--card-border);">
       <div class="card-body">
         <h5 style="color: #ffc107;">📈 Resumen</h5>
-        <div class="row text-center">
+        <div class="row text-center align-items-center">
           <div class="col-3">
             <h3 style="color: #dc3545;">{{ resultado.mods_prohibidos|length }}</h3>
             <small style="color: #b8c1ca;">Prohibidos</small>
@@ -37,6 +43,11 @@
             <small style="color: #b8c1ca;">Total</small>
           </div>
         </div>
+        {% if resultado.mc_version %}
+        <div class="text-end mt-2">
+          <span class="badge bg-secondary">Versión de Minecraft: <b>{{ resultado.mc_version }}</b></span>
+        </div>
+        {% endif %}
       </div>
     </div>
 
@@ -149,6 +160,9 @@
             </td>
             <td>
               <span style="color: #ffffff;">{{ item.filename }}</span>
+              {% if item.resultado.mc_version %}
+                <span class="badge bg-secondary ms-2">MC {{ item.resultado.mc_version }}</span>
+              {% endif %}
             </td>
             <td>
               <span style="color: #20c997;">{{ item.user }}</span>
@@ -188,8 +202,12 @@
     let html = '<div class="mb-4">';
     html += '<h4 style="color: #ffc107; margin-bottom: 1rem;">📊 Resultado del análisis</h4>';
     
-    // Usuario detectado
-    if (resultado.usuario) {
+    // Usuario y versión detectados
+    if (resultado.player_with_version) {
+      html += '<div class="alert alert-info mb-3">';
+      html += '<strong>👤 Usuario:</strong> ' + resultado.player_with_version;
+      html += '</div>';
+    } else if (resultado.usuario) {
       html += '<div class="alert alert-info mb-3">';
       html += '<strong>👤 Usuario:</strong> ' + resultado.usuario;
       html += '</div>';
@@ -204,7 +222,13 @@
     html += '<div class="col-3"><h3 style="color: #51cf66;">' + resultado.mods_permitidos.length + '</h3><small style="color: #b8c1ca;">Permitidos</small></div>';
     html += '<div class="col-3"><h3 style="color: #868e96;">' + resultado.mods_desconocidos.length + '</h3><small style="color: #b8c1ca;">Desconocidos</small></div>';
     html += '<div class="col-3"><h3 style="color: #ffc107;">' + resultado.total + '</h3><small style="color: #b8c1ca;">Total</small></div>';
-    html += '</div></div></div>';
+    html += '</div>';
+    if (resultado.mc_version) {
+      html += '<div class="text-end mt-2">';
+      html += '<span class="badge bg-secondary">Versión de Minecraft: <b>' + resultado.mc_version + '</b></span>';
+      html += '</div>';
+    }
+    html += '</div></div>';
     
     // Mods Prohibidos
     if (resultado.mods_prohibidos.length > 0) {

@@ -224,11 +224,17 @@ def analizar_log_desde_lineas(lines, mods):
             break
         utiles.append(line)
 
+
     usuario = None
+    mc_version = None
     for l in utiles:
         m = re.search(r"Setting user:\s*(\S+)", l)
         if m:
             usuario = m.group(1)
+        v = re.search(r"Minecraft.*version[\s:]*([\w.\-]+)", l, re.IGNORECASE)
+        if v:
+            mc_version = v.group(1)
+        if usuario and mc_version:
             break
 
     mods_cargados = extraer_mods_cargados(utiles)
@@ -239,6 +245,7 @@ def analizar_log_desde_lineas(lines, mods):
     if not mods_cargados:
         return {
             'usuario': usuario,
+            'mc_version': mc_version,
             'mods_prohibidos': [],
             'mods_permitidos': [],
             'mods_desconocidos': [],
@@ -271,6 +278,7 @@ def analizar_log_desde_lineas(lines, mods):
 
     return {
         'usuario': usuario,
+        'mc_version': mc_version,
         'mods_prohibidos': mods_prohibidos,
         'mods_permitidos': mods_permitidos,
         'mods_desconocidos': mods_desconocidos,
