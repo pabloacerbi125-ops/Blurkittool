@@ -503,11 +503,11 @@ def analyze():
         resultado = analyze_log_lines(log_text.splitlines())
         # Categorize mods for template/JS compatibility
         mods = resultado.get('mods', [])
+        dependencies = resultado.get('dependencies', [])
         mods_prohibidos = []
         mods_permitidos = []
         mods_desconocidos = []
         for mod in mods:
-            # Use Mod model to check status
             db_mod = Mod.query.filter_by(name=mod['name']).first()
             if db_mod:
                 if db_mod.status == 'prohibido':
@@ -521,7 +521,8 @@ def analyze():
         resultado['mods_prohibidos'] = mods_prohibidos
         resultado['mods_permitidos'] = mods_permitidos
         resultado['mods_desconocidos'] = mods_desconocidos
-        resultado['total'] = len(mods)
+        resultado['dependencias'] = dependencies  # Mapeo consistente para el frontend
+        resultado['total'] = len(mods) + len(dependencies)
 
         user_key = current_user.username
         if user_key not in logs_history:
@@ -578,6 +579,7 @@ def upload():
     resultado = analyze_log_lines(content.splitlines())
     # Categorize mods for template/JS compatibility
     mods = resultado.get('mods', [])
+    dependencies = resultado.get('dependencies', [])
     mods_prohibidos = []
     mods_permitidos = []
     mods_desconocidos = []
@@ -595,7 +597,8 @@ def upload():
     resultado['mods_prohibidos'] = mods_prohibidos
     resultado['mods_permitidos'] = mods_permitidos
     resultado['mods_desconocidos'] = mods_desconocidos
-    resultado['total'] = len(mods)
+    resultado['dependencias'] = dependencies  # Mapeo consistente para el frontend
+    resultado['total'] = len(mods) + len(dependencies)
 
     user_key = current_user.username
     if user_key not in logs_history:

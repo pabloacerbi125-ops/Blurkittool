@@ -105,6 +105,24 @@
     </div>
     {% endif %}
 
+    <!-- Dependencias y Librerías -->
+    {% if resultado.dependencias %}
+    <div class="card mb-3" style="background: rgba(23, 24, 26, 0.8); border: 1px solid #ffa502;">
+      <div class="card-body">
+        <h5 style="color: #ffa502; margin-bottom: 1rem;">📦 Dependencias y Librerías</h5>
+        <div class="row">
+          {% for dep in resultado.dependencias %}
+          <div class="col-md-6 mb-2">
+            <div class="p-2" style="background: rgba(255, 165, 2, 0.08); border-radius: 5px;">
+              <strong style="color: #ffa502;">{{ dep.name }}</strong>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
   </div>
   {% endif %}
   </div>
@@ -272,6 +290,20 @@
         html += '<div class="col-md-6 mb-2">';
         html += '<div class="p-2" style="background: rgba(134, 142, 150, 0.1); border-radius: 5px;">';
         html += '<strong style="color: #868e96;">' + mod.name + '</strong>';
+        html += '</div></div>';
+      });
+      html += '</div></div></div>';
+    }
+    // Dependencias y Librerías
+    if (resultado.dependencias && resultado.dependencias.length > 0) {
+      html += '<div class="card mb-3" style="background: rgba(23, 24, 26, 0.8); border: 1px solid #ffa502;">';
+      html += '<div class="card-body">';
+      html += '<h5 style="color: #ffa502; margin-bottom: 1rem;">📦 Dependencias y Librerías</h5>';
+      html += '<div class="row">';
+      resultado.dependencias.forEach(dep => {
+        html += '<div class="col-md-6 mb-2">';
+        html += '<div class="p-2" style="background: rgba(255, 165, 2, 0.08); border-radius: 5px;">';
+        html += '<strong style="color: #ffa502;">' + dep.name + '</strong>';
         html += '</div></div>';
       });
       html += '</div></div></div>';

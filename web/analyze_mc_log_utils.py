@@ -44,6 +44,15 @@ def extract_mc_version(log_lines: List[str]) -> str:
 def extract_mods(log_lines: List[str]) -> List[Dict[str, Any]]:
     mods = set()
     mod_details = {}
+    dependencies = set()
+    dependency_patterns = [
+        r"^fabric(-|$)", r"^fabricloader$", r"^fabric-api", r"^mixinextras$", r"^org_", r"^io_", r"^net_", r"^com_", r"^org\\.", r"^io\\.", r"^net\\.", r"^com\\.", r"^antlr", r"^jcpp$", r"^glsl", r"^resource-loader", r"^lwjgl", r"^block-view", r"^key-binding", r"^command-api", r"^lifecycle-events", r"^rendering-", r"^events-", r"^base$", r"^v[0-9]+$", r"^common$", r"^indigo$", r"^attachment$", r"^exampleinits$", r"^customingredientsync$", r"^customingredientinit$", r"^legacyhandler$", r"^lootinitializer$", r"^resourceconditionsimpl$", r"^packagemanager$", r"^modinitializer$", r"^pipeline$", r"^renderingcallbackinvoker$"
+    ]
+    def is_dependency(mod_name):
+        for pat in dependency_patterns:
+            if re.search(pat, mod_name, re.IGNORECASE):
+                return True
+        return False
     # 1. Detectar bloque "Loading X mods:" (Fabric/Forge)
     loading_mods = False
     for line in log_lines:
@@ -174,13 +183,20 @@ def extract_mods(log_lines: List[str]) -> List[Dict[str, Any]]:
                 mods.add(mod_name)
                 if mod_name not in mod_details:
                     mod_details[mod_name] = {}
-    # Convertir a lista de dicts
+    # Convertir a lista de dicts y separar dependencias
     mod_list = []
+    dep_list = []
     for mod in mods:
         entry = {"name": mod}
         entry.update(mod_details.get(mod, {}))
-        mod_list.append(entry)
-    return sorted(mod_list, key=lambda x: x["name"])
+        if is_dependency(mod):
+            dep_list.append(entry)
+        else:
+            mod_list.append(entry)
+    return {
+        "mods": sorted(mod_list, key=lambda x: x["name"]),
+        "dependencies": sorted(dep_list, key=lambda x: x["name"])
+    }
 
 def extract_client(log_lines: List[str]) -> str:
     for line in log_lines:
@@ -214,11 +230,13 @@ def analyze_log_lines(log_lines: List[str]) -> Dict[str, Any]:
         player_with_version = player
     elif mc_version:
         player_with_version = f"MC {mc_version}"
+    mods_result = extract_mods(log_lines)
     return {
         "player": player,
         "mc_version": mc_version,
         "player_with_version": player_with_version,
-        "mods": extract_mods(log_lines),
+        "mods": mods_result["mods"],
+        "dependencies": mods_result["dependencies"],
         "client": extract_client(log_lines),
         "errors": extract_errors(log_lines)
     }
