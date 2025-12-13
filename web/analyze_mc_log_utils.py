@@ -55,11 +55,15 @@ def extract_mods(log_lines: List[str]) -> List[Dict[str, Any]]:
             if line.strip().startswith("[") or not line.strip():
                 loading_mods = False
                 continue
-            # Ejemplo: "- sodium 0.4.10"
-            m = re.match(r"-\s*([\w\-]+)(?:\s+([\d\w.\-+]+))?", line.strip())
+            # Detectar mods y dependencias anidadas
+            # Ejemplo: "- sodium 0.4.10", "|-- fabric-api-base 0.4.31+1802ada577", "\-- mixinextras 0.5.0"
+            m = re.match(r"[|\\\-]*\s*([\w\-\.]+)\s+([\w\-\.\+]+)", line.strip())
             if m:
                 mod_name = m.group(1)
-                mod_ver = m.group(2) if m.group(2) else None
+                mod_ver = m.group(2)
+                # Ignorar entradas genéricas
+                if mod_name.lower() in ["java", "minecraft"]:
+                    continue
                 mods.add(mod_name)
                 if mod_name not in mod_details:
                     mod_details[mod_name] = {}
@@ -81,6 +85,38 @@ def extract_mods(log_lines: List[str]) -> List[Dict[str, Any]]:
                 mods.add(mod)
                 if mod not in mod_details:
                     mod_details[mod] = {}
+    # 3b. Mods detectados por Entrypoint (Fabric/Lunar)
+    # Ejemplo: Found Entrypoint(main) net.fabricmc.fabric.impl.lookup.ApiLookupImpl
+    entrypoint_pattern = re.compile(r"Found Entrypoint\(.*\) ([\w\.]+)\.([A-Z][\w]+)")
+    for line in log_lines:
+        m = entrypoint_pattern.search(line)
+        if m:
+            # Heurística: tomar el penúltimo fragmento del paquete como nombre de mod si es posible
+            package_path = m.group(1)
+            class_name = m.group(2)
+            # Dividir el paquete por puntos
+            parts = package_path.split('.')
+            # Buscar el nombre de mod más probable
+            mod_candidate = None
+            # Si hay un fragmento tipo 'mods.<modname>' o 'mod.<modname>'
+            for i, part in enumerate(parts):
+                if part in ("mods", "mod") and i+1 < len(parts):
+                    mod_candidate = parts[i+1]
+                    break
+            # Si no, tomar el último fragmento que no sea fabricmc/fabric/impl/client/etc
+            if not mod_candidate:
+                skip = {"net", "fabricmc", "fabric", "impl", "client", "main", "shared", "exampleinits", "init", "initializer", "indigo", "networking", "screenhandler", "event", "lookup", "handler", "convention", "attachment", "router", "sync", "conditions", "invoker", "base", "v0", "v1", "v2", "common", "customingredientsync", "customingredientinit", "legacyhandler", "lootinitializer", "resourceconditionsimpl", "packagemanager", "modinitializer", "pipeline", "renderingcallbackinvoker"}
+                filtered = [p for p in parts if p not in skip]
+                if filtered:
+                    mod_candidate = filtered[-1]
+            # Si aún no, usar el class_name
+            if not mod_candidate:
+                mod_candidate = class_name
+            # Evitar duplicados y nombres genéricos
+            if mod_candidate and len(mod_candidate) > 2 and mod_candidate.lower() not in skip:
+                mods.add(mod_candidate)
+                if mod_candidate not in mod_details:
+                    mod_details[mod_candidate] = {}
     # 4. Fabric/Forge mods en ResourceManager
     for line in log_lines:
         m = re.search(r"fabric \(([^)]+)\)", line)
@@ -148,7 +184,12 @@ def extract_mods(log_lines: List[str]) -> List[Dict[str, Any]]:
 
 def extract_client(log_lines: List[str]) -> str:
     for line in log_lines:
+        # Buscar varias formas de identificar Lunar Client
         if re.search(r"lunar ?client", line, re.IGNORECASE):
+            return "LunarClient"
+        if re.search(r"\[LC\]", line) or re.search(r"\[LC ", line) or re.search(r"LUNARCLIENT_STATUS", line):
+            return "LunarClient"
+        if re.search(r"lunar", line, re.IGNORECASE) and ("client" in line.lower() or "[lc" in line.lower()):
             return "LunarClient"
         if re.search(r"fabric loader", line, re.IGNORECASE):
             return "Fabric"
