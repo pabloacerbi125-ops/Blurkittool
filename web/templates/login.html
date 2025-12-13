@@ -19,16 +19,12 @@
         body::before {
             content: '';
             position: absolute;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            background: radial-gradient(circle, rgba(255, 204, 0, 0.03) 0%, transparent 70%);
-            animation: pulse 15s ease-in-out infinite;
-        }
-        @keyframes pulse {
-            0%, 100% { transform: scale(1); opacity: 0.5; }
-            50% { transform: scale(1.1); opacity: 0.8; }
+            top: -30%;
+            left: -30%;
+            width: 160%;
+            height: 160%;
+            background: radial-gradient(circle, rgba(255, 204, 0, 0.04) 0%, transparent 70%);
+            opacity: 0.7;
         }
         .login-container {
             position: relative;
@@ -38,40 +34,38 @@
             padding: 2rem;
         }
         .login-card {
-            background: rgba(23, 24, 26, 0.95);
-            border: 1px solid rgba(255, 204, 0, 0.2);
-            border-radius: 20px;
-            padding: 3rem 2.5rem;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5),
-                        0 0 40px rgba(255, 204, 0, 0.05);
-            backdrop-filter: blur(10px);
-            transition: all 0.3s ease;
+            background: rgba(23, 24, 26, 0.97);
+            border: 1px solid rgba(255, 204, 0, 0.18);
+            border-radius: 16px;
+            padding: 2.2rem 1.5rem;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35), 0 0 12px rgba(255, 204, 0, 0.04);
+            backdrop-filter: blur(3px);
+            transition: box-shadow 0.2s, border-color 0.2s;
         }
         .login-card:hover {
-            border-color: rgba(255, 204, 0, 0.4);
-            box-shadow: 0 25px 70px rgba(0, 0, 0, 0.6),
-                        0 0 60px rgba(255, 204, 0, 0.1);
+            border-color: rgba(255, 204, 0, 0.28);
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45), 0 0 18px rgba(255, 204, 0, 0.07);
         }
         .logo-section {
             text-align: center;
             margin-bottom: 2.5rem;
         }
         .logo-icon {
-            width: 80px;
-            height: 80px;
+            width: 70px;
+            height: 70px;
             background: linear-gradient(135deg, #ffc107 0%, #ff8c42 100%);
-            border-radius: 20px;
+            border-radius: 16px;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            font-size: 2.5rem;
+            font-size: 2.1rem;
             margin-bottom: 1rem;
-            box-shadow: 0 10px 30px rgba(255, 204, 0, 0.3);
-            animation: float 3s ease-in-out infinite;
+            box-shadow: 0 4px 12px rgba(255, 204, 0, 0.18);
+            animation: float 4s ease-in-out infinite;
         }
         @keyframes float {
             0%, 100% { transform: translateY(0px); }
-            50% { transform: translateY(-10px); }
+            50% { transform: translateY(-5px); }
         }
         .brand-title {
             font-size: 1.8rem;
@@ -97,19 +91,18 @@
             gap: 0.5rem;
         }
         .form-control {
-            background: rgba(15, 17, 19, 0.8);
-            border: 2px solid rgba(255, 204, 0, 0.15);
-            border-radius: 12px;
+            background: rgba(15, 17, 19, 0.88);
+            border: 2px solid rgba(255, 204, 0, 0.13);
+            border-radius: 10px;
             color: #ffffff;
-            padding: 0.85rem 1.2rem;
+            padding: 0.75rem 1rem;
             font-size: 0.95rem;
-            transition: all 0.3s ease;
+            transition: border-color 0.2s, box-shadow 0.2s;
         }
         .form-control:focus {
-            background: rgba(15, 17, 19, 0.95);
+            background: rgba(15, 17, 19, 0.97);
             border-color: #ffc107;
-            box-shadow: 0 0 0 0.2rem rgba(255, 204, 0, 0.15),
-                        0 0 20px rgba(255, 204, 0, 0.1);
+            box-shadow: 0 0 0 0.1rem rgba(255, 204, 0, 0.10), 0 0 8px rgba(255, 204, 0, 0.08);
             color: #ffffff;
         }
         .form-control::placeholder {
@@ -118,37 +111,25 @@
         .btn-login {
             background: linear-gradient(135deg, #ffc107 0%, #ff8c42 100%);
             border: none;
-            border-radius: 12px;
+            border-radius: 10px;
             color: #000000;
             font-weight: 700;
-            font-size: 1.05rem;
-            padding: 0.9rem;
+            font-size: 1.01rem;
+            padding: 0.7rem;
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(255, 204, 0, 0.3);
+            transition: background 0.2s, box-shadow 0.2s;
+            box-shadow: 0 2px 8px rgba(255, 204, 0, 0.18);
             position: relative;
             overflow: hidden;
         }
-        .btn-login::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
-            transition: left 0.5s ease;
-        }
         .btn-login:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 25px rgba(255, 204, 0, 0.5);
-        }
-        .btn-login:hover::before {
-            left: 100%;
+            background: linear-gradient(135deg, #ffcc00 0%, #ff8c42 100%);
+            box-shadow: 0 4px 12px rgba(255, 204, 0, 0.22);
         }
         .btn-login:active {
-            transform: translateY(0);
+            background: #ffcc00;
+            color: #232526;
         }
         .alert {
             border-radius: 12px;
