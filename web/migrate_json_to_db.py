@@ -164,7 +164,7 @@ def main():
         # Summary
         total_users = User.query.count()
         total_mods = Mod.query.count()
-        
+
         print("\n" + "="*60)
         print("RESUMEN FINAL")
         print("="*60)
@@ -175,6 +175,17 @@ def main():
         print("\n💡 Ahora puedes ejecutar la aplicación con:")
         print("   python app.py")
         print("="*60 + "\n")
+
+        # Automatizar commit y push de la base de datos si hubo cambios
+        import subprocess
+        db_file = str(db_path)
+        try:
+            subprocess.run(['git', 'add', db_file], check=True)
+            subprocess.run(['git', 'commit', '-m', 'chore: sync blurkit.db after migration'], check=True)
+            subprocess.run(['git', 'push'], check=True)
+            print('✔️  Base de datos sincronizada con GitHub.')
+        except Exception as e:
+            print(f'⚠️  No se pudo sincronizar la base de datos automáticamente: {e}')
 
 
 if __name__ == '__main__':

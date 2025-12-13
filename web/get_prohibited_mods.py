@@ -19,6 +19,8 @@ with app.app_context():
     for mod in mods:
         hacks.add(mod.name.lower())
         hacks.update([alias.lower() for alias in mod.get_aliases_list()])
+    # Asegurar que la carpeta 'web' exista
+    os.makedirs('web', exist_ok=True)
     with open('web/prohibited_mods.txt', 'w', encoding='utf-8') as f:
         for h in sorted(hacks):
             f.write(h + '\n')

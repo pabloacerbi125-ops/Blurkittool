@@ -50,6 +50,17 @@ def migrate_roles():
             db.session.commit()
             print("-" * 50)
             print(f"✅ Migration completed! Updated {updated_count} user(s).")
+            # Automatizar commit y push de la base de datos si hay cambios
+            import subprocess
+            import os
+            db_file = os.path.abspath(os.path.join(os.path.dirname(__file__), 'instance', 'blurkit.db'))
+            try:
+                subprocess.run(['git', 'add', db_file], check=True)
+                subprocess.run(['git', 'commit', '-m', 'chore: sync blurkit.db after role/user change'], check=True)
+                subprocess.run(['git', 'push'], check=True)
+                print('✔️  Base de datos sincronizada con GitHub.')
+            except Exception as e:
+                print(f'⚠️  No se pudo sincronizar la base de datos automáticamente: {e}')
         else:
             print("-" * 50)
             print("No updates needed. All users already have new role names.")
