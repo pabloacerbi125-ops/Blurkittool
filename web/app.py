@@ -500,7 +500,6 @@ def analyze():
     resultado = None
     
     if log_text.strip():
-<<<<<<< HEAD
         resultado = analyze_log_lines(log_text.splitlines())
         # Categorize mods for template/JS compatibility
         mods = resultado.get('mods', [])
@@ -527,21 +526,6 @@ def analyze():
         user_key = current_user.username
         if user_key not in logs_history:
             logs_history[user_key] = []
-=======
-        mods = Mod.query.all()
-        mods_data = [m.to_dict() for m in mods]
-        resultado = analizar_log_desde_lineas(log_text.splitlines(), mods_data)
-        
-        # Usar el usuario extraído del log para el historial
-        log_owner = resultado.get('usuario') or current_user.username
-        user_key = log_owner
-        if user_key not in logs_history:
-            logs_history[user_key] = []
-
-<<<<<<< HEAD
-=======
->>>>>>> 595f419 (Sync all changes and new files for Render deploy)
->>>>>>> f01b2d1
         history_item = {
             'timestamp': datetime.now().strftime('%d/%m/%Y %H:%M:%S'),
             'user': log_owner,
@@ -550,25 +534,10 @@ def analyze():
             'resultado': resultado
         }
         logs_history[user_key].insert(0, history_item)
-<<<<<<< HEAD
-
         if len(logs_history[user_key]) > MAX_HISTORY_ITEMS:
             logs_history[user_key].pop()
 
         session['logs_history'] = logs_history.get(user_key, [])
-=======
-<<<<<<< HEAD
-        if len(logs_history[user_key]) > MAX_HISTORY_ITEMS:
-            logs_history[user_key].pop()
-        session['logs_history'] = logs_history.get(current_user.username, [])
-=======
-
-        if len(logs_history[user_key]) > MAX_HISTORY_ITEMS:
-            logs_history[user_key].pop()
-
-        session['logs_history'] = logs_history.get(user_key, [])
->>>>>>> 595f419 (Sync all changes and new files for Render deploy)
->>>>>>> f01b2d1
         session.permanent = True
         session.modified = True
         history_to_display = session.get('logs_history', logs_history.get(current_user.username, []))
