@@ -480,22 +480,25 @@ def analyze():
         mods_data = [m.to_dict() for m in mods]
         resultado = analizar_log_desde_lineas(log_text.splitlines(), mods_data)
         
-        user_key = current_user.username
+        # Usar el usuario extraído del log para el historial
+        log_owner = resultado.get('usuario') or current_user.username
+        user_key = log_owner
         if user_key not in logs_history:
             logs_history[user_key] = []
-        
+
         history_item = {
             'timestamp': datetime.now().strftime('%d/%m/%Y %H:%M:%S'),
-            'user': current_user.username,
+            'user': log_owner,
+            'version': resultado.get('version'),
             'filename': 'pasted_log',
             'resultado': resultado
         }
         logs_history[user_key].insert(0, history_item)
-        
+
         if len(logs_history[user_key]) > MAX_HISTORY_ITEMS:
             logs_history[user_key].pop()
-        
-        session['logs_history'] = logs_history.get(current_user.username, [])
+
+        session['logs_history'] = logs_history.get(user_key, [])
         session.permanent = True
         session.modified = True
     
@@ -606,6 +609,10 @@ def add_mod():
     
     # Auto-sync to GitHub
     auto_commit_and_push(f'Add mod: {nuevo_nombre}')
+    # Actualizar lista de mods prohibidos automáticamente
+    subprocess.run([
+        sys.executable, os.path.join(os.path.dirname(__file__), 'get_prohibited_mods.py')
+    ])
     
     flash(f'Mod "{nuevo_nombre}" agregado exitosamente.', 'success')
     return redirect(url_for('index'))
@@ -649,6 +656,10 @@ def edit(idx):
         
         # Auto-sync to GitHub
         auto_commit_and_push(f'Update mod: {nuevo_nombre}')
+        # Actualizar lista de mods prohibidos automáticamente
+        subprocess.run([
+            sys.executable, os.path.join(os.path.dirname(__file__), 'get_prohibited_mods.py')
+        ])
         
         flash(f'Mod "{nuevo_nombre}" actualizado exitosamente.', 'success')
         return redirect(url_for('index'))
@@ -668,6 +679,10 @@ def delete(idx):
     
     # Auto-sync to GitHub
     auto_commit_and_push(f'Delete mod: {mod_name}')
+    # Actualizar lista de mods prohibidos automáticamente
+    subprocess.run([
+        sys.executable, os.path.join(os.path.dirname(__file__), 'get_prohibited_mods.py')
+    ])
     
     flash(f'Mod "{mod_name}" eliminado exitosamente.', 'success')
     return redirect(url_for('index'))

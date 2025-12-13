@@ -8,10 +8,12 @@
   <div class="mb-4">
     <h4 style="color: #ffc107; margin-bottom: 1rem;">📊 Resultado del análisis</h4>
     
-    <!-- Usuario detectado -->
-    {% if resultado.usuario %}
+    <!-- Usuario y versión detectados juntos -->
+    {% if resultado.usuario or resultado.version %}
     <div class="alert alert-info mb-3">
-      <strong>👤 Usuario:</strong> {{ resultado.usuario }}
+      <strong>👤 Usuario:</strong>
+      {% if resultado.usuario %}{{ resultado.usuario }}{% else %}<span style="color:#888">(desconocido)</span>{% endif %}
+      {% if resultado.version %} <span style="color:#51a7cf;">| 🛡️ {{ resultado.version }}</span>{% endif %}
     </div>
     {% endif %}
 
@@ -135,6 +137,7 @@
             <th style="color: #ffc107; width: 150px;">Fecha/Hora</th>
             <th style="color: #ffc107;">Archivo</th>
             <th style="color: #ffc107; width: 100px;">Usuario</th>
+            <th style="color: #ffc107; width: 100px;">Versión</th>
             <th style="color: #ffc107; width: 80px;">Prohibidos</th>
             <th style="color: #ffc107; width: 80px;">Permitidos</th>
           </tr>
@@ -150,8 +153,12 @@
             <td>
               <span style="color: #ffffff;">{{ item.filename }}</span>
             </td>
-            <td>
-              <span style="color: #20c997;">{{ item.user }}</span>
+            <td colspan="2">
+              <span style="color: #20c997;">
+                {{ item.user }}
+                {% set ver = item.version or (item.resultado.version if item.resultado) %}
+                {% if ver %}<span style="color:#51a7cf;"> | 🛡️ {{ ver }}</span>{% endif %}
+              </span>
             </td>
             <td>
               <span class="badge" style="background: #dc3545;">{{ item.resultado.mods_prohibidos|length }}</span>

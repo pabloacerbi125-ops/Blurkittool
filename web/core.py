@@ -1,3 +1,37 @@
+# Cargar mods desde la base de datos SQLite
+import sqlite3
+
+def load_mods(db_path=None):
+    """Carga los mods desde la base de datos SQLite y los devuelve como lista de dicts."""
+    # Buscar la base de datos en la ruta más probable
+    posibles = [
+        'web/instance/blurkit.db',
+        'instance/blurkit.db',
+        './web/instance/blurkit.db',
+        './instance/blurkit.db'
+    ]
+    if db_path is not None:
+        posibles.insert(0, db_path)
+    for path in posibles:
+        if os.path.exists(path):
+            db_path = path
+            break
+    else:
+        raise FileNotFoundError("No se encontró la base de datos SQLite de mods.")
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    cursor.execute("SELECT name, status, category, platform FROM mods")
+    mods = []
+    for row in cursor.fetchall():
+        mods.append({
+            'name': row[0],
+            'status': row[1],
+            'category': row[2],
+            'platform': row[3],
+            'alias': []  # Si tienes alias en la tabla, agrégalo aquí
+        })
+    conn.close()
+    return mods
 """Core utilities for Blurkit web UI.
 
 Contains functions to load/save `mods.json` and to extract / classify mods
@@ -27,91 +61,50 @@ DEFAULT_MODS = [
         "status": "permitido",
         "category": "rendimiento",
         "platform": "Java",
-        "description": "Mejora graficos y rendimiento.",
-        "alias": ["optifine", "optifime"],
+        "description": "Mejora graficos y rendimiento."
     }
 ]
 
 
-def load_mods():
-    """Load mods from `mods.json`, creating it with defaults if missing.
+# Integración del sistema inteligente de detección de mods/hacks ilegales en logs de Minecraft.
+import pickle
 
-    Returns a list of mod dictionaries.
-    """
-    if not DATA_FILE.exists():
-        # Si está empaquetado y existe mods.json en el bundle, copiarlo
-        if BUNDLED_MODS and BUNDLED_MODS.exists():
-            try:
-                import shutil
-                shutil.copy2(BUNDLED_MODS, DATA_FILE)
-                print(f"Copiado mods.json desde el paquete a {DATA_FILE}")
-            except Exception as e:
-                print(f"Error copiando mods.json: {e}")
-                # Si falla, crear con defaults
-                with DATA_FILE.open("w", encoding="utf-8") as f:
-                    json.dump(DEFAULT_MODS, f, ensure_ascii=False, indent=2)
-        else:
-            # Crear con defaults
-            try:
-                with DATA_FILE.open("w", encoding="utf-8") as f:
-                    json.dump(DEFAULT_MODS, f, ensure_ascii=False, indent=2)
-                try:
-                    FIRST_RUN_FLAG.write_text("1", encoding="utf-8")
-                except Exception:
-                    pass
-            except Exception:
-                return DEFAULT_MODS.copy()
+from ml_integration import MLLogModel, load_ml_model
+from log_analyzer import MinecraftLogAnalyzer
 
-    try:
-        with DATA_FILE.open("r", encoding="utf-8") as f:
-            mods = json.load(f)
-            
-        # Migrar formato antiguo a nuevo (aliases->alias, notes->description)
-        migrated = False
-        for mod in mods:
-            if "aliases" in mod and "alias" not in mod:
-                mod["alias"] = mod.pop("aliases")
-                migrated = True
-            if "notes" in mod and "description" not in mod:
-                mod["description"] = mod.pop("notes")
-                migrated = True
-        
-        # Si hubo migración, guardar automáticamente
-        if migrated:
-            save_mods(mods)
-            
-        return mods
-    except Exception:
-        return DEFAULT_MODS.copy()
-
-
-def save_mods(mods):
-    """Persist `mods` to `mods.json` (overwrites).
-
-    `mods` should be a serializable list/dict structure.
-    """
-    with DATA_FILE.open("w", encoding="utf-8") as f:
-        json.dump(mods, f, ensure_ascii=False, indent=2)
-
-
-# Normalizacion
-
+# Utilidad para normalizar nombres de mods (minúsculas y solo alfanumérico)
 def normalizar(texto: str) -> str:
-    """Return a simplified lower-alphanumeric-only form for comparisons."""
+    """Devuelve una versión simplificada en minúsculas y solo alfanumérico para comparaciones."""
     texto = (texto or "").lower()
     return re.sub(r"[^a-z0-9]", "", texto)
 
+def detectar_mods_ilegales_en_log(log_path, prohibited_mods_path='web/prohibited_mods.txt', model_path='web/hack_detector_model.pkl'):
+    """Analiza un log y retorna una lista de detecciones de mods/hacks ilegales."""
+    # Usar rutas absolutas para evitar errores
+    prohibited_mods_path = str(BASE_DIR / 'web' / 'prohibited_mods.txt')
+    # model_path = str(BASE_DIR / 'web' / 'hack_detector_model.pkl')
+    # Cargar lista de mods prohibidos
+    try:
+        with open(prohibited_mods_path, 'r', encoding='utf-8') as f:
+            hacks = [line.strip() for line in f if line.strip()]
+    except Exception:
+        hacks = []
+    # ML activado solo si el modelo existe
+    try:
+        clf, vectorizer = load_ml_model(model_path)
+        ml_model = MLLogModel(clf, vectorizer)
+    except Exception:
+        ml_model = None
+    analyzer = MinecraftLogAnalyzer(hacks, regex_patterns=[], ml_model=ml_model)
+    with open(log_path, 'r', encoding='utf-8') as f:
+        lines = f.readlines()
+    return analyzer.parse_log(lines)
 
-# Extraccion de mods desde logs
-
+# Encapsular el bloque anterior como función
 def extraer_mods_cargados(lines):
-    """Extract a list of detected mods from `lines` of a log file.
-
-    Returns a list of dicts with keys `id` and `display`.
-    """
+    """Extrae una lista de mods detectados desde las líneas de un log."""
     vistos = set()
     orden = []
-
     def add(mod_id, display=None):
         mod_id = (mod_id or "").strip()
         if not mod_id or mod_id in vistos:
@@ -225,10 +218,21 @@ def analizar_log_desde_lineas(lines, mods):
         utiles.append(line)
 
     usuario = None
+    version_mc = None
     for l in utiles:
-        m = re.search(r"Setting user:\s*(\S+)", l)
+        # Buscar usuario en varios formatos
+        m = re.search(r"Setting user[:=\s]+([A-Za-z0-9_\-]+)", l)
+        if not m:
+            m = re.search(r"\bUser(?:name)?[:=\s]+([A-Za-z0-9_\-]+)", l, re.IGNORECASE)
         if m:
             usuario = m.group(1)
+        # Buscar versión de Minecraft en varios formatos
+        v = re.search(r"Minecraft[\s:=-]*([0-9]+\.[0-9]+(?:\.[0-9]+)?)", l, re.IGNORECASE)
+        if not v:
+            v = re.search(r"version[\s:=-]*([0-9]+\.[0-9]+(?:\.[0-9]+)?)", l, re.IGNORECASE)
+        if v:
+            version_mc = v.group(1)
+        if usuario and version_mc:
             break
 
     mods_cargados = extraer_mods_cargados(utiles)
@@ -239,6 +243,7 @@ def analizar_log_desde_lineas(lines, mods):
     if not mods_cargados:
         return {
             'usuario': usuario,
+            'version': version_mc,
             'mods_prohibidos': [],
             'mods_permitidos': [],
             'mods_desconocidos': [],
@@ -271,6 +276,7 @@ def analizar_log_desde_lineas(lines, mods):
 
     return {
         'usuario': usuario,
+        'version': version_mc,
         'mods_prohibidos': mods_prohibidos,
         'mods_permitidos': mods_permitidos,
         'mods_desconocidos': mods_desconocidos,

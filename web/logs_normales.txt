@@ -1,0 +1,3 @@
+[14:00:00] [main/INFO]: Everything is fine
+[14:00:01] [main/INFO]: No hacks here
+[14:00:02] [main/INFO]: Just Optifine and Sodium
