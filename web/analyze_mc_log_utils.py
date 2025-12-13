@@ -99,6 +99,45 @@ def extract_mods(log_lines: List[str]) -> List[Dict[str, Any]]:
                 mods.add(mod_name)
                 if mod_name not in mod_details:
                     mod_details[mod_name] = {}
+    # 6. Mods en rutas de archivos .jar
+    for line in log_lines:
+        jar_matches = re.findall(r"mods/([\w\-]+)-[\d\w.\-+]+\.jar", line)
+        for mod_name in jar_matches:
+            mods.add(mod_name)
+            if mod_name not in mod_details:
+                mod_details[mod_name] = {}
+    # 7. Mods en mensajes de compatibilidad, inicialización, pipeline, etc.
+    for line in log_lines:
+        # Ejemplo: "[main/INFO]: Mod 'Sodium' initialized"
+        m = re.search(r"Mod '([\w\-]+)' initialized", line)
+        if m:
+            mod_name = m.group(1)
+            mods.add(mod_name)
+            if mod_name not in mod_details:
+                mod_details[mod_name] = {}
+        # Ejemplo: "Compatibility level set to JAVA_17 by mod 'Krypton'"
+        m2 = re.search(r"by mod '([\w\-]+)'", line)
+        if m2:
+            mod_name = m2.group(1)
+            mods.add(mod_name)
+            if mod_name not in mod_details:
+                mod_details[mod_name] = {}
+        # Ejemplo: "Pipeline for mod: Sodium"
+        m3 = re.search(r"Pipeline for mod: ([\w\-]+)", line)
+        if m3:
+            mod_name = m3.group(1)
+            mods.add(mod_name)
+            if mod_name not in mod_details:
+                mod_details[mod_name] = {}
+    # 8. Mods en advertencias o errores relacionados con mods
+    for line in log_lines:
+        m = re.search(r"as rule '.*' \(added by mods \[([\w\-, ]+)\]\)", line)
+        if m:
+            for mod_name in m.group(1).split(","):
+                mod_name = mod_name.strip()
+                mods.add(mod_name)
+                if mod_name not in mod_details:
+                    mod_details[mod_name] = {}
     # Convertir a lista de dicts
     mod_list = []
     for mod in mods:
