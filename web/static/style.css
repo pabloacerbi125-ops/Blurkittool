@@ -34,8 +34,14 @@ body{
 }
 *::-webkit-scrollbar-thumb:hover{ background:#6b7078; }
 
-.navbar-brand{ font-weight:700; font-size:1.1rem; }
-.navbar{ background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.02)); }
+.navbar-brand{ font-weight:700; font-size:1.1rem; color: #ffcc00 !important; text-shadow: 0 0 8px #ffcc00cc; }
+.navbar {
+  background: rgba(24, 24, 28, 0.98) !important;
+  box-shadow: 0 4px 24px 0 #ffcc0033, 0 1.5px 0 #ffcc00;
+  border-bottom: 2px solid #ffcc00;
+  z-index: 1002;
+  position: relative;
+}
 
 .container-main{ max-width:1500px; margin:0 auto; }
 

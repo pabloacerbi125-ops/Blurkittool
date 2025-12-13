@@ -1,135 +1,176 @@
+
+
 {% extends 'base.html' %}
 {% block content %}
-<div class="text-center mb-4">
-  <h1 class="display-3 fw-bold" style="color: #ffc107;">BlurkitTool</h1>
-  <p class="lead text-light">🛠️ Herramientas rápidas para revisar mods y logs</p>
-  <p class="text-light mt-2">
-    Bienvenido, 
-    <strong style="color: {% if current_user.role == 'admin' %}#dc3545{% elif current_user.role == 'smod' %}#0d6efd{% elif current_user.role == 'mod' %}#146c43{% else %}#20c997{% endif %};">
-      {{ current_user.username }}
-    </strong>
-  </p>
-</div>
-
-<!-- Statistics Cards -->
-<div class="row justify-content-center mb-5">
-  <div class="col-md-3">
-    <div class="card text-white bg-primary">
-      <div class="card-body text-center">
-        <h5 class="card-title">Total de Mods</h5>
-        <h2 class="card-text">{{ stats.total }}</h2>
-      </div>
-    </div>
-  </div>
-  
-  <div class="col-md-3">
-    <div class="card text-white bg-danger">
-      <div class="card-body text-center">
-        <h5 class="card-title">Mods Prohibidos</h5>
-        <h2 class="card-text">{{ stats.prohibidos }}</h2>
-      </div>
-    </div>
-  </div>
-  
-  <div class="col-md-3">
-    <div class="card text-white bg-success">
-      <div class="card-body text-center">
-        <h5 class="card-title">Mods Permitidos</h5>
-        <h2 class="card-text">{{ stats.permitidos }}</h2>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div class="row justify-content-center g-4 mb-4">
-  <div class="col-md-4">
-    <a href="/search" class="text-decoration-none">
-      <div class="card bg-dark border-secondary h-100 shadow-lg hover-card">
-        <div class="card-body text-center p-4">
-          <div class="mb-3" style="font-size: 3rem;">🔍</div>
-          <h3 class="card-title text-light fw-bold mb-3">Buscar mod</h3>
-          <p class="card-text text-secondary">Busca un mod por nombre y verifica si está permitido o prohibido en la lista</p>
-        </div>
-      </div>
-    </a>
-  </div>
-  
-  <div class="col-md-4">
-    <a href="/upload" class="text-decoration-none">
-      <div class="card bg-dark border-secondary h-100 shadow-lg hover-card">
-        <div class="card-body text-center p-4">
-          <div class="mb-3" style="font-size: 3rem;">📁</div>
-          <h3 class="card-title text-light fw-bold mb-3">Subir log</h3>
-          <p class="card-text text-secondary">Carga un archivo de log (.log, .txt) y obtén un informe detallado</p>
-        </div>
-      </div>
-    </a>
-  </div>
-  
-  {% if current_user.is_admin() or current_user.role == 'smod' %}
-  <div class="col-md-4">
-    <a href="/paste" class="text-decoration-none">
-      <div class="card bg-dark border-secondary h-100 shadow-lg hover-card">
-        <div class="card-body text-center p-4">
-          <div class="mb-3" style="font-size: 3rem;">📋</div>
-          <h3 class="card-title text-light fw-bold mb-3">Pegar log</h3>
-          <p class="card-text text-secondary">Pega el contenido del log directamente y analízalo al instante</p>
-        </div>
-      </div>
-    </a>
-  </div>
-  {% else %}
-  <div class="col-md-4">
-    <a href="/paste" class="text-decoration-none">
-      <div class="card bg-dark border-secondary h-100 shadow-lg hover-card">
-        <div class="card-body text-center p-4">
-          <div class="mb-3" style="font-size: 3rem;">📋</div>
-          <h3 class="card-title text-light fw-bold mb-3">Pegar log</h3>
-          <p class="card-text text-secondary">Pega el contenido del log directamente y analízalo al instante</p>
-        </div>
-      </div>
-    </a>
-  </div>
-  {% endif %}
-</div>
-
-<div class="row justify-content-center g-4">
-  {% if current_user.is_admin() or current_user.role == 'smod' %}
-  <div class="col-md-4">
-    <a href="/admin/users" class="text-decoration-none">
-      <div class="card bg-dark border-secondary h-100 shadow-lg hover-card">
-        <div class="card-body text-center p-4">
-          <div class="mb-3" style="font-size: 3rem;">👥</div>
-          <h3 class="card-title text-light fw-bold mb-3">Usuarios</h3>
-          <p class="card-text text-secondary">Gestión de usuarios y roles del sistema</p>
-        </div>
-      </div>
-    </a>
-  </div>
-  {% endif %}
-  
-  <div class="col-md-4">
-    <a href="/mods" class="text-decoration-none">
-      <div class="card bg-dark border-secondary h-100 shadow-lg hover-card">
-        <div class="card-body text-center p-4">
-          <div class="mb-3" style="font-size: 3rem;">📊</div>
-          <h3 class="card-title text-light fw-bold mb-3">Ver lista de mods, editar, agregar y eliminar</h3>
-          <p class="card-text text-secondary">Visualiza todas las listas de mods permitidos y prohibidos e incluso aquí también podrás editar, agregar y eliminar los mods</p>
-        </div>
-      </div>
-    </a>
-  </div>
-</div>
-
 <style>
-.hover-card {
-  transition: all 0.3s ease;
-  cursor: pointer;
-}
-.hover-card:hover {
-  transform: translateY(-5px);
-  border-color: #ffc107 !important;
-  box-shadow: 0 0 20px rgba(255, 193, 7, 0.3) !important;
-}
+  @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+  body {
+    background: linear-gradient(135deg, #181c22 0%, #232526 100%) !important;
+    min-height: 100vh;
+    position: relative;
+    overflow-x: hidden;
+  }
+  .gamer-bg-anim {
+    position: fixed;
+    top: 0; left: 0; width: 100vw; height: 100vh;
+    z-index: 0;
+    pointer-events: none;
+    background: radial-gradient(ellipse at 60% 40%, #ffcc0033 0%, #232526 80%);
+    animation: bgmove 12s linear infinite alternate;
+    opacity: 0.7;
+  }
+  @keyframes bgmove {
+    0% { background-position: 60% 40%; }
+    100% { background-position: 40% 60%; }
+  }
+  .hero-section {
+    text-align: center;
+    padding: 3.5rem 1.5rem 2.5rem;
+    background: rgba(36,38,41,0.97);
+    border-radius: 28px;
+    margin-bottom: 2.5rem;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 4px 16px 0 #ffcc0033, 0 2px 12px 0 #ff8c4211;
+    backdrop-filter: blur(8px);
+    border: 2px solid #ffcc00;
+    animation: fadeInHero 1.1s cubic-bezier(.4,1.4,.6,1);
+  }
+  .hero-title {
+    font-family: 'Press Start 2P', monospace, 'Inter', Arial, sans-serif;
+    font-size: 2.5rem;
+    color: #ffcc00;
+    letter-spacing: 2px;
+    text-shadow:
+      0 0 8px #ffcc00,
+      0 0 2px #fff,
+      0 2px 8px #000a;
+    margin-bottom: 0.7rem;
+    animation: gamerGlow 2.2s infinite alternate;
+  }
+  @keyframes gamerGlow {
+    0% { text-shadow: 0 0 8px #ffcc00, 0 0 2px #fff, 0 2px 8px #000a; }
+    100% { text-shadow: 0 0 18px #ffcc00, 0 0 8px #ff8c42, 0 2px 16px #000c; }
+  }
+  .hero-subtitle {
+    color: #e6eef3;
+    font-size: 1.25rem;
+    margin-bottom: 0.5rem;
+    text-shadow: 0 0 8px #ffcc00cc;
+  }
+  .hero-user {
+    color: #fff;
+    font-size: 1.1rem;
+    margin-bottom: 0.5rem;
+    font-family: 'Press Start 2P', monospace, 'Inter', Arial, sans-serif;
+    text-shadow: 0 0 8px #ffcc00cc;
+  }
+  .menu-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2.2rem 2.2rem;
+    justify-content: center;
+    margin-bottom: 2.2rem;
+    z-index: 1;
+  }
+  .menu-card {
+    border: 2px solid #ff8c42;
+    box-shadow: 0 0 8px 1px #ff8c4280, 0 0 16px 2px #ffcc0022;
+    background: linear-gradient(135deg, rgba(30,32,36,0.97) 80%, #ffcc0011 100%);
+    border-radius: 14px;
+    transition: box-shadow 0.3s, border-color 0.3s, transform 0.2s;
+    font-family: 'Press Start 2P', monospace, 'Inter', Arial, sans-serif;
+    min-width: 320px;
+    max-width: 340px;
+    padding: 2.2rem 1.5rem;
+    text-align: center;
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .menu-card:before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: radial-gradient(circle at 60% 40%, #ffcc0011 0%, transparent 80%);
+    opacity: 0.2;
+    z-index: 0;
+    pointer-events: none;
+  }
+  .menu-card:hover {
+    box-shadow: 0 0 16px 4px #ffcc00aa, 0 0 24px 6px #ff8c4280;
+    border-color: #ffcc00;
+    transform: scale(1.03) rotate(-1deg);
+  }
+  .menu-icon {
+    font-size: 3.2rem;
+    margin-bottom: 1.1rem;
+    filter: drop-shadow(0 0 12px #ff8c42cc);
+    animation: gamerIconPop 2.5s infinite alternate;
+    z-index: 1;
+  }
+  @keyframes gamerIconPop {
+    0% { transform: scale(1) rotate(-3deg); }
+    100% { transform: scale(1.13) rotate(5deg); }
+  }
+  .menu-title {
+    color: #fff;
+    font-size: 1.2rem;
+    font-weight: 700;
+    margin-bottom: 0.3rem;
+    letter-spacing: 1px;
+    text-shadow: 0 0 8px #ffcc00cc;
+    z-index: 1;
+  }
+  .menu-description {
+    color: #b8c1ca;
+    font-size: 1.05rem;
+    font-family: 'Inter', Arial, sans-serif;
+    z-index: 1;
+  }
 </style>
+<div class="gamer-bg-anim"></div>
+<div class="container-main" style="margin-top: 2rem; position: relative; z-index: 1;">
+  <div class="hero-section">
+    <div class="hero-title">🎮 BlurkitTool</div>
+    <div class="hero-subtitle">🛠️ Herramientas rápidas para revisar mods y logs</div>
+    <div class="hero-user">Bienvenido, <span style="color: #ffcc00;">{{ current_user.username }}</span></div>
+  </div>
+
+
+  <!-- Gamer Quick Actions Grid -->
+  <div class="menu-grid">
+    <a href="/search" class="menu-card">
+      <div class="menu-icon">🔍</div>
+      <h3 class="menu-title">Buscar mod</h3>
+      <p class="menu-description">Busca un mod por nombre y verifica si está permitido o prohibido en la lista</p>
+    </a>
+    <a href="/upload" class="menu-card">
+      <div class="menu-icon">📁</div>
+      <h3 class="menu-title">Subir log</h3>
+      <p class="menu-description">Carga un archivo de log (.log, .txt) y obtén un informe detallado</p>
+    </a>
+    <a href="/paste" class="menu-card">
+      <div class="menu-icon">📋</div>
+      <h3 class="menu-title">Pegar log</h3>
+      <p class="menu-description">Pega el contenido del log directamente y analízalo al instante</p>
+    </a>
+    {% if current_user.is_admin() or current_user.role == 'smod' %}
+    <a href="/admin/users" class="menu-card">
+      <div class="menu-icon">👥</div>
+      <h3 class="menu-title">Usuarios</h3>
+      <p class="menu-description">Gestión de usuarios y roles del sistema</p>
+    </a>
+    {% endif %}
+    <a href="/mods" class="menu-card">
+      <div class="menu-icon">📊</div>
+      <h3 class="menu-title">Ver lista de mods, editar, agregar y eliminar</h3>
+      <p class="menu-description">Visualiza todas las listas de mods permitidos y prohibidos e incluso aquí también podrás editar, agregar y eliminar los mods</p>
+    </a>
+  </div>
+</div>
 {% endblock %}

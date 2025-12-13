@@ -1,3 +1,4 @@
+# Endpoint para compatibilidad con url_for('menu') en plantillas y redirecciones
 """Flask web application for BlurkitModsTool with authentication.
 
 Multi-user system with role-based permissions and SQLite database.
@@ -96,6 +97,19 @@ app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-i
 app.config['SESSION_COOKIE_SECURE'] = os.environ.get('FLASK_ENV') == 'production'
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+
+@app.route('/menu')
+@login_required
+def menu():
+    total_mods = Mod.query.count()
+    prohibidos_count = Mod.query.filter_by(status='prohibido').count()
+    permitidos_count = Mod.query.filter_by(status='permitido').count()
+    stats = {
+        'total': total_mods,
+        'prohibidos': prohibidos_count,
+        'permitidos': permitidos_count
+    }
+    return render_template('menu.html', stats=stats)
 
 # ===================== API: Análisis de logs Minecraft =====================
 @app.route('/api/analyze_log', methods=['POST'])
@@ -403,21 +417,6 @@ def reglas():
 # AUTHENTICATED ROUTES (Login required, all roles can access)
 # ============================================================================
 
-@app.route('/dashboard')
-@login_required
-def menu():
-    """Visual menu with cards - accessible to all logged-in users."""
-    total_mods = Mod.query.count()
-    prohibidos_count = Mod.query.filter_by(status='prohibido').count()
-    permitidos_count = Mod.query.filter_by(status='permitido').count()
-    
-    stats = {
-        'total': total_mods,
-        'prohibidos': prohibidos_count,
-        'permitidos': permitidos_count
-    }
-    
-    return render_template('menu.html', stats=stats)
 
 
 @app.route('/mods')
@@ -529,7 +528,7 @@ def analyze():
             logs_history[user_key] = []
         history_item = {
             'timestamp': datetime.now().strftime('%d/%m/%Y %H:%M:%S'),
-            'user': log_owner,
+            'user': current_user.username,
             'version': resultado.get('version'),
             'filename': 'pasted_log',
             'resultado': resultado
