@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import sys
 import re
 import json
@@ -119,3 +120,9 @@ def main():
 
 if __name__ == "__main__":
     main()
+=======
+def analyze_log_lines(*args, **kwargs):
+    """Función dummy para evitar errores de importación."""
+    return []
+
+>>>>>>> 595f419 (Sync all changes and new files for Render deploy)
