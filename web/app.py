@@ -83,7 +83,31 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from models import db, User, Mod
 from auth import login_required, roles_required, mod_required, smod_required, admin_required
-from core import analizar_log_desde_lineas
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from analyze_mc_log_utils import analyze_log_lines
+# ===================== API: Análisis de logs Minecraft =====================
+from flask import jsonify
+
+@app.route('/api/analyze_log', methods=['POST'])
+def api_analyze_log():
+    """API endpoint para analizar logs de Minecraft. Recibe texto plano o archivo."""
+    if request.content_type and request.content_type.startswith('multipart/form-data'):
+        f = request.files.get('logfile')
+        if not f or f.filename == '':
+            return jsonify({'error': 'No se seleccionó archivo'}), 400
+        try:
+            content = f.read().decode('utf-8', errors='ignore')
+        except Exception:
+            content = f.read().decode('latin-1', errors='ignore')
+        log_lines = content.splitlines()
+    else:
+        log_text = request.get_data(as_text=True)
+        if not log_text.strip():
+            return jsonify({'error': 'No se envió contenido'}), 400
+        log_lines = log_text.splitlines()
+    result = analyze_log_lines(log_lines)
+    return jsonify(result)
 from models import LoginAttempt
 
 # Flask app with proper paths
@@ -476,6 +500,34 @@ def analyze():
     resultado = None
     
     if log_text.strip():
+<<<<<<< HEAD
+        resultado = analyze_log_lines(log_text.splitlines())
+        # Categorize mods for template/JS compatibility
+        mods = resultado.get('mods', [])
+        mods_prohibidos = []
+        mods_permitidos = []
+        mods_desconocidos = []
+        for mod in mods:
+            # Use Mod model to check status
+            db_mod = Mod.query.filter_by(name=mod['name']).first()
+            if db_mod:
+                if db_mod.status == 'prohibido':
+                    mods_prohibidos.append({**mod, 'category': db_mod.category, 'platform': db_mod.platform})
+                elif db_mod.status == 'permitido':
+                    mods_permitidos.append({**mod, 'category': db_mod.category, 'platform': db_mod.platform})
+                else:
+                    mods_desconocidos.append(mod)
+            else:
+                mods_desconocidos.append(mod)
+        resultado['mods_prohibidos'] = mods_prohibidos
+        resultado['mods_permitidos'] = mods_permitidos
+        resultado['mods_desconocidos'] = mods_desconocidos
+        resultado['total'] = len(mods)
+
+        user_key = current_user.username
+        if user_key not in logs_history:
+            logs_history[user_key] = []
+=======
         mods = Mod.query.all()
         mods_data = [m.to_dict() for m in mods]
         resultado = analizar_log_desde_lineas(log_text.splitlines(), mods_data)
@@ -486,6 +538,10 @@ def analyze():
         if user_key not in logs_history:
             logs_history[user_key] = []
 
+<<<<<<< HEAD
+=======
+>>>>>>> 595f419 (Sync all changes and new files for Render deploy)
+>>>>>>> f01b2d1
         history_item = {
             'timestamp': datetime.now().strftime('%d/%m/%Y %H:%M:%S'),
             'user': log_owner,
@@ -494,19 +550,31 @@ def analyze():
             'resultado': resultado
         }
         logs_history[user_key].insert(0, history_item)
+<<<<<<< HEAD
 
         if len(logs_history[user_key]) > MAX_HISTORY_ITEMS:
             logs_history[user_key].pop()
 
         session['logs_history'] = logs_history.get(user_key, [])
+=======
+<<<<<<< HEAD
+        if len(logs_history[user_key]) > MAX_HISTORY_ITEMS:
+            logs_history[user_key].pop()
+        session['logs_history'] = logs_history.get(current_user.username, [])
+=======
+
+        if len(logs_history[user_key]) > MAX_HISTORY_ITEMS:
+            logs_history[user_key].pop()
+
+        session['logs_history'] = logs_history.get(user_key, [])
+>>>>>>> 595f419 (Sync all changes and new files for Render deploy)
+>>>>>>> f01b2d1
         session.permanent = True
         session.modified = True
-    
-    history_to_display = session.get('logs_history', logs_history.get(current_user.username, []))
-    if history_to_display:
-        logs_history[current_user.username] = history_to_display
-    
-    return render_template('analysis.html', resultado=resultado, logs_history=history_to_display)
+        history_to_display = session.get('logs_history', logs_history.get(current_user.username, []))
+        if history_to_display:
+            logs_history[current_user.username] = history_to_display
+        return render_template('analysis.html', resultado=resultado, logs_history=history_to_display)
 
 
 @app.route('/paste', methods=['GET'])
@@ -538,14 +606,31 @@ def upload():
     except Exception:
         content = f.read().decode('latin-1', errors='ignore')
     
-    mods = Mod.query.all()
-    mods_data = [m.to_dict() for m in mods]
-    resultado = analizar_log_desde_lineas(content.splitlines(), mods_data)
-    
+    resultado = analyze_log_lines(content.splitlines())
+    # Categorize mods for template/JS compatibility
+    mods = resultado.get('mods', [])
+    mods_prohibidos = []
+    mods_permitidos = []
+    mods_desconocidos = []
+    for mod in mods:
+        db_mod = Mod.query.filter_by(name=mod['name']).first()
+        if db_mod:
+            if db_mod.status == 'prohibido':
+                mods_prohibidos.append({**mod, 'category': db_mod.category, 'platform': db_mod.platform})
+            elif db_mod.status == 'permitido':
+                mods_permitidos.append({**mod, 'category': db_mod.category, 'platform': db_mod.platform})
+            else:
+                mods_desconocidos.append(mod)
+        else:
+            mods_desconocidos.append(mod)
+    resultado['mods_prohibidos'] = mods_prohibidos
+    resultado['mods_permitidos'] = mods_permitidos
+    resultado['mods_desconocidos'] = mods_desconocidos
+    resultado['total'] = len(mods)
+
     user_key = current_user.username
     if user_key not in logs_history:
         logs_history[user_key] = []
-    
     history_item = {
         'timestamp': datetime.now().strftime('%d/%m/%Y %H:%M:%S'),
         'user': current_user.username,
@@ -553,18 +638,14 @@ def upload():
         'resultado': resultado
     }
     logs_history[user_key].insert(0, history_item)
-    
     if len(logs_history[user_key]) > MAX_HISTORY_ITEMS:
         logs_history[user_key].pop()
-    
     session['logs_history'] = logs_history.get(current_user.username, [])
     session.permanent = True
     session.modified = True
-    
     history_to_display = session.get('logs_history', logs_history.get(current_user.username, []))
     if history_to_display:
         logs_history[current_user.username] = history_to_display
-    
     return render_template('analysis.html', resultado=resultado, logs_history=history_to_display)
 
 

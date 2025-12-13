@@ -217,8 +217,17 @@ def analizar_log_desde_lineas(lines, mods):
             break
         utiles.append(line)
 
+
     usuario = None
+<<<<<<< HEAD
     version_mc = None
+=======
+<<<<<<< HEAD
+    mc_version = None
+=======
+    version_mc = None
+>>>>>>> 595f419 (Sync all changes and new files for Render deploy)
+>>>>>>> f01b2d1
     for l in utiles:
         # Buscar usuario en varios formatos
         m = re.search(r"Setting user[:=\s]+([A-Za-z0-9_\-]+)", l)
@@ -226,6 +235,15 @@ def analizar_log_desde_lineas(lines, mods):
             m = re.search(r"\bUser(?:name)?[:=\s]+([A-Za-z0-9_\-]+)", l, re.IGNORECASE)
         if m:
             usuario = m.group(1)
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+        v = re.search(r"Minecraft.*version[\s:]*([\w.\-]+)", l, re.IGNORECASE)
+        if v:
+            mc_version = v.group(1)
+        if usuario and mc_version:
+=======
+>>>>>>> f01b2d1
         # Buscar versión de Minecraft en varios formatos
         v = re.search(r"Minecraft[\s:=-]*([0-9]+\.[0-9]+(?:\.[0-9]+)?)", l, re.IGNORECASE)
         if not v:
@@ -233,6 +251,10 @@ def analizar_log_desde_lineas(lines, mods):
         if v:
             version_mc = v.group(1)
         if usuario and version_mc:
+<<<<<<< HEAD
+=======
+>>>>>>> 595f419 (Sync all changes and new files for Render deploy)
+>>>>>>> f01b2d1
             break
 
     mods_cargados = extraer_mods_cargados(utiles)
@@ -243,7 +265,15 @@ def analizar_log_desde_lineas(lines, mods):
     if not mods_cargados:
         return {
             'usuario': usuario,
+<<<<<<< HEAD
             'version': version_mc,
+=======
+<<<<<<< HEAD
+            'mc_version': mc_version,
+=======
+            'version': version_mc,
+>>>>>>> 595f419 (Sync all changes and new files for Render deploy)
+>>>>>>> f01b2d1
             'mods_prohibidos': [],
             'mods_permitidos': [],
             'mods_desconocidos': [],
@@ -276,7 +306,15 @@ def analizar_log_desde_lineas(lines, mods):
 
     return {
         'usuario': usuario,
+<<<<<<< HEAD
         'version': version_mc,
+=======
+<<<<<<< HEAD
+        'mc_version': mc_version,
+=======
+        'version': version_mc,
+>>>>>>> 595f419 (Sync all changes and new files for Render deploy)
+>>>>>>> f01b2d1
         'mods_prohibidos': mods_prohibidos,
         'mods_permitidos': mods_permitidos,
         'mods_desconocidos': mods_desconocidos,
