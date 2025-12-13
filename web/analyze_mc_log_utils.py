@@ -119,13 +119,8 @@ def main():
 
 if __name__ == "__main__":
     main()
-=======
->>>>>>> f01b2d1
 def analyze_log_lines(*args, **kwargs):
     """Función dummy para evitar errores de importación."""
     return []
 
-<<<<<<< HEAD
-=======
->>>>>>> 595f419 (Sync all changes and new files for Render deploy)
->>>>>>> f01b2d1
+
