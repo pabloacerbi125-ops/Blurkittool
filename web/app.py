@@ -86,9 +86,18 @@ from auth import login_required, roles_required, mod_required, smod_required, ad
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from analyze_mc_log_utils import analyze_log_lines
-# ===================== API: Análisis de logs Minecraft =====================
 from flask import jsonify
 
+# Flask app with proper paths
+app = Flask(__name__)
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
+
+# Security configurations
+app.config['SESSION_COOKIE_SECURE'] = os.environ.get('FLASK_ENV') == 'production'
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+
+# ===================== API: Análisis de logs Minecraft =====================
 @app.route('/api/analyze_log', methods=['POST'])
 def api_analyze_log():
     """API endpoint para analizar logs de Minecraft. Recibe texto plano o archivo."""
@@ -109,15 +118,6 @@ def api_analyze_log():
     result = analyze_log_lines(log_lines)
     return jsonify(result)
 from models import LoginAttempt
-
-# Flask app with proper paths
-app = Flask(__name__)
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
-
-# Security configurations
-app.config['SESSION_COOKIE_SECURE'] = os.environ.get('FLASK_ENV') == 'production'
-app.config['SESSION_COOKIE_HTTPONLY'] = True
-app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['PERMANENT_SESSION_LIFETIME'] = 600  # 10 minutos
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 
