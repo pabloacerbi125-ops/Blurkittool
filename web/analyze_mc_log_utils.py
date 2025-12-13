@@ -119,8 +119,6 @@ def main():
 
 if __name__ == "__main__":
     main()
-def analyze_log_lines(*args, **kwargs):
-    """Función dummy para evitar errores de importación."""
-    return []
+
 
 
