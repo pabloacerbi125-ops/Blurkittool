@@ -44,42 +44,78 @@ def extract_mc_version(log_lines: List[str]) -> str:
 def extract_mods(log_lines: List[str]) -> List[Dict[str, Any]]:
     mods = set()
     mod_details = {}
+    # 1. Detectar bloque "Loading X mods:" (Fabric/Forge)
+    loading_mods = False
     for line in log_lines:
-        # Forge/Fabric mods
+        if re.search(r"Loading \d+ mods", line):
+            loading_mods = True
+            continue
+        if loading_mods:
+            # Fin del bloque si la línea empieza con [ o está vacía
+            if line.strip().startswith("[") or not line.strip():
+                loading_mods = False
+                continue
+            # Ejemplo: "- sodium 0.4.10"
+            m = re.match(r"-\s*([\w\-]+)(?:\s+([\d\w.\-+]+))?", line.strip())
+            if m:
+                mod_name = m.group(1)
+                mod_ver = m.group(2) if m.group(2) else None
+                mods.add(mod_name)
+                if mod_name not in mod_details:
+                    mod_details[mod_name] = {}
+                if mod_ver:
+                    mod_details[mod_name]["version"] = mod_ver
+    # 2. "Loaded configuration file for X:"
+    for line in log_lines:
+        m = re.search(r"Loaded configuration file for ([\w\-]+):", line)
+        if m:
+            mod_name = m.group(1)
+            mods.add(mod_name)
+            if mod_name not in mod_details:
+                mod_details[mod_name] = {}
+    # 3. Mods explícitos por nombre
+    explicit_mods = ["Lithium", "Sodium", "Iris", "Krypton", "Indium", "ModMenu", "MoreCulling", "SodiumExtra", "FabricSkyBoxes", "WorldEdit"]
+    for line in log_lines:
+        for mod in explicit_mods:
+            if mod.lower() in line.lower():
+                mods.add(mod)
+                if mod not in mod_details:
+                    mod_details[mod] = {}
+    # 4. Fabric/Forge mods en ResourceManager
+    for line in log_lines:
+        m = re.search(r"fabric \(([^)]+)\)", line)
+        if m:
+            for mod in m.group(1).split(","):
+                mod_name = mod.strip().split()[0]
+                mods.add(mod_name)
+                if mod_name not in mod_details:
+                    mod_details[mod_name] = {}
+    # 5. Forge/Fabric mods en "added by mods [...]"
+    for line in log_lines:
         mod_match = re.findall(r"added by mods \[([^\]]+)\]", line)
         for group in mod_match:
             for mod in group.split(","):
-                mods.add(mod.strip())
-        # Entrypoint mods
-        entry_match = re.search(r"Found Entrypoint\\(.*?\\) ([\\w.]+)", line)
-        if entry_match:
-            mod = entry_match.group(1).split(".")[0]
-            mods.add(mod)
-        # Mods con nombre explícito
-        for mod in ["Lithium", "Sodium", "Iris", "Krypton", "Indium", "ModMenu", "MoreCulling", "SodiumExtra", "FabricSkyBoxes"]:
-            if mod.lower() in line.lower():
-                mods.add(mod)
-        # Buscar versiones de mods
-        mod_ver = re.search(r"Loaded configuration file for ([\w]+):.*", line)
-        if mod_ver:
-            mod_name = mod_ver.group(1)
-            mod_details[mod_name] = {}
-        # Ejemplo: [main/INFO]: Loaded configuration file for Lithium: 144 options available, 1 override(s) found
+                mod_name = mod.strip()
+                mods.add(mod_name)
+                if mod_name not in mod_details:
+                    mod_details[mod_name] = {}
     # Convertir a lista de dicts
     mod_list = []
     for mod in mods:
-        mod_list.append({"name": mod, **mod_details.get(mod, {})})
+        entry = {"name": mod}
+        entry.update(mod_details.get(mod, {}))
+        mod_list.append(entry)
     return sorted(mod_list, key=lambda x: x["name"])
 
 def extract_client(log_lines: List[str]) -> str:
     for line in log_lines:
-        if "Lunar client" in line or "LunarClient" in line:
+        if re.search(r"lunar ?client", line, re.IGNORECASE):
             return "LunarClient"
-        if "Forge" in line:
-            return "Forge"
-        if "Fabric" in line:
+        if re.search(r"fabric loader", line, re.IGNORECASE):
             return "Fabric"
-    return None
+        if re.search(r"forge", line, re.IGNORECASE):
+            return "Forge"
+    return "Vanilla"  # Si no se detecta ninguno, asumir Vanilla
 
 def extract_errors(log_lines: List[str]) -> List[str]:
     errors = []

@@ -2,29 +2,30 @@
 """
 Ejemplo de uso: detección automática de hacks/mods ilegales en logs usando el modelo entrenado y la lista de mods prohibidos de la BD.
 """
-from ml_integration import MLLogModel
-from log_analyzer import MinecraftLogAnalyzer
-import pickle
 
-# Cargar lista de mods prohibidos
-with open('web/prohibited_mods.txt', 'r', encoding='utf-8') as f:
-    hacks = [line.strip() for line in f if line.strip()]
+# Analizador mejorado: muestra mods y cliente detectado
+import os
+from analyze_mc_log_utils import analyze_log_lines
 
-# Cargar modelo entrenado
-with open('web/hack_detector_model.pkl', 'rb') as f:
-    data = pickle.load(f)
-    clf = data['model']
-    vectorizer = data['vectorizer']
-ml_model = MLLogModel(clf, vectorizer)
+log_path = 'c:/Users/pabli/OneDrive/Documentos/latest.log'
+if not os.path.exists(log_path):
+    log_path = 'c:/Users/pabli/Downloads/latest.log'
 
-# Instanciar el analizador
-analyzer = MinecraftLogAnalyzer(hacks, regex_patterns=[], ml_model=ml_model)
-
-# Analizar un log (puedes cambiar la ruta al log que quieras analizar)
-with open('c:/Users/pabli/OneDrive/Documentos/latest.log', 'r', encoding='utf-8') as f:
+with open(log_path, 'r', encoding='utf-8') as f:
     lines = f.readlines()
-results = analyzer.parse_log(lines)
 
-print(f"Se detectaron {len(results)} posibles hacks/mods ilegales:")
-for r in results:
-    print(r)
+result = analyze_log_lines(lines)
+
+print(f"Jugador: {result['player']}")
+print(f"Versión de Minecraft: {result['mc_version']}")
+print(f"Cliente detectado: {result['client']}")
+print("Mods detectados:")
+for mod in result['mods']:
+    if 'version' in mod:
+        print(f"- {mod['name']} {mod['version']}")
+    else:
+        print(f"- {mod['name']}")
+if result['errors']:
+    print("Errores detectados en el log:")
+    for err in result['errors']:
+        print(f"  {err}")
