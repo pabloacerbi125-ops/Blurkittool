@@ -319,7 +319,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                        {% for user in users %}
+                        {% for user, is_online in users %}
                         <tr {% if not user.is_active %}style="opacity: 0.6;"{% endif %}>
                             <td><strong style="color: #ffffff;">{{ user.id }}</strong></td>
                             <td>
@@ -344,8 +344,10 @@
                                 {% endif %}
                             </td>
                             <td>
-                                {% if user.is_active %}
-                                <span class="badge-active">Activo</span>
+                                {% if is_online %}
+                                <span class="badge-active" style="background-color: #28a745;">🟢 Online</span>
+                                {% elif user.is_active %}
+                                <span class="badge-inactive">Offline</span>
                                 {% else %}
                                 <span class="badge-inactive">Inactivo</span>
                                 {% endif %}

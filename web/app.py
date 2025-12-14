@@ -12,6 +12,7 @@ from flask import Flask, render_template, request, redirect, url_for, flash, ses
 from flask_login import LoginManager, login_user, logout_user, current_user
 from flask_bcrypt import Bcrypt
 from datetime import datetime
+from time import time
 
 # ============================================================================
 # AUTO GIT PULL ON STARTUP (keep database in sync)
@@ -179,8 +180,9 @@ logout_flag = {'done': False}
 
 @app.before_request
 def force_logout_on_render():
+    # Solo forzar logout si NO estamos en login, autenticando, ni sirviendo archivos estáticos
     if os.environ.get('FLASK_ENV') == 'production' and not logout_flag['done']:
-        if current_user.is_authenticated:
+        if request.endpoint and not request.endpoint.startswith(('login', 'static', 'auth', 'admin_create_user')) and current_user.is_authenticated:
             session.clear()
             logout_user()
             flash('Por seguridad, vuelve a iniciar sesión.', 'info')
@@ -406,7 +408,6 @@ def page():
 
 @app.route('/modsjg')
 def modsjg():
-    """Public mods list page - separate page for viewing mods."""
     search = request.args.get('search', '').strip().lower()
     all_mods = Mod.query.order_by(Mod.name).all()
     filtered_mods = []
@@ -430,8 +431,6 @@ def reglas():
 # ============================================================================
 # AUTHENTICATED ROUTES (Login required, all roles can access)
 # ============================================================================
-
-
 
 @app.route('/mods')
 @login_required
@@ -767,7 +766,14 @@ def delete(idx):
 def admin_users():
     """Manage users - smod y admin."""
     users = User.query.order_by(User.created_at.desc()).all()
-    return render_template('admin_users.html', users=users)
+    # Marcar online si el usuario está en online_users y fue activo en los últimos 3 minutos
+    now = time()
+    users_with_status = []
+    for user in users:
+        last_seen = online_users.get(user.username)
+        is_online = last_seen is not None and (now - last_seen) < ONLINE_TIMEOUT
+        users_with_status.append((user, is_online))
+    return render_template('admin_users.html', users=users_with_status)
 
 
 @app.route('/admin/users/create', methods=['POST'])
