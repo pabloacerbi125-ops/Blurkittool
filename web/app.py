@@ -174,6 +174,16 @@ def restore_session_history():
         session.permanent = True
 
 
+@app.before_request
+def force_logout_on_render():
+    # Si está en Render (producción), forzar logout en cada request
+    if os.environ.get('FLASK_ENV') == 'production' and current_user.is_authenticated:
+        session.clear()
+        logout_user()
+        flash('Por seguridad, vuelve a iniciar sesión.', 'info')
+        return redirect(url_for('login'))
+
+
 # ============================================================================
 # PUBLIC ROUTES (No login required)
 # ============================================================================
@@ -714,7 +724,11 @@ def edit(idx):
         ])
         
         flash(f'Mod "{nuevo_nombre}" actualizado exitosamente.', 'success')
-        return redirect(url_for('index'))
+        # Limpiar sesión y forzar logout tras update de mod
+        session.clear()
+        logout_user()
+        flash('Por seguridad, vuelve a iniciar sesión tras actualizar un mod.', 'info')
+        return redirect(url_for('login'))
     
     return render_template('edit.html', idx=idx, mod=mod.to_dict())
 
@@ -879,9 +893,11 @@ def admin_edit_user(user_id):
     db.session.commit()
     print(f'[User Management] Update user: {username}', flush=True)
     auto_commit_and_push(f'Update user: {username}')
-    
-    flash(f'Usuario "{username}" actualizado exitosamente.', 'success')
-    return redirect(url_for('admin_users'))
+    # Limpiar sesión y forzar logout tras update
+    session.clear()
+    logout_user()
+    flash('Por seguridad, vuelve a iniciar sesión tras actualizar el usuario.', 'info')
+    return redirect(url_for('login'))
 
 
 @app.route('/admin/users/<int:user_id>/delete', methods=['POST'])
