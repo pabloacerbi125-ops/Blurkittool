@@ -408,7 +408,12 @@
 </div>
 
 <!-- Edit User Modals -->
-{% for user in users %}
+{% for item in users %}
+    {% if item is iterable and item|length == 2 %}
+        {% set user = item[0] %}
+    {% else %}
+        {% set user = item %}
+    {% endif %}
 <div class="modal fade" id="editModal{{ user.id }}" tabindex="-1" aria-labelledby="editModalLabel{{ user.id }}" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
