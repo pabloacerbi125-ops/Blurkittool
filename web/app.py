@@ -183,10 +183,10 @@ def force_logout_on_render():
     # Solo forzar logout si NO estamos en login, autenticando, ni sirviendo archivos estáticos
     if os.environ.get('FLASK_ENV') == 'production' and not logout_flag['done']:
         if request.endpoint and not request.endpoint.startswith(('login', 'static', 'auth', 'admin_create_user')) and current_user.is_authenticated:
+            logout_flag['done'] = True  # Mover antes del redirect para evitar doble logout
             session.clear()
             logout_user()
             flash('Por seguridad, vuelve a iniciar sesión.', 'info')
-            logout_flag['done'] = True
             return redirect(url_for('login'))
 
 
