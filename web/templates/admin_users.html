@@ -319,7 +319,14 @@
                     </tr>
                 </thead>
                 <tbody>
-                        {% for user, is_online in users %}
+                        {% for item in users %}
+                        {% if item is iterable and item|length == 2 %}
+                            {% set user = item[0] %}
+                            {% set is_online = item[1] %}
+                        {% else %}
+                            {% set user = item %}
+                            {% set is_online = false %}
+                        {% endif %}
                         <tr {% if not user.is_active %}style="opacity: 0.6;"{% endif %}>
                             <td><strong style="color: #ffffff;">{{ user.id }}</strong></td>
                             <td>
