@@ -14,6 +14,9 @@ from flask_bcrypt import Bcrypt
 from datetime import datetime
 from time import time
 
+# Diccionario en memoria para usuarios online
+online_users = {}
+
 # ============================================================================
 # AUTO GIT PULL ON STARTUP (keep database in sync)
 # ============================================================================
