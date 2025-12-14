@@ -174,14 +174,18 @@ def restore_session_history():
         session.permanent = True
 
 
+# Solo cerrar sesión al iniciar la app (primer request tras reinicio)
+logout_flag = {'done': False}
+
 @app.before_request
 def force_logout_on_render():
-    # Si está en Render (producción), forzar logout en cada request
-    if os.environ.get('FLASK_ENV') == 'production' and current_user.is_authenticated:
-        session.clear()
-        logout_user()
-        flash('Por seguridad, vuelve a iniciar sesión.', 'info')
-        return redirect(url_for('login'))
+    if os.environ.get('FLASK_ENV') == 'production' and not logout_flag['done']:
+        if current_user.is_authenticated:
+            session.clear()
+            logout_user()
+            flash('Por seguridad, vuelve a iniciar sesión.', 'info')
+            logout_flag['done'] = True
+            return redirect(url_for('login'))
 
 
 # ============================================================================
