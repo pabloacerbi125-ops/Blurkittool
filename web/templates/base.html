@@ -88,9 +88,7 @@
                 <span class="badge bg-info" style="margin-left: 0.5rem;">{{ current_user.role }}</span>
               {% endif %}
             </span>
-            <form method="post" action="{{ url_for('logout') }}" style="margin:0;">
-              <button type="submit" class="btn btn-sm btn-outline-light" style="font-weight:bold;">Cerrar sesión</button>
-            </form>
+            <a href="{{ url_for('logout') }}" class="btn btn-sm btn-outline-light" style="font-weight:bold;">Cerrar sesión</a>
           </div>
         </div>
         {% endif %}
