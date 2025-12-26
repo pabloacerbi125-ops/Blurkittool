@@ -24,11 +24,11 @@
           </div>
         </a>
         
+
         {% if current_user.is_authenticated %}
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
           <span class="navbar-toggler-icon"></span>
         </button>
-        
         <div class="collapse navbar-collapse" id="navbarNav">
           <ul class="navbar-nav me-auto">
             <li class="nav-item">
@@ -61,26 +61,37 @@
               </ul>
             </li>
             {% endif %}
-            {% endif %}
           </ul>
-          
           <div class="d-flex align-items-center ms-auto">
             <span class="text-light me-3">
               <strong>{{ current_user.username }}</strong>
-              <span class="badge 
-                {% if current_user.role == 'admin' %}bg-danger
-                {% elif current_user.role == 'smod' %}bg-primary
-                {% elif current_user.role == 'mod' %}bg-success
-                {% else %}bg-info{% endif %}">
-                {{ current_user.role }}
-              </span>
+              {% if current_user.role == 'adminpage' %}
+                <span class="badge" style="background:#ff00aa;color:#fff;font-weight:bold;">AdminPage</span>
+              {% elif current_user.role == 'owner' %}
+                <span class="badge" style="background:#ff9800;color:#fff;font-weight:bold;">Owner</span>
+              {% elif current_user.role == 'founder' %}
+                <span class="badge bg-secondary" style="font-weight:bold;">Founder</span>
+              {% elif current_user.role == 'manager' %}
+                <span class="badge" style="background:#8e24aa;color:#fff;">Manager</span>
+              {% elif current_user.role == 'p-helper' %}
+                <span class="badge" style="background:#7cffb2;color:#222;">P-Helper</span>
+              {% elif current_user.role == 'helper' %}
+                <span class="badge" style="background:#7cffb2;color:#222;">helper</span>
+              {% elif current_user.role == 'admin' %}
+                <span class="badge bg-danger">admin</span>
+              {% elif current_user.role == 'smod' %}
+                <span class="badge" style="background:#009fae;color:#fff;">smod</span>
+              {% elif current_user.role == 'mod' %}
+                <span class="badge" style="background:#006400;color:#fff;">mod</span>
+              {% else %}
+                <span class="badge bg-info">{{ current_user.role }}</span>
+              {% endif %}
             </span>
-            <a class="btn btn-sm btn-outline-light" href="{{ url_for('logout') }}">Cerrar sesión</a>
           </div>
-        </div>
+    		</div>
         {% endif %}
-      </div>
-    </nav>
+      {% endif %}
+      </nav>
 
     <main class="container container-main my-4">
       {% with messages = get_flashed_messages(with_categories=true) %}
@@ -151,3 +162,4 @@
     </script>
   </body>
 </html>
+

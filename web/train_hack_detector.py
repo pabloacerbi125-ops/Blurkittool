@@ -3,9 +3,7 @@
 Script para entrenar un modelo de detección de mods/hacks prohibidos en logs de Minecraft.
 """
 import sqlite3
-import random
 import pickle
-from pathlib import Path
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.model_selection import train_test_split

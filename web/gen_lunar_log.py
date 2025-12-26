@@ -1,4 +1,3 @@
-import sys
 
 log = '''[14:21:26] [main/INFO]: Loaded configuration file for Lithium: 144 options available, 1 override(s) found
 [14:21:26] [main/INFO]: Loaded configuration file for Sodium: 42 options available, 3 override(s) found

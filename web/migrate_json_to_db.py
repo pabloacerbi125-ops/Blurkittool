@@ -4,8 +4,6 @@ Run this script once to migrate your existing data.
 """
 
 import sys
-import os
-import json
 from pathlib import Path
 from getpass import getpass
 

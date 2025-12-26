@@ -3,7 +3,6 @@
 Carga el modelo entrenado y lo integra con el analizador de logs para detección automática.
 """
 import pickle
-from log_analyzer import MinecraftLogAnalyzer
 
 
 MODEL_PATH = 'web/hack_detector_model.pkl'

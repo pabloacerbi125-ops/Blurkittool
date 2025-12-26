@@ -8,7 +8,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from app import app, db
-from models import LoginAttempt
 
 def main():
     """Create the login_attempts table."""

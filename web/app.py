@@ -12,7 +12,11 @@ from flask import Flask, render_template, request, redirect, url_for, flash, ses
 from flask_login import LoginManager, login_user, logout_user, current_user
 from flask_bcrypt import Bcrypt
 from datetime import datetime
+
 from time import time
+
+# Tiempo máximo para considerar a un usuario como online (en segundos)
+ONLINE_TIMEOUT = 180  # 3 minutos
 
 # Diccionario en memoria para usuarios online
 online_users = {}
@@ -105,9 +109,13 @@ app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 @app.route('/menu')
 @login_required
 def menu():
-    total_mods = Mod.query.count()
-    prohibidos_count = Mod.query.filter_by(status='prohibido').count()
-    permitidos_count = Mod.query.filter_by(status='permitido').count()
+    try:
+        total_mods = Mod.query.count()
+        prohibidos_count = Mod.query.filter_by(status='prohibido').count()
+        permitidos_count = Mod.query.filter_by(status='permitido').count()
+    except Exception as e:
+        total_mods = prohibidos_count = permitidos_count = 0
+        flash(f'Error al consultar mods: {e}', 'danger')
     stats = {
         'total': total_mods,
         'prohibidos': prohibidos_count,
