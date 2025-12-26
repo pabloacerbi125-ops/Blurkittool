@@ -61,36 +61,39 @@
               </ul>
             </li>
             {% endif %}
+            {% endif %}
           </ul>
           <div class="d-flex align-items-center ms-auto">
-            <span class="text-light me-3">
-              <strong>{{ current_user.username }}</strong>
+            <span class="text-light me-3" style="font-weight: bold; font-size: 1.08rem;">
+              {{ current_user.username }}
               {% if current_user.role == 'adminpage' %}
-                <span class="badge" style="background:#ff00aa;color:#fff;font-weight:bold;">AdminPage</span>
+                <span class="badge" style="background:#ff00aa;color:#fff;font-weight:bold; margin-left: 0.5rem;">AdminPage</span>
               {% elif current_user.role == 'owner' %}
-                <span class="badge" style="background:#ff9800;color:#fff;font-weight:bold;">Owner</span>
+                <span class="badge" style="background:#ff9800;color:#fff;font-weight:bold; margin-left: 0.5rem;">Owner</span>
               {% elif current_user.role == 'founder' %}
-                <span class="badge bg-secondary" style="font-weight:bold;">Founder</span>
+                <span class="badge" style="background:#FFD700;color:#222;font-weight:bold; margin-left: 0.5rem;">Founder</span>
               {% elif current_user.role == 'manager' %}
-                <span class="badge" style="background:#8e24aa;color:#fff;">Manager</span>
+                <span class="badge" style="background:#8e24aa;color:#fff; margin-left: 0.5rem;">Manager</span>
               {% elif current_user.role == 'p-helper' %}
-                <span class="badge" style="background:#7cffb2;color:#222;">P-Helper</span>
+                <span class="badge" style="background:#7cffb2;color:#222; margin-left: 0.5rem;">P-Helper</span>
               {% elif current_user.role == 'helper' %}
-                <span class="badge" style="background:#7cffb2;color:#222;">helper</span>
+                <span class="badge" style="background:#7cffb2;color:#222; margin-left: 0.5rem;">helper</span>
               {% elif current_user.role == 'admin' %}
-                <span class="badge bg-danger">admin</span>
+                <span class="badge bg-danger" style="margin-left: 0.5rem;">admin</span>
               {% elif current_user.role == 'smod' %}
-                <span class="badge" style="background:#009fae;color:#fff;">smod</span>
+                <span class="badge" style="background:#009fae;color:#fff; margin-left: 0.5rem;">smod</span>
               {% elif current_user.role == 'mod' %}
-                <span class="badge" style="background:#006400;color:#fff;">mod</span>
+                <span class="badge" style="background:#006400;color:#fff; margin-left: 0.5rem;">mod</span>
               {% else %}
-                <span class="badge bg-info">{{ current_user.role }}</span>
+                <span class="badge bg-info" style="margin-left: 0.5rem;">{{ current_user.role }}</span>
               {% endif %}
             </span>
+            <form method="post" action="{{ url_for('logout') }}" style="margin:0;">
+              <button type="submit" class="btn btn-sm btn-outline-light" style="font-weight:bold;">Cerrar sesión</button>
+            </form>
           </div>
-    		</div>
+        </div>
         {% endif %}
-      {% endif %}
       </nav>
 
     <main class="container container-main my-4">
@@ -110,7 +113,7 @@
 
 
     <footer class="container container-main text-center py-3">
-      <span class="footer-note">versión: v1.0 con autenticación • SQLite database • by: PonyGamer_uwu</span>
+      <span class="footer-note">By: PonyGamer_uwu</span>
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
@@ -118,12 +121,7 @@
       // Variable JS para saber si el usuario está autenticado (como booleano)
       const isAuthenticated = {{ 'true' if current_user.is_authenticated else 'false' }};
 
-      // Cierre de sesión tras cerrar pestaña/ventana
-      window.addEventListener('unload', function() {
-        if (isAuthenticated) {
-          navigator.sendBeacon("{{ url_for('logout') }}");
-        }
-      });
+
 
       // Cierre de sesión tras inactividad (10 minutos)
       let inactivityTimeout;
@@ -134,7 +132,7 @@
         }, 10 * 60 * 1000); // 10 minutos
       }
       if (isAuthenticated) {
-        ['mousemove','keydown','scroll','click'].forEach(evt => {
+        ['mousemove','keydown','scroll'].forEach(evt => {
           window.addEventListener(evt, resetInactivityTimer);
         });
         resetInactivityTimer();
