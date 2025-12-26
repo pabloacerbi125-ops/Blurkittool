@@ -521,6 +521,12 @@ def analyze():
     """Analyze log - accessible to all roles."""
     log_text = request.form.get('log', '')
     resultado = None
+    if not log_text.strip():
+        flash('Por favor, pega un log antes de analizar.', 'warning')
+        user_key = current_user.username
+        history = session.get('logs_history', logs_history.get(user_key, []))
+        return render_template('analysis.html', resultado=None, logs_history=history)
+    # Si hay texto, sigue el flujo normal
     if log_text.strip():
         from core import analyze_log_with_gpt
         openai_api_key = os.environ.get('OPENAI_API_KEY')
