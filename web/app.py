@@ -521,31 +521,84 @@ def analyze():
     """Analyze log - accessible to all roles."""
     log_text = request.form.get('log', '')
     resultado = None
-    
     if log_text.strip():
-        resultado = analyze_log_lines(log_text.splitlines())
-        # Categorize mods for template/JS compatibility
+        from core import analyze_log_with_gpt
+        openai_api_key = os.environ.get('OPENAI_API_KEY')
+        if openai_api_key:
+            resultado = analyze_log_with_gpt(log_text, openai_api_key)
+            # Si hay error, fallback al análisis local
+            if resultado.get('error'):
+                from analyze_mc_log_utils import analyze_log_lines
+                resultado = analyze_log_lines(log_text.splitlines())
+        else:
+            from analyze_mc_log_utils import analyze_log_lines
+            resultado = analyze_log_lines(log_text.splitlines())
+
+        # Si la IA no detectó el nombre del jugador, intenta extraerlo localmente
+        if not resultado.get('player'):
+            from analyze_mc_log_utils import extract_player
+            resultado['player'] = extract_player(log_text.splitlines())
+
+        # Clasificar mods y dependencias igual que en upload
         mods = resultado.get('mods', [])
         dependencies = resultado.get('dependencies', [])
         mods_prohibidos = []
         mods_permitidos = []
         mods_desconocidos = []
+        # Mejor comparación: ignora mayúsculas/minúsculas y espacios, busca en aliases
+        all_mods_db = list(Mod.query.all())
+        def match_mod(mod_name):
+            mod_name_norm = mod_name.lower().replace(' ', '')
+            for m in all_mods_db:
+                # Normaliza nombre y aliases
+                db_name = m.name.lower().replace(' ', '')
+                if mod_name_norm == db_name:
+                    return m
+                if m.aliases:
+                    for alias in m.aliases.split(','):
+                        if mod_name_norm == alias.strip().lower().replace(' ', ''):
+                            return m
+            return None
+
         for mod in mods:
-            db_mod = Mod.query.filter_by(name=mod['name']).first()
+            mod_name = mod['name']
+            db_mod = match_mod(mod_name)
             if db_mod:
+                mod_info = {**mod, 'category': db_mod.category, 'platform': db_mod.platform, 'description': db_mod.description}
                 if db_mod.status == 'prohibido':
-                    mods_prohibidos.append({**mod, 'category': db_mod.category, 'platform': db_mod.platform})
+                    mods_prohibidos.append(mod_info)
                 elif db_mod.status == 'permitido':
-                    mods_permitidos.append({**mod, 'category': db_mod.category, 'platform': db_mod.platform})
+                    mods_permitidos.append(mod_info)
                 else:
                     mods_desconocidos.append(mod)
             else:
                 mods_desconocidos.append(mod)
+        # Clasificar dependencias/librerías igual que mods
+        dependencias_permitidas = []
+        dependencias_prohibidas = []
+        dependencias_desconocidas = []
+        for dep in dependencies:
+            dep_name = dep['name'].lower()
+            db_mod = mods_db.get(dep_name)
+            if db_mod:
+                if db_mod.status == 'prohibido':
+                    dependencias_prohibidas.append({**dep, 'category': db_mod.category, 'platform': db_mod.platform})
+                elif db_mod.status == 'permitido':
+                    dependencias_permitidas.append({**dep, 'category': db_mod.category, 'platform': db_mod.platform})
+                else:
+                    dependencias_desconocidas.append(dep)
+            else:
+                dependencias_desconocidas.append(dep)
+
         resultado['mods_prohibidos'] = mods_prohibidos
         resultado['mods_permitidos'] = mods_permitidos
         resultado['mods_desconocidos'] = mods_desconocidos
-        resultado['dependencias'] = dependencies  # Mapeo consistente para el frontend
+        resultado['dependencias_permitidas'] = dependencias_permitidas
+        resultado['dependencias_prohibidas'] = dependencias_prohibidas
+        resultado['dependencias_desconocidas'] = dependencias_desconocidas
+        resultado['dependencias'] = dependencies  # Para compatibilidad con el frontend
         resultado['total'] = len(mods) + len(dependencies)
+        resultado['total_mods'] = len(mods_permitidos) + len(mods_prohibidos) + len(mods_desconocidos)
 
         user_key = current_user.username
         if user_key not in logs_history:
@@ -553,14 +606,12 @@ def analyze():
         history_item = {
             'timestamp': datetime.now().strftime('%d/%m/%Y %H:%M:%S'),
             'user': current_user.username,
-            'version': resultado.get('version'),
             'filename': 'pasted_log',
             'resultado': resultado
         }
         logs_history[user_key].insert(0, history_item)
         if len(logs_history[user_key]) > MAX_HISTORY_ITEMS:
             logs_history[user_key].pop()
-
         session['logs_history'] = logs_history.get(user_key, [])
         session.permanent = True
         session.modified = True
@@ -576,6 +627,38 @@ def paste_page():
     """Paste log page - accessible to all roles."""
     user_key = current_user.username
     history = session.get('logs_history', logs_history.get(user_key, []))
+    if request.method == 'POST':
+        log_text = request.form.get('logtext', '')
+        from core import analyze_log_with_gpt
+        openai_api_key = os.environ.get('OPENAI_API_KEY')
+        if openai_api_key:
+            resultado = analyze_log_with_gpt(log_text, openai_api_key)
+            if resultado.get('error'):
+                from analyze_mc_log_utils import analyze_log_lines
+                resultado = analyze_log_lines(log_text.splitlines())
+        else:
+            from analyze_mc_log_utils import analyze_log_lines
+            resultado = analyze_log_lines(log_text.splitlines())
+
+        # Guardar en historial igual que upload
+        if user_key not in logs_history:
+            logs_history[user_key] = []
+        history_item = {
+            'timestamp': datetime.now().strftime('%d/%m/%Y %H:%M:%S'),
+            'user': current_user.username,
+            'filename': 'pasted_log',
+            'resultado': resultado
+        }
+        logs_history[user_key].insert(0, history_item)
+        if len(logs_history[user_key]) > MAX_HISTORY_ITEMS:
+            logs_history[user_key].pop()
+        session['logs_history'] = logs_history.get(user_key, [])
+        session.permanent = True
+        session.modified = True
+        history_to_display = session.get('logs_history', logs_history.get(current_user.username, []))
+        if history_to_display:
+            logs_history[current_user.username] = history_to_display
+        return render_template('analysis.html', resultado=resultado, logs_history=history_to_display)
     return render_template('paste.html', logs_history=history)
 
 
@@ -599,29 +682,43 @@ def upload():
     except Exception:
         content = f.read().decode('latin-1', errors='ignore')
     
-    resultado = analyze_log_lines(content.splitlines())
-    # Categorize mods for template/JS compatibility
-    mods = resultado.get('mods', [])
-    dependencies = resultado.get('dependencies', [])
-    mods_prohibidos = []
-    mods_permitidos = []
-    mods_desconocidos = []
-    for mod in mods:
-        db_mod = Mod.query.filter_by(name=mod['name']).first()
-        if db_mod:
-            if db_mod.status == 'prohibido':
-                mods_prohibidos.append({**mod, 'category': db_mod.category, 'platform': db_mod.platform})
-            elif db_mod.status == 'permitido':
-                mods_permitidos.append({**mod, 'category': db_mod.category, 'platform': db_mod.platform})
-            else:
-                mods_desconocidos.append(mod)
-        else:
-            mods_desconocidos.append(mod)
-    resultado['mods_prohibidos'] = mods_prohibidos
-    resultado['mods_permitidos'] = mods_permitidos
-    resultado['mods_desconocidos'] = mods_desconocidos
-    resultado['dependencias'] = dependencies  # Mapeo consistente para el frontend
-    resultado['total'] = len(mods) + len(dependencies)
+    # Usar GPT-3.5-turbo si la variable de entorno está presente
+    from core import analyze_log_with_gpt
+    openai_api_key = os.environ.get('OPENAI_API_KEY')
+    if openai_api_key:
+        resultado = analyze_log_with_gpt(content, openai_api_key)
+        # Si hay error, fallback al análisis local
+        if resultado.get('error'):
+            resultado = analyze_log_lines(content.splitlines())
+    else:
+        resultado = analyze_log_lines(content.splitlines())
+
+    # Adaptar el resultado IA (allowed/unknown/mods_main/dependencies) a los campos esperados por el frontend
+    # Log de depuración: guardar el JSON crudo de la IA para inspección
+    import logging
+    logging.basicConfig(level=logging.INFO)
+    with open('ia_raw_result.json', 'w', encoding='utf-8') as f:
+        import json as _json
+        f.write(_json.dumps(resultado, ensure_ascii=False, indent=2))
+    # Si la IA ya devuelve la estructura final, solo la copiamos y calculamos el total
+    if all(k in resultado for k in ['mods_permitidos', 'mods_prohibidos', 'mods_desconocidos', 'dependencias']):
+        resultado['total'] = (
+            len(resultado['mods_permitidos'])
+            + len(resultado['mods_prohibidos'])
+            + len(resultado['mods_desconocidos'])
+            + len(resultado['dependencias'])
+        )
+        resultado['total_mods'] = (
+            len(resultado['mods_permitidos'])
+            + len(resultado['mods_prohibidos'])
+            + len(resultado['mods_desconocidos'])
+        )
+    elif any(k in resultado for k in ['allowed', 'unknown', 'mods_main', 'dependencies']):
+        pass  # Aquí iría el código legacy si se necesitara
+    # Si la IA no detectó el nombre del jugador, intenta extraerlo localmente
+    if not resultado.get('player'):
+        from analyze_mc_log_utils import extract_player
+        resultado['player'] = extract_player(content.splitlines())
 
     user_key = current_user.username
     if user_key not in logs_history:

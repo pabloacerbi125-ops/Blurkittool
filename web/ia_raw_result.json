@@ -1,0 +1,44 @@
+{
+  "mods_permitidos": [
+    {
+      "name": "Lithium",
+      "version": ""
+    },
+    {
+      "name": "Sodium",
+      "version": ""
+    },
+    {
+      "name": "Ichor",
+      "version": ""
+    },
+    {
+      "name": "Genesis",
+      "version": ""
+    },
+    {
+      "name": "FabricSkyBoxesClient",
+      "version": ""
+    },
+    {
+      "name": "ModMenu",
+      "version": ""
+    },
+    {
+      "name": "MoreCulling",
+      "version": ""
+    }
+  ],
+  "mods_prohibidos": [],
+  "mods_desconocidos": [
+    {
+      "name": "ferritecore",
+      "version": ""
+    },
+    {
+      "name": "iris",
+      "version": ""
+    }
+  ],
+  "dependencias": []
+}

@@ -1,3 +1,64 @@
+import openai
+
+def analyze_log_with_gpt(log_text: str, openai_api_key: str) -> dict:
+    """
+    Analiza un log de Minecraft usando GPT-3.5-turbo y devuelve un JSON estructurado igual a analyze_mc_log_utils.py.
+    """
+    client = openai.OpenAI(api_key=openai_api_key)
+    # Cargar mods permitidos y prohibidos desde la BD
+    mods_bd = load_mods()
+    permitidos = []
+    prohibidos = []
+    for m in mods_bd:
+        if m['status'] == 'permitido':
+            permitidos.append(m['name'])
+            if 'alias' in m and m['alias']:
+                if isinstance(m['alias'], list):
+                    permitidos.extend(m['alias'])
+                elif isinstance(m['alias'], str):
+                    permitidos.extend([a.strip() for a in m['alias'].split(',') if a.strip()])
+        elif m['status'] == 'prohibido':
+            prohibidos.append(m['name'])
+            if 'alias' in m and m['alias']:
+                if isinstance(m['alias'], list):
+                    prohibidos.extend(m['alias'])
+                elif isinstance(m['alias'], str):
+                    prohibidos.extend([a.strip() for a in m['alias'].split(',') if a.strip()])
+    permitidos_txt = "\n".join(sorted(set(permitidos)))
+    prohibidos_txt = "\n".join(sorted(set(prohibidos)))
+    # PROMPT: la IA debe clasificar
+    prompt = (
+        "Eres un experto en análisis de logs de Minecraft.\n"
+        "Tu tarea es:\n"
+        "- Extraer y listar absolutamente TODOS los mods, librerías y dependencias que aparezcan en el log, aunque no estén en ninguna lista.\n"
+        "- Clasifica cada mod y dependencia en uno de estos grupos: 'mods_permitidos', 'mods_prohibidos', 'mods_desconocidos', 'dependencias'.\n"
+        "- Usa las siguientes listas para comparar (case-insensitive, ignora espacios y guiones):\n"
+        "  - Permitidos:\n" + permitidos_txt + "\n"
+        "  - Prohibidos:\n" + prohibidos_txt + "\n"
+        "- Si el nombre no está en ninguna lista, ponlo en 'mods_desconocidos'.\n"
+        "- Distingue dependencias/librerías si es posible (por contexto del log).\n"
+        "- Para cada mod o dependencia, incluye el nombre y, si está disponible, la versión.\n"
+        "El resultado debe ser un JSON con la siguiente estructura:\n"
+        "{\n  'mods_permitidos': [ { 'name': '', 'version': '' } ],\n  'mods_prohibidos': [ { 'name': '', 'version': '' } ],\n  'mods_desconocidos': [ { 'name': '', 'version': '' } ],\n  'dependencias': [ { 'name': '', 'version': '' } ]\n}\n"
+        "No expliques nada, solo responde con el JSON.\n"
+        "\nLOG:\n" + log_text[:8000] + "\n"
+    )
+    response = client.chat.completions.create(
+        model="gpt-3.5-turbo",
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=1024,
+        temperature=0.1,
+    )
+    import json as _json
+    import re as _re
+    content = response.choices[0].message.content
+    match = _re.search(r'\{.*\}', content, _re.DOTALL)
+    if match:
+        try:
+            return _json.loads(match.group(0))
+        except Exception:
+            pass
+    return {"error": "No se pudo analizar el JSON", "raw": content}
 # Cargar mods desde la base de datos SQLite
 import sqlite3
 
@@ -245,15 +306,6 @@ def analizar_log_desde_lineas(lines, mods):
     if not mods_cargados:
         return {
             'usuario': usuario,
-<<<<<<< HEAD
-            'version': version_mc,
-=======
-<<<<<<< HEAD
-            'mc_version': mc_version,
-=======
-            'version': version_mc,
->>>>>>> 595f419 (Sync all changes and new files for Render deploy)
->>>>>>> f01b2d1
             'mods_prohibidos': [],
             'mods_permitidos': [],
             'mods_desconocidos': [],
@@ -286,15 +338,6 @@ def analizar_log_desde_lineas(lines, mods):
 
     return {
         'usuario': usuario,
-<<<<<<< HEAD
-        'version': version_mc,
-=======
-<<<<<<< HEAD
-        'mc_version': mc_version,
-=======
-        'version': version_mc,
->>>>>>> 595f419 (Sync all changes and new files for Render deploy)
->>>>>>> f01b2d1
         'mods_prohibidos': mods_prohibidos,
         'mods_permitidos': mods_permitidos,
         'mods_desconocidos': mods_desconocidos,

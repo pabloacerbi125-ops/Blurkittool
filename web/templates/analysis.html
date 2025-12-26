@@ -17,20 +17,25 @@
         <h5 style="color: #ffc107;">📈 Resumen</h5>
         <div class="row text-center align-items-center">
           <div class="col-3">
-            <h3 style="color: #dc3545;">{{ resultado.mods_prohibidos|length }}</h3>
-            <small style="color: #b8c1ca;">Prohibidos</small>
-          </div>
-          <div class="col-3">
             <h3 style="color: #51cf66;">{{ resultado.mods_permitidos|length }}</h3>
             <small style="color: #b8c1ca;">Permitidos</small>
+          </div>
+          <div class="col-3">
+            <h3 style="color: #dc3545;">{{ resultado.mods_prohibidos|length }}</h3>
+            <small style="color: #b8c1ca;">Prohibidos</small>
           </div>
           <div class="col-3">
             <h3 style="color: #868e96;">{{ resultado.mods_desconocidos|length }}</h3>
             <small style="color: #b8c1ca;">Desconocidos</small>
           </div>
           <div class="col-3">
-            <h3 style="color: #ffc107;">{{ resultado.total }}</h3>
-            <small style="color: #b8c1ca;">Total</small>
+            <h3 style="color: #ffc107;">{{ resultado.total_mods }}</h3>
+            <small style="color: #b8c1ca;">Total Mods</small>
+          </div>
+        </div>
+        <div class="row text-center align-items-center mt-2">
+          <div class="col-12">
+            <span style="color: #ffc107; font-size: 1.1em;">Total (incluyendo dependencias): <b>{{ resultado.total }}</b></span>
           </div>
         </div>
         {% if resultado.mc_version %}
@@ -40,6 +45,26 @@
         {% endif %}
       </div>
     </div>
+
+
+    <!-- Mods Permitidos -->
+    {% if resultado.mods_permitidos %}
+    <div class="card mb-3" style="background: rgba(23, 24, 26, 0.8); border: 1px solid #51cf66;">
+      <div class="card-body">
+        <h5 style="color: #51cf66; margin-bottom: 1rem;">✅ Mods Permitidos</h5>
+        <div class="row">
+          {% for mod in resultado.mods_permitidos %}
+          <div class="col-md-6 mb-2">
+            <div class="p-2" style="background: rgba(81, 207, 102, 0.1); border-radius: 5px; border-left: 3px solid #51cf66;">
+              <strong style="color: #51cf66;">{{ mod.name }}</strong><br>
+              <small style="color: #b8c1ca;">{{ mod.category }} • {{ mod.platform }}</small>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
 
     <!-- Mods Prohibidos (DESTACADO) -->
     {% if resultado.mods_prohibidos %}
@@ -64,25 +89,6 @@
             {% endfor %}
           </tbody>
         </table>
-      </div>
-    </div>
-    {% endif %}
-
-    <!-- Mods Permitidos -->
-    {% if resultado.mods_permitidos %}
-    <div class="card mb-3" style="background: rgba(23, 24, 26, 0.8); border: 1px solid #51cf66;">
-      <div class="card-body">
-        <h5 style="color: #51cf66; margin-bottom: 1rem;">✅ Mods Permitidos</h5>
-        <div class="row">
-          {% for mod in resultado.mods_permitidos %}
-          <div class="col-md-6 mb-2">
-            <div class="p-2" style="background: rgba(81, 207, 102, 0.1); border-radius: 5px; border-left: 3px solid #51cf66;">
-              <strong style="color: #51cf66;">{{ mod.name }}</strong><br>
-              <small style="color: #b8c1ca;">{{ mod.category }} • {{ mod.platform }}</small>
-            </div>
-          </div>
-          {% endfor %}
-        </div>
       </div>
     </div>
     {% endif %}
