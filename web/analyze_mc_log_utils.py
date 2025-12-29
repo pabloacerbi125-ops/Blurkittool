@@ -231,12 +231,66 @@ def analyze_log_lines(log_lines: List[str]) -> Dict[str, Any]:
     elif mc_version:
         player_with_version = f"MC {mc_version}"
     mods_result = extract_mods(log_lines)
+
+    # --- Enhancement: Cross-check mods with DB to ensure no permitted mod is unknown ---
+
+    try:
+        from web.models import Mod
+        from web.app import db
+        all_mods = Mod.query.all()
+        permitted = {}
+        permitted_aliases = {}
+        for m in all_mods:
+            if m.status == 'permitido':
+                permitted[m.name.strip().lower()] = m
+                if m.aliases:
+                    for alias in m.get_aliases_list():
+                        permitted_aliases[alias.strip().lower()] = m
+        def get_permitted_mod(mod_name):
+            name = mod_name.strip().lower()
+            if name in permitted:
+                return permitted[name]
+            if name in permitted_aliases:
+                return permitted_aliases[name]
+            return None
+    except Exception:
+        def get_permitted_mod(mod_name):
+            return None
+
+    mods = mods_result["mods"]
+    dependencies = mods_result["dependencies"]
+    mods_permitidos = []
+    mods_desconocidos = []
+    for mod in mods:
+        name = mod.get("name", "")
+        db_mod = get_permitted_mod(name)
+        if db_mod:
+            mod["status"] = "permitido"
+            if db_mod.description:
+                mod["description"] = db_mod.description
+            mods_permitidos.append(mod)
+        else:
+            mods_desconocidos.append(mod)
+
+    dependencies_permitidas = []
+    dependencias_desconocidas = []
+    for dep in dependencies:
+        name = dep.get("name", "")
+        db_mod = get_permitted_mod(name)
+        if db_mod:
+            dep["status"] = "permitido"
+            if db_mod.description:
+                dep["description"] = db_mod.description
+            dependencies_permitidas.append(dep)
+        else:
+            dependencias_desconocidas.append(dep)
+
     return {
         "player": player,
         "mc_version": mc_version,
         "player_with_version": player_with_version,
-        "mods": mods_result["mods"],
-        "dependencies": mods_result["dependencies"],
+        "mods": mods_permitidos + mods_desconocidos,  # preserve all mods, but permitted first
+        "dependencies": dependencies_permitidas + dependencias_desconocidas,
         "client": extract_client(log_lines),
         "errors": extract_errors(log_lines)
     }
