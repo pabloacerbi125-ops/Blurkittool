@@ -38,15 +38,15 @@
     .hero-title {
       font-family: 'Press Start 2P', monospace, 'Inter', Arial, sans-serif;
       font-size: 2.2rem;
-      color: #ffcc00;
+      color: #ff8c00;
       letter-spacing: 2px;
-      text-shadow: 0 0 8px #ff8c42, 0 0 2px #fff, 0 2px 8px #000a;
+      text-shadow: 0 0 5px #ff8c4288, 0 0 1px #fff5, 0 2px 4px #0007;
       margin-bottom: 0.7rem;
       animation: gamerGlow 2.2s infinite alternate;
     }
     @keyframes gamerGlow {
-      0% { text-shadow: 0 0 8px #ff8c42, 0 0 2px #fff, 0 2px 8px #000a; }
-      100% { text-shadow: 0 0 18px #ffcc00, 0 0 8px #ff8c42, 0 2px 16px #000c; }
+      0% { text-shadow: 0 0 5px #ff8c4288, 0 0 1px #fff5, 0 2px 4px #0007; }
+      100% { text-shadow: 0 0 10px #ffcc0088, 0 0 5px #ff8c4288, 0 2px 8px #000a; }
     }
     .hero-subtitle {
       color: #e6eef3;
@@ -61,8 +61,8 @@
       margin-bottom: 2.2rem;
     }
     .menu-card, .col-md-5.col-12 > .menu-card {
-      border: 2.5px solid #ff8c42;
-      box-shadow: 0 0 16px 2px #ff8c42cc, 0 0 32px 4px #ffcc0033;
+      border: 2.5px solid #ff8c00;
+      box-shadow: 0 0 16px 2px #ffd700cc, 0 0 32px 4px #ffd70033;
       background: rgba(30,32,36,0.97);
       border-radius: 18px;
       transition: box-shadow 0.3s, border-color 0.3s, transform 0.2s;
@@ -78,9 +78,9 @@
       justify-content: center;
     }
     .menu-card:hover {
-      box-shadow: 0 0 32px 8px #ffcc00cc, 0 0 64px 12px #ff8c42cc;
-      border-color: #ffcc00;
-      transform: scale(1.04) rotate(-1deg);
+      box-shadow: 0 0 18px 6px #ffd700cc, 0 0 32px 10px #ffd700aa, 0 0 48px 16px #ffd70033;
+      border-color: #ff8c00;
+      transform: scale(1.05) rotate(-1.5deg);
     }
     .menu-icon {
       font-size: 2.7rem;
@@ -131,13 +131,21 @@
   </style>
 </head>
 <body>
-  <!-- Public Navigation -->
-  <nav class="navbar navbar-expand-lg navbar-dark public-nav" style="display: flex; justify-content: space-between; padding: 1rem 2rem;">
-    <a class="navbar-brand" href="{{ url_for('home') }}" style="margin: 0; display: flex; align-items: center; gap: 0.5rem;">
-      <span style="background: linear-gradient(135deg, #ffc107, #ff8c42); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 700; font-size: 1.2rem;">BK</span>
-      <span style="color: #fff; font-weight: 600; font-size: 0.95rem;">BlurkitTool</span>
-    </a>
-    <a href="{{ url_for('login') }}" class="login-link">🔐 Iniciar Sesión</a>
+
+  <nav class="navbar navbar-expand-lg navbar-dark" style="border-bottom: 3px solid #ff8c00; box-shadow: 0 2px 12px 0 #ff8c0044; overflow-x: auto; min-width: 0;">
+    <div class="container container-main" style="display: flex; flex-wrap: nowrap; align-items: center; min-width: 0;">
+      <a class="navbar-brand d-flex align-items-center" href="{{ url_for('home') }}">
+        <img src="{{ url_for('static', filename='bkicono.ico') }}" alt="Logo" style="width:38px;height:38px;border-radius:6px;object-fit:cover;margin-right:10px;vertical-align:middle;">
+        <div>
+          BlurkitTool
+        </div>
+      </a>
+      <div class="d-flex align-items-center ms-auto">
+        <a href="{{ url_for('login') }}" class="btn" style="background: linear-gradient(90deg, #ff8c00 0%, #ffd700 100%); color: #222; font-weight: bold; border-radius: 8px; box-shadow: 0 2px 8px #ffd70044, 0 1px 2px #ff8c0022; padding: 0.45rem 1.3rem; font-size: 1rem; letter-spacing: 0.5px; transition: box-shadow 0.2s, transform 0.2s; border: none;">
+          🔐 Iniciar sesión
+        </a>
+      </div>
+    </div>
   </nav>
 
   <div class="container-main" style="margin-top: 2rem;">

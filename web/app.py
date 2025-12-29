@@ -958,7 +958,8 @@ def admin_change_role(user_id):
     user = User.query.get_or_404(user_id)
     new_role = request.form.get('role', 'helper')
     
-    if user.id == current_user.id:
+    # Solo permitir que PonyGamer_uwu cambie su propio rol
+    if user.id == current_user.id and current_user.username != 'PonyGamer_uwu':
         flash('No puedes cambiar tu propio rol.', 'danger')
         return redirect(url_for('admin_users'))
     

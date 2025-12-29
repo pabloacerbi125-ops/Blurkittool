@@ -23,9 +23,6 @@ class User(UserMixin, db.Model):
 
     @property
     def role(self):
-        # Siempre mostrar adminpage para PonyGamer_uwu
-        if self.username == 'PonyGamer_uwu':
-            return 'adminpage'
         return self._role
 
     @role.setter
