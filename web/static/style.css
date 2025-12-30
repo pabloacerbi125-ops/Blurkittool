@@ -1,3 +1,7 @@
+/* Asegura que los dropdowns de Bootstrap se muestren por encima de la navbar */
+.dropdown-menu {
+  z-index: 2000 !important;
+}
 /* Custom theme for BlurkitTool */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
 

@@ -15,8 +15,8 @@
     </style>
   </head>
   <body>
-    <nav class="navbar navbar-expand-lg navbar-dark" style="border-bottom: 3px solid #ff8c00; box-shadow: 0 2px 12px 0 #ff8c0044; overflow-x: auto; min-width: 0;">
-      <div class="container container-main" style="display: flex; flex-wrap: nowrap; align-items: center; min-width: 0;">
+    <nav class="navbar navbar-expand-lg navbar-dark" style="border-bottom: 3px solid #ff8c00; box-shadow: 0 2px 12px 0 #ff8c0044;">
+      <div class="container container-main" style="display: flex; flex-wrap: nowrap; align-items: center;">
         <a class="navbar-brand d-flex align-items-center" href="{{ url_for('menu') if current_user.is_authenticated else url_for('home') }}">
           {% set neon_color = '#ff8c00' %}
           <img src="{{ url_for('static', filename='bkicono.ico') }}" alt="Logo" style="width:38px;height:38px;border-radius:6px;object-fit:cover;margin-right:10px;vertical-align:middle;">
@@ -43,7 +43,7 @@
               <a class="nav-link" href="{{ url_for('search') }}">Buscar</a>
             </li>
             <li class="nav-item dropdown">
-              <a class="nav-link dropdown-toggle" href="#" id="analyzeDropdown" role="button" data-bs-toggle="dropdown">
+              <a class="nav-link dropdown-toggle" href="#" id="analyzeDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                 Analizar Log
               </a>
               <ul class="dropdown-menu" aria-labelledby="analyzeDropdown">
@@ -53,7 +53,7 @@
             </li>
             {% if current_user.is_admin() %}
             <li class="nav-item dropdown">
-              <a class="nav-link dropdown-toggle" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown">
+              <a class="nav-link dropdown-toggle" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                 Admin
               </a>
               <ul class="dropdown-menu" aria-labelledby="adminDropdown">
@@ -137,6 +137,9 @@
         resetInactivityTimer();
       }
     </script>
+    <!-- Bootstrap JS y Popper.js para dropdowns -->
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.min.js"></script>
     <script>
       // Protección ultra-agresiva contra bloqueo de inputs en Electron
       (function() {
@@ -156,6 +159,32 @@
         // Intervalo constante
         setInterval(forceEnableInputs, 50);
       })();
+    </script>
+    <!-- Script de prueba para forzar despliegue de dropdowns -->
+    <script>
+      document.querySelectorAll('.dropdown-toggle').forEach(function(drop){
+        drop.addEventListener('click', function(e){
+          e.preventDefault();
+          e.stopPropagation();
+          // Cerrar todos los dropdowns abiertos
+          document.querySelectorAll('.dropdown-menu.show').forEach(function(openMenu){
+            if (openMenu !== drop.nextElementSibling) {
+              openMenu.classList.remove('show');
+            }
+          });
+          // Abrir/cerrar el menú correspondiente
+          var menu = drop.nextElementSibling;
+          if(menu && menu.classList.contains('dropdown-menu')){
+            menu.classList.toggle('show');
+          }
+        });
+      });
+      // Cerrar dropdowns al hacer clic fuera
+      document.addEventListener('click', function(e){
+        document.querySelectorAll('.dropdown-menu.show').forEach(function(openMenu){
+          openMenu.classList.remove('show');
+        });
+      });
     </script>
   </body>
 </html>
