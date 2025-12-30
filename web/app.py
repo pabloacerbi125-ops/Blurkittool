@@ -1,3 +1,7 @@
+@app.errorhandler(429)
+def ratelimit_handler(e):
+    flash('Demasiados intentos. Vuelve a intentarlo más tarde.', 'danger')
+    return render_template('login.html'), 429
 # Endpoint para compatibilidad con url_for('menu') en plantillas y redirecciones
 """Flask web application for BlurkitModsTool with authentication.
 
@@ -9,6 +13,8 @@ import os
 import subprocess
 from pathlib import Path
 from flask import Flask, render_template, request, redirect, url_for, flash, session
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from flask_login import LoginManager, login_user, logout_user, current_user
 from flask_bcrypt import Bcrypt
 from datetime import datetime
@@ -99,6 +105,7 @@ from flask import jsonify
 
 # Flask app with proper paths
 app = Flask(__name__)
+limiter = Limiter(get_remote_address, app=app)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
 
 # Security configurations
@@ -312,6 +319,7 @@ def auto_commit_and_push(message):
 
 
 @app.route('/login', methods=['GET', 'POST'])
+@limiter.limit("5 per minute")
 def login():
     """Login page with rate limiting."""
     if current_user.is_authenticated:
@@ -322,12 +330,25 @@ def login():
         password = request.form.get('password', '')
         ip_address = request.remote_addr
         print(f"[LOGIN] Intento de login desde IP: {ip_address} (usuario: {username})")
-        
-        # Simple rate limiting (5 attempts per IP)
+
+        # Comprobar si la IP está bloqueada en la base de datos
+        db_attempt = LoginAttempt.query.filter_by(ip_address=ip_address).first()
         current_time = datetime.now()
+        if db_attempt and db_attempt.is_blocked:
+            # Si está bloqueada, comprobar si han pasado 15 minutos para desbloquear
+            if (current_time - db_attempt.last_attempt).total_seconds() > 900:
+                db_attempt.attempts = 1
+                db_attempt.last_attempt = current_time
+                db_attempt.is_blocked = False
+                db_attempt.username = username
+                db.session.commit()
+            else:
+                flash('Demasiados intentos fallidos. Intenta de nuevo en 15 minutos.', 'danger')
+                return render_template('login.html')
+
+        # Simple rate limiting (memoria, para la sesión actual)
         if ip_address in login_attempts:
             attempts, last_attempt, last_username = login_attempts[ip_address]
-            # Reset after 15 minutes
             if (current_time - last_attempt).total_seconds() > 900:
                 login_attempts[ip_address] = (1, current_time, username)
             elif attempts >= 5:
