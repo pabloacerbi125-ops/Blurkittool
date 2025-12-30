@@ -17,7 +17,12 @@ import subprocess
 from pathlib import Path
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
+
+# Función para obtener la IP real incluso detrás de proxy (Render)
+def get_real_ip():
+    if request.headers.get('X-Forwarded-For'):
+        return request.headers.get('X-Forwarded-For').split(',')[0].strip()
+    return request.remote_addr
 from flask_login import LoginManager, login_user, logout_user, current_user
 from flask_bcrypt import Bcrypt
 from datetime import datetime
@@ -108,7 +113,7 @@ from flask import jsonify
 
 # Flask app with proper paths
 app = Flask(__name__)
-limiter = Limiter(get_remote_address, app=app)
+limiter = Limiter(get_real_ip, app=app)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
 
 # Security configurations
@@ -331,9 +336,9 @@ def login():
     if request.method == 'POST':
         username = request.form.get('username', '').strip()
         password = request.form.get('password', '')
-        ip_address = request.remote_addr
+        ip_address = get_real_ip()
         xff = request.headers.get('X-Forwarded-For')
-        print(f"[LOGIN] Intento de login desde IP: {ip_address} (usuario: {username}) | X-Forwarded-For: {xff}")
+        print(f"[LOGIN] Intento de login desde IP real: {ip_address} (usuario: {username}) | X-Forwarded-For: {xff}")
 
         user = User.query.filter_by(username=username).first()
 
