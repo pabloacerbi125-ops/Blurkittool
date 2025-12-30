@@ -321,6 +321,7 @@ def login():
         username = request.form.get('username', '').strip()
         password = request.form.get('password', '')
         ip_address = request.remote_addr
+        print(f"[LOGIN] Intento de login desde IP: {ip_address} (usuario: {username})")
         
         # Simple rate limiting (5 attempts per IP)
         current_time = datetime.now()
