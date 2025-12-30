@@ -327,7 +327,6 @@ def auto_commit_and_push(message):
 
 
 @app.route('/login', methods=['GET', 'POST'])
-@limiter.limit("5 per minute")
 def login():
     """Login page with rate limiting."""
     if current_user.is_authenticated:
