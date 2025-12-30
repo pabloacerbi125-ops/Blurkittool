@@ -342,10 +342,21 @@ def login():
 
         user = User.query.filter_by(username=username).first()
 
+
         if user and bcrypt.check_password_hash(user.password_hash, password):
             if not user.is_active:
                 flash('Tu cuenta está desactivada. Contacta al administrador.', 'danger')
                 return redirect(url_for('login'))
+
+            # Éxito: limpiar intentos fallidos de esta IP/usuario
+            from models import LoginAttempt
+            try:
+                attempt = LoginAttempt.query.filter_by(ip_address=ip_address, username=username).first()
+                if attempt:
+                    db.session.delete(attempt)
+                    db.session.commit()
+            except Exception as e:
+                print(f"[SECURITY] Error limpiando intentos: {e}")
 
             # Update last login
             user.last_login = datetime.now()
@@ -361,6 +372,42 @@ def login():
             return redirect(url_for('menu'))
         else:
             flash('Usuario o contraseña incorrectos.', 'danger')
+
+            # Registrar intento fallido en la base de datos
+            from models import LoginAttempt
+            now = datetime.now()
+            try:
+                # Limpiar intentos viejos (más de 15 min)
+                old_attempts = LoginAttempt.query.filter(LoginAttempt.last_attempt < now.replace(microsecond=0)).all()
+                for old in old_attempts:
+                    if (now - old.last_attempt).total_seconds() > 900:
+                        db.session.delete(old)
+                db.session.commit()
+
+                attempt = LoginAttempt.query.filter_by(ip_address=ip_address, username=username).first()
+                if attempt:
+                    # Si ya está bloqueada, solo actualiza el tiempo
+                    if attempt.is_blocked or attempt.attempts >= 5:
+                        attempt.last_attempt = now
+                        attempt.is_blocked = True
+                    else:
+                        attempt.attempts += 1
+                        attempt.last_attempt = now
+                        if attempt.attempts >= 5:
+                            attempt.is_blocked = True
+                    db.session.commit()
+                else:
+                    attempt = LoginAttempt(
+                        ip_address=ip_address,
+                        username=username,
+                        attempts=1,
+                        last_attempt=now,
+                        is_blocked=False
+                    )
+                    db.session.add(attempt)
+                    db.session.commit()
+            except Exception as e:
+                print(f"[SECURITY] Error registrando intento fallido: {e}")
 
     return render_template('login.html')
 
