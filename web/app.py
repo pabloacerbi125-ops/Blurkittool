@@ -332,84 +332,31 @@ def login():
         username = request.form.get('username', '').strip()
         password = request.form.get('password', '')
         ip_address = request.remote_addr
-        print(f"[LOGIN] Intento de login desde IP: {ip_address} (usuario: {username})")
+        xff = request.headers.get('X-Forwarded-For')
+        print(f"[LOGIN] Intento de login desde IP: {ip_address} (usuario: {username}) | X-Forwarded-For: {xff}")
 
-        # Comprobar si la IP está bloqueada en la base de datos
-        db_attempt = LoginAttempt.query.filter_by(ip_address=ip_address).first()
-        current_time = datetime.now()
-        if db_attempt and db_attempt.is_blocked:
-            # Si está bloqueada, comprobar si han pasado 15 minutos para desbloquear
-            if (current_time - db_attempt.last_attempt).total_seconds() > 900:
-                db_attempt.attempts = 1
-                db_attempt.last_attempt = current_time
-                db_attempt.is_blocked = False
-                db_attempt.username = username
-                db.session.commit()
-            else:
-                flash('Demasiados intentos fallidos. Intenta de nuevo en 15 minutos.', 'danger')
-                return render_template('login.html')
-
-        # Simple rate limiting (memoria, para la sesión actual)
-        if ip_address in login_attempts:
-            attempts, last_attempt, last_username = login_attempts[ip_address]
-            if (current_time - last_attempt).total_seconds() > 900:
-                login_attempts[ip_address] = (1, current_time, username)
-            elif attempts >= 5:
-                flash('Demasiados intentos fallidos. Intenta de nuevo en 15 minutos.', 'danger')
-                return render_template('login.html')
-            else:
-                login_attempts[ip_address] = (attempts + 1, current_time, username)
-        else:
-            login_attempts[ip_address] = (1, current_time, username)
-        
         user = User.query.filter_by(username=username).first()
-        
+
         if user and bcrypt.check_password_hash(user.password_hash, password):
             if not user.is_active:
                 flash('Tu cuenta está desactivada. Contacta al administrador.', 'danger')
                 return redirect(url_for('login'))
-            
-            # Reset login attempts on success
-            if ip_address in login_attempts:
-                del login_attempts[ip_address]
-            
-            # Clear from database on successful login
-            LoginAttempt.query.filter_by(ip_address=ip_address).delete()
-            db.session.commit()
-            
+
             # Update last login
             user.last_login = datetime.now()
             db.session.commit()
-            
+
             login_user(user, remember=True)
             flash(f'¡Bienvenido, {user.username}!', 'success')
-            
+
             # Validate next parameter to prevent open redirect
             next_page = request.args.get('next')
             if next_page and next_page.startswith('/'):
                 return redirect(next_page)
             return redirect(url_for('menu'))
         else:
-            # Save failed attempt to database
-            attempt = LoginAttempt.query.filter_by(ip_address=ip_address).first()
-            if attempt:
-                attempt.attempts += 1
-                attempt.last_attempt = current_time
-                attempt.username = username
-                attempt.is_blocked = attempt.attempts >= 5
-            else:
-                attempt = LoginAttempt(
-                    ip_address=ip_address,
-                    username=username,
-                    attempts=1,
-                    last_attempt=current_time,
-                    is_blocked=False
-                )
-                db.session.add(attempt)
-            db.session.commit()
-            
             flash('Usuario o contraseña incorrectos.', 'danger')
-    
+
     return render_template('login.html')
 
 
