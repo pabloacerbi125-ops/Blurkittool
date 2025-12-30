@@ -343,6 +343,14 @@ def login():
         user = User.query.filter_by(username=username).first()
 
 
+        # Verificar si la IP/usuario está bloqueada antes de validar el login
+        from models import LoginAttempt
+        now = datetime.now()
+        attempt = LoginAttempt.query.filter_by(ip_address=ip_address, username=username).first()
+        if attempt and (attempt.is_blocked or attempt.attempts >= 5):
+            flash('Demasiados intentos. Vuelve a intentarlo más tarde.', 'danger')
+            return render_template('login.html'), 429
+
         if user and bcrypt.check_password_hash(user.password_hash, password):
             if not user.is_active:
                 flash('Tu cuenta está desactivada. Contacta al administrador.', 'danger')
@@ -386,16 +394,12 @@ def login():
 
                 attempt = LoginAttempt.query.filter_by(ip_address=ip_address, username=username).first()
                 if attempt:
-                    # Si ya está bloqueada, solo actualiza el tiempo
-                    if attempt.is_blocked or attempt.attempts >= 5:
-                        attempt.last_attempt = now
-                        attempt.is_blocked = True
-                    else:
+                    if attempt.attempts < 5:
                         attempt.attempts += 1
                         attempt.last_attempt = now
                         if attempt.attempts >= 5:
                             attempt.is_blocked = True
-                    db.session.commit()
+                        db.session.commit()
                 else:
                     attempt = LoginAttempt(
                         ip_address=ip_address,
