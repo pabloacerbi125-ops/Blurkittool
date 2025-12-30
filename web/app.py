@@ -1,3 +1,5 @@
+
+# Handler personalizado para error 429 (Too Many Requests)
 @app.errorhandler(429)
 def ratelimit_handler(e):
     flash('Demasiados intentos. Vuelve a intentarlo más tarde.', 'danger')
