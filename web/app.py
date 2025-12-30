@@ -1,11 +1,12 @@
 
 # Handler personalizado para error 429 (Too Many Requests)
+# Endpoint para compatibilidad con url_for('menu') en plantillas y redirecciones
+"""Flask web application for BlurkitModsTool with authentication.
+# Handler personalizado para error 429 (Too Many Requests)
 @app.errorhandler(429)
 def ratelimit_handler(e):
     flash('Demasiados intentos. Vuelve a intentarlo más tarde.', 'danger')
     return render_template('login.html'), 429
-# Endpoint para compatibilidad con url_for('menu') en plantillas y redirecciones
-"""Flask web application for BlurkitModsTool with authentication.
 
 Multi-user system with role-based permissions and SQLite database.
 """
