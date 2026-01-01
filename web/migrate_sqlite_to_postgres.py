@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import sqlite3
 from datetime import datetime
 from pathlib import Path
@@ -29,6 +30,21 @@ DATETIME_COLS = {
     "blocked_until",
     "twofa_confirmed_at",
 }
+
+
+SAFE_IDENT_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+
+def _quote_ident(name: str) -> str:
+    """Quote an identifier safely (reject anything unexpected).
+
+    This script is a one-off admin tool, but it may be pointed at arbitrary
+    SQLite files. We validate identifiers to avoid accidentally executing
+    injected SQL via crafted table/column names.
+    """
+    if not SAFE_IDENT_RE.match(name or ""):
+        raise ValueError(f"Unsafe identifier: {name!r}")
+    return '"' + name + '"'
 
 
 _BOOL_COLS_CACHE: dict[str, set[str]] = {}
@@ -75,7 +91,7 @@ def _sqlite_tables(conn: sqlite3.Connection) -> set[str]:
 
 def _sqlite_rows(conn: sqlite3.Connection, table: str) -> list[dict[str, Any]]:
     conn.row_factory = sqlite3.Row
-    cur = conn.execute(f"SELECT * FROM {table}")
+    cur = conn.execute(f"SELECT * FROM {_quote_ident(table)}")
     rows = [dict(r) for r in cur.fetchall()]
     return rows
 
@@ -119,6 +135,20 @@ def _dest_bool_columns(db, table: str) -> set[str]:
     return bool_cols
 
 
+def _dest_columns(db, table: str) -> list[str]:
+    """Return destination columns (in DB) for a given table."""
+    from sqlalchemy import inspect
+
+    insp = inspect(db.engine)
+    cols = insp.get_columns(table)
+    names: list[str] = []
+    for c in cols:
+        n = c.get("name")
+        if isinstance(n, str):
+            names.append(n)
+    return names
+
+
 def _coerce_bools_for_dest(row: dict[str, Any], bool_cols: set[str]) -> dict[str, Any]:
     if not bool_cols:
         return row
@@ -149,18 +179,24 @@ def _insert_rows(db, table: str, rows: Iterable[dict[str, Any]]) -> int:
     if not rows_list:
         return 0
 
-    cols = list(rows_list[0].keys())
-    col_sql = ", ".join(cols)
+    # Only insert columns that exist on destination.
+    dest_cols = set(_dest_columns(db, table))
+    cols = [c for c in rows_list[0].keys() if c in dest_cols]
+    if not cols:
+        return 0
+
+    col_sql = ", ".join(_quote_ident(c) for c in cols)
     val_sql = ", ".join([f":{c}" for c in cols])
 
     # Use plain INSERT; this should run on an empty database.
-    stmt = text(f"INSERT INTO {table} ({col_sql}) VALUES ({val_sql})")
+    stmt = text(f"INSERT INTO {_quote_ident(table)} ({col_sql}) VALUES ({val_sql})")
 
     bool_cols = _dest_bool_columns(db, table)
 
     inserted = 0
     for r in rows_list:
-        db.session.execute(stmt, _coerce_bools_for_dest(r, bool_cols))
+        filtered = {k: r.get(k) for k in cols}
+        db.session.execute(stmt, _coerce_bools_for_dest(filtered, bool_cols))
         inserted += 1
     return inserted
 
@@ -170,11 +206,12 @@ def _set_sequence(db, table: str) -> None:
     from sqlalchemy import text
 
     try:
+        qtable = _quote_ident(table)
         # Works only on Postgres; harmless if it errors elsewhere.
         db.session.execute(
             text(
                 "SELECT setval(pg_get_serial_sequence(:t, 'id'), COALESCE((SELECT MAX(id) FROM "
-                + table
+                + qtable
                 + "), 1), true)"
             ),
             {"t": table},
@@ -218,6 +255,7 @@ def main() -> int:
     tables = _sqlite_tables(src)
 
     required_tables = ["users", "modalidades", "reglas", "mods", "login_attempts"]
+    required_set = set(required_tables)
     missing = [t for t in required_tables if t not in tables]
     if missing:
         raise SystemExit(f"SQLite DB is missing tables: {missing}")
@@ -230,7 +268,7 @@ def main() -> int:
         # Safety: refuse to import into a non-empty DB unless --force
         if not args.force:
             for t in required_tables:
-                count = db.session.execute(text(f"SELECT COUNT(*) FROM {t}"))
+                count = db.session.execute(text(f"SELECT COUNT(*) FROM {_quote_ident(t)}"))
                 if int(count.scalar() or 0) != 0:
                     raise SystemExit(
                         f"Destination table '{t}' is not empty. Use --force if you really want to overwrite."
@@ -239,12 +277,14 @@ def main() -> int:
         if args.force:
             # Reverse dependency order
             for t in ["mods", "reglas", "modalidades", "login_attempts", "users"]:
-                db.session.execute(text(f"TRUNCATE TABLE {t} RESTART IDENTITY CASCADE"))
+                db.session.execute(text(f"TRUNCATE TABLE {_quote_ident(t)} RESTART IDENTITY CASCADE"))
             db.session.commit()
 
         # Import in dependency order
         imported = {}
         for t in ["users", "modalidades", "reglas", "mods", "login_attempts"]:
+            if t not in required_set:
+                raise SystemExit(f"Refusing to import unexpected table: {t}")
             rows = [_coerce_row(r) for r in _sqlite_rows(src, t)]
             imported[t] = _insert_rows(db, t, rows)
 

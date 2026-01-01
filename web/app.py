@@ -118,13 +118,17 @@ def ensure_users_2fa_columns():
         cols = {c['name'] for c in insp.get_columns('users')}
         with db.engine.begin() as conn:
             if 'twofa_enabled' not in cols:
-                default_bool = 'FALSE' if is_postgres else '0'
-                conn.execute(text(f"ALTER TABLE users ADD COLUMN twofa_enabled BOOLEAN NOT NULL DEFAULT {default_bool}"))
+                if is_postgres:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN twofa_enabled BOOLEAN NOT NULL DEFAULT FALSE"))
+                else:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN twofa_enabled BOOLEAN NOT NULL DEFAULT 0"))
             if 'twofa_secret' not in cols:
                 conn.execute(text("ALTER TABLE users ADD COLUMN twofa_secret VARCHAR(64)"))
             if 'twofa_confirmed_at' not in cols:
-                dt_type = 'TIMESTAMP' if is_postgres else 'DATETIME'
-                conn.execute(text(f"ALTER TABLE users ADD COLUMN twofa_confirmed_at {dt_type}"))
+                if is_postgres:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN twofa_confirmed_at TIMESTAMP"))
+                else:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN twofa_confirmed_at DATETIME"))
         _users_2fa_ready = True
     except Exception as e:
         print(f"[MIGRATION] ensure_users_2fa_columns failed: {e}")
@@ -245,8 +249,10 @@ def ensure_login_attempts_columns():
             dialect = getattr(getattr(db, 'engine', None), 'dialect', None)
             dialect_name = getattr(dialect, 'name', '') or ''
             is_postgres = dialect_name.startswith('postgres')
-            dt_type = 'TIMESTAMP' if is_postgres else 'DATETIME'
-            db.session.execute(text(f'ALTER TABLE login_attempts ADD COLUMN blocked_until {dt_type}'))
+            if is_postgres:
+                db.session.execute(text('ALTER TABLE login_attempts ADD COLUMN blocked_until TIMESTAMP'))
+            else:
+                db.session.execute(text('ALTER TABLE login_attempts ADD COLUMN blocked_until DATETIME'))
             db.session.commit()
 
         _login_attempts_ready = True
@@ -323,7 +329,10 @@ limiter = Limiter(
     storage_uri=os.environ.get('RATELIMIT_STORAGE_URI', 'memory://'),
     headers_enabled=True,
 )
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
+_secret_key = os.environ.get('SECRET_KEY')
+if os.environ.get('FLASK_ENV') == 'production' and not _secret_key:
+    raise RuntimeError('SECRET_KEY is required in production.')
+app.config['SECRET_KEY'] = _secret_key or 'dev-secret-key-change-in-production'
 
 # Security configurations
 app.config['SESSION_COOKIE_SECURE'] = os.environ.get('FLASK_ENV') == 'production'
@@ -436,7 +445,7 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
     'pool_pre_ping': True,
 }
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['TEMPLATES_AUTO_RELOAD'] = True
+app.config['TEMPLATES_AUTO_RELOAD'] = os.environ.get('FLASK_ENV') != 'production'
 
 
 @app.route('/admin/change-background', methods=['POST'])
