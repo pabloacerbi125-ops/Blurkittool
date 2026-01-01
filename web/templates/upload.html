@@ -3,6 +3,7 @@
 <div class="container-main">
   <h4>Buscar log (archivo)</h4>
   <form action="/upload" method="post" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <div class="mb-2">
       <input type="file" name="logfile" class="form-control" accept=".log,.txt">
     </div>

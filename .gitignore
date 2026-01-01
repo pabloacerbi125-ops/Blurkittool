@@ -36,6 +36,18 @@ Thumbs.db
 mods.json
 *.log
 
+# Local databases (never commit)
+web/instance/*.db
+web/instance/*.sqlite
+web/instance/*.sqlite3
+
+# Local downloads / installers (never commit)
+web/static/*.exe
+web/static/*.msi
+web/static/*.zip
+web/static/*.rar
+web/static/*.7z
+
 # Security - DO NOT COMMIT
 .env
 .env.local

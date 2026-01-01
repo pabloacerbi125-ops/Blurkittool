@@ -66,6 +66,35 @@ python app.py
 ```
 Abre http://localhost:5000 en tu navegador
 
+## ☁️ Base de Datos en Render (PostgreSQL) + Migración desde SQLite
+
+Para evitar problemas con 2FA y dejar de depender de `git pull` para “traer la BD”, usa PostgreSQL en Render.
+
+### 1) Crear PostgreSQL en Render
+- Render Dashboard → New → PostgreSQL
+- Crea la base y copia:
+  - **Internal Database URL** (para que tu Web Service se conecte dentro de Render)
+  - **External Database URL** (para migrar desde tu PC)
+
+### 2) Conectar tu Web Service
+En tu Web Service → Environment:
+- Agrega `DATABASE_URL` = **Internal Database URL**
+
+### 3) Migrar tus datos actuales (SQLite → PostgreSQL)
+Esto se hace 1 sola vez desde tu PC:
+
+1. Asegúrate de tener dependencias:
+	- `pip install -r web/requirements.txt`
+2. Copia el **External Database URL** de Render.
+3. En PowerShell, desde `web/`:
+	- `$env:DATABASE_URL = "<EXTERNAL_DATABASE_URL>"`
+	- `python migrate_sqlite_to_postgres.py --sqlite instance/blurkit.db`
+4. Cuando termine, vuelve a dejar `DATABASE_URL` en Render apuntando al **Internal Database URL**.
+
+Notas:
+- La migración espera una BD Postgres vacía.
+- Si necesitas sobreescribir (peligroso), puedes usar `--force`.
+
 ### Aplicación de Escritorio
 Ejecuta `BlurkitTool 1.0.0.exe` directamente
 

@@ -210,6 +210,21 @@
   // Pasar el historial de servidor a JavaScript
   var logsHistory = {{ logs_history|tojson }};
 
+  function escapeHtml(value) {
+    const str = String(value ?? '');
+    return str.replace(/[&<>'"`]/g, function (ch) {
+      switch (ch) {
+        case '&': return '&amp;';
+        case '<': return '&lt;';
+        case '>': return '&gt;';
+        case "'": return '&#39;';
+        case '"': return '&quot;';
+        case '`': return '&#96;';
+        default: return ch;
+      }
+    });
+  }
+
   // Función para mostrar el análisis de un log del historial
   function showAnalysis(index) {
     const log = logsHistory[index];
@@ -224,11 +239,11 @@
     // Usuario y versión detectados
     if (resultado.player_with_version) {
       html += '<div class="alert alert-info mb-3">';
-      html += '<strong>👤 Usuario:</strong> ' + resultado.player_with_version;
+      html += '<strong>👤 Usuario:</strong> ' + escapeHtml(resultado.player_with_version);
       html += '</div>';
     } else if (resultado.usuario) {
       html += '<div class="alert alert-info mb-3">';
-      html += '<strong>👤 Usuario:</strong> ' + resultado.usuario;
+      html += '<strong>👤 Usuario:</strong> ' + escapeHtml(resultado.usuario);
       html += '</div>';
     }
     
@@ -244,7 +259,7 @@
     html += '</div>';
     if (resultado.mc_version) {
       html += '<div class="text-end mt-2">';
-      html += '<span class="badge bg-secondary">Versión de Minecraft: <b>' + resultado.mc_version + '</b></span>';
+      html += '<span class="badge bg-secondary">Versión de Minecraft: <b>' + escapeHtml(resultado.mc_version) + '</b></span>';
       html += '</div>';
     }
     html += '</div></div>';
@@ -262,9 +277,9 @@
       html += '</tr></thead><tbody>';
       resultado.mods_prohibidos.forEach(mod => {
         html += '<tr style="background: rgba(220, 53, 69, 0.1);">';
-        html += '<td><strong style="color: #ff6b6b;">❌ ' + mod.name + '</strong></td>';
-        html += '<td style="color: #b8c1ca;">' + mod.category + '</td>';
-        html += '<td style="color: #b8c1ca;">' + mod.platform + '</td>';
+        html += '<td><strong style="color: #ff6b6b;">❌ ' + escapeHtml(mod.name) + '</strong></td>';
+        html += '<td style="color: #b8c1ca;">' + escapeHtml(mod.category) + '</td>';
+        html += '<td style="color: #b8c1ca;">' + escapeHtml(mod.platform) + '</td>';
         html += '</tr>';
       });
       html += '</tbody></table></div></div>';
@@ -279,8 +294,8 @@
       resultado.mods_permitidos.forEach(mod => {
         html += '<div class="col-md-6 mb-2">';
         html += '<div class="p-2" style="background: rgba(81, 207, 102, 0.1); border-radius: 5px; border-left: 3px solid #51cf66;">';
-        html += '<strong style="color: #51cf66;">' + mod.name + '</strong><br>';
-        html += '<small style="color: #b8c1ca;">' + mod.category + ' • ' + mod.platform + '</small>';
+        html += '<strong style="color: #51cf66;">' + escapeHtml(mod.name) + '</strong><br>';
+        html += '<small style="color: #b8c1ca;">' + escapeHtml(mod.category) + ' • ' + escapeHtml(mod.platform) + '</small>';
         html += '</div></div>';
       });
       html += '</div></div></div>';
@@ -295,7 +310,7 @@
       resultado.mods_desconocidos.forEach(mod => {
         html += '<div class="col-md-6 mb-2">';
         html += '<div class="p-2" style="background: rgba(134, 142, 150, 0.1); border-radius: 5px;">';
-        html += '<strong style="color: #868e96;">' + mod.name + '</strong>';
+        html += '<strong style="color: #868e96;">' + escapeHtml(mod.name) + '</strong>';
         html += '</div></div>';
       });
       html += '</div></div></div>';
@@ -309,7 +324,7 @@
       resultado.dependencias.forEach(dep => {
         html += '<div class="col-md-6 mb-2">';
         html += '<div class="p-2" style="background: rgba(255, 165, 2, 0.08); border-radius: 5px;">';
-        html += '<strong style="color: #ffa502;">' + dep.name + '</strong>';
+        html += '<strong style="color: #ffa502;">' + escapeHtml(dep.name) + '</strong>';
         html += '</div></div>';
       });
       html += '</div></div></div>';

@@ -9,11 +9,14 @@ import os
 import subprocess
 import re
 from pathlib import Path
+import base64
+import io
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 from flask_limiter import Limiter
 from markupsafe import Markup, escape
 from sqlalchemy import inspect, text
 from werkzeug.utils import secure_filename
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 # Función para obtener la IP real incluso detrás de proxy (Render)
 def get_real_ip():
@@ -111,10 +114,86 @@ from flask import jsonify
 # Flask app with proper paths
 app = Flask(__name__)
 
+# Respect reverse-proxy headers on Render (X-Forwarded-For / X-Forwarded-Proto)
+# so rate limiting and redirects use the real client IP/protocol.
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+
 
 _modalidad_orden_ready = False
 _regla_orden_ready = False
 _login_attempts_ready = False
+_users_2fa_ready = False
+
+
+def _twofa_role_allowed(user) -> bool:
+    """Only allow 2FA for higher ranks.
+
+    Allowed (per rank UI): Founder/Owner/Admin/Manager/Smod.
+    In code terms this maps to the role groups: admin + smod.
+    """
+    try:
+        return bool(user) and bool(getattr(user, 'has_role', None)) and user.has_role('admin', 'smod')
+    except Exception:
+        return False
+
+
+def _twofa_disable_for_user(user) -> None:
+    """Best-effort: turn off 2FA for a user (used when role is not allowed)."""
+    try:
+        if not user:
+            return
+        if not getattr(user, 'twofa_enabled', False) and not getattr(user, 'twofa_secret', None):
+            return
+        user.twofa_enabled = False
+        user.twofa_secret = None
+        user.twofa_confirmed_at = None
+        db.session.commit()
+    except Exception as exc:
+        print(f"[2FA] Warning: could not auto-disable 2FA: {exc}")
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+
+
+def ensure_users_2fa_columns():
+    """Idempotent runtime migration for 2FA columns on users table."""
+    global _users_2fa_ready
+    if _users_2fa_ready:
+        return
+    try:
+        dialect = getattr(getattr(db, 'engine', None), 'dialect', None)
+        dialect_name = getattr(dialect, 'name', '') or ''
+        is_postgres = dialect_name.startswith('postgres')
+        insp = inspect(db.engine)
+        cols = {c['name'] for c in insp.get_columns('users')}
+        with db.engine.begin() as conn:
+            if 'twofa_enabled' not in cols:
+                default_bool = 'FALSE' if is_postgres else '0'
+                conn.execute(text(f"ALTER TABLE users ADD COLUMN twofa_enabled BOOLEAN NOT NULL DEFAULT {default_bool}"))
+            if 'twofa_secret' not in cols:
+                conn.execute(text("ALTER TABLE users ADD COLUMN twofa_secret VARCHAR(64)"))
+            if 'twofa_confirmed_at' not in cols:
+                dt_type = 'TIMESTAMP' if is_postgres else 'DATETIME'
+                conn.execute(text(f"ALTER TABLE users ADD COLUMN twofa_confirmed_at {dt_type}"))
+        _users_2fa_ready = True
+    except Exception as e:
+        print(f"[MIGRATION] ensure_users_2fa_columns failed: {e}")
+
+
+def _twofa_issuer_name() -> str:
+    return os.environ.get('TWOFA_ISSUER', 'BlurkitTool')
+
+
+def _twofa_qr_data_uri(otpauth_url: str) -> str:
+    """Generate PNG QR as data URI to embed in HTML."""
+    import qrcode
+
+    img = qrcode.make(otpauth_url)
+    buf = io.BytesIO()
+    img.save(buf, format='PNG')
+    b64 = base64.b64encode(buf.getvalue()).decode('ascii')
+    return f"data:image/png;base64,{b64}"
 
 
 def ensure_modalidad_orden_column():
@@ -214,7 +293,11 @@ def ensure_login_attempts_columns():
 
         column_names = {c['name'] for c in inspector.get_columns('login_attempts')}
         if 'blocked_until' not in column_names:
-            db.session.execute(text('ALTER TABLE login_attempts ADD COLUMN blocked_until DATETIME'))
+            dialect = getattr(getattr(db, 'engine', None), 'dialect', None)
+            dialect_name = getattr(dialect, 'name', '') or ''
+            is_postgres = dialect_name.startswith('postgres')
+            dt_type = 'TIMESTAMP' if is_postgres else 'DATETIME'
+            db.session.execute(text(f'ALTER TABLE login_attempts ADD COLUMN blocked_until {dt_type}'))
             db.session.commit()
 
         _login_attempts_ready = True
@@ -284,7 +367,13 @@ def editar_regla(regla_id):
     db.session.commit()
     flash('Regla editada correctamente.', 'success')
     return redirect(url_for('reglasadm', modalidad_id=regla.modalidad_id))
-limiter = Limiter(get_real_ip, app=app)
+limiter = Limiter(
+    key_func=get_real_ip,
+    app=app,
+    default_limits=[os.environ.get('DEFAULT_RATELIMIT', '200 per minute')],
+    storage_uri=os.environ.get('RATELIMIT_STORAGE_URI', 'memory://'),
+    headers_enabled=True,
+)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
 
 # Security configurations
@@ -294,6 +383,7 @@ app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
 @app.route('/menu')
 @login_required
+@limiter.limit('30 per minute')
 def menu():
     try:
         total_mods = Mod.query.count()
@@ -311,32 +401,88 @@ def menu():
 
 # ===================== API: Análisis de logs Minecraft =====================
 @app.route('/api/analyze_log', methods=['POST'])
+@limiter.limit('15 per minute')
 def api_analyze_log():
     """API endpoint para analizar logs de Minecraft. Recibe texto plano o archivo."""
+    if request.content_length and request.content_length > MAX_LOG_UPLOAD_BYTES:
+        return jsonify({'error': 'Contenido demasiado grande'}), 413
     if request.content_type and request.content_type.startswith('multipart/form-data'):
         f = request.files.get('logfile')
         if not f or f.filename == '':
             return jsonify({'error': 'No se seleccionó archivo'}), 400
+        filename = secure_filename(f.filename or '')
+        ext = Path(filename).suffix.lower()
+        if ext not in ('.log', '.txt'):
+            return jsonify({'error': 'Formato no válido. Solo .log o .txt'}), 400
         try:
-            content = f.read().decode('utf-8', errors='ignore')
-        except Exception:
-            content = f.read().decode('latin-1', errors='ignore')
+            content = _read_text_filestorage_limited(f, MAX_LOG_UPLOAD_BYTES)
+        except ValueError:
+            return jsonify({'error': 'Archivo demasiado grande'}), 413
         log_lines = content.splitlines()
     else:
         log_text = request.get_data(as_text=True)
         if not log_text.strip():
             return jsonify({'error': 'No se envió contenido'}), 400
+        if len(log_text) > MAX_LOG_PASTE_CHARS:
+            return jsonify({'error': 'Contenido demasiado grande'}), 413
         log_lines = log_text.splitlines()
     result = analyze_log_lines(log_lines)
     return jsonify(result)
 from models import LoginAttempt
+import hmac
+import secrets
 app.config['PERMANENT_SESSION_LIFETIME'] = 600  # 10 minutos
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+
+# Hard limits for log payloads (upload + paste). Keep these reasonably low to
+# prevent memory/CPU spikes and oversized cookie sessions.
+MAX_LOG_UPLOAD_BYTES = int(os.environ.get('MAX_LOG_UPLOAD_BYTES', str(2 * 1024 * 1024)))  # 2MB
+MAX_LOG_PASTE_CHARS = int(os.environ.get('MAX_LOG_PASTE_CHARS', str(200_000)))  # 200k chars
+
+
+def _get_csrf_token() -> str:
+    token = session.get('_csrf_token')
+    if not token:
+        token = secrets.token_urlsafe(32)
+        session['_csrf_token'] = token
+        session.modified = True
+    return token
+
+
+def _validate_csrf() -> bool:
+    expected = session.get('_csrf_token', '')
+    provided = request.form.get('csrf_token', '')
+    if not expected or not provided:
+        return False
+    return hmac.compare_digest(expected, provided)
+
+
+def _read_text_filestorage_limited(file_storage, max_bytes: int) -> str:
+    data = file_storage.stream.read(max_bytes + 1)
+    if len(data) > max_bytes:
+        raise ValueError('file_too_large')
+    try:
+        return data.decode('utf-8', errors='replace')
+    except Exception:
+        return data.decode('latin-1', errors='replace')
 
 # Database path - use absolute path
 basedir = Path(__file__).resolve().parent
 db_path = basedir / 'instance' / 'blurkit.db'
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', f'sqlite:///{db_path}')
+db_path.parent.mkdir(parents=True, exist_ok=True)
+
+database_url = os.environ.get('DATABASE_URL')
+if database_url:
+    # Render and some providers use postgres:// but SQLAlchemy expects postgresql://
+    if database_url.startswith('postgres://'):
+        database_url = database_url.replace('postgres://', 'postgresql://', 1)
+    app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+else:
+    app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
+
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    'pool_pre_ping': True,
+}
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['TEMPLATES_AUTO_RELOAD'] = True
 
@@ -533,6 +679,7 @@ def login():
     
     if request.method == 'POST':
         ensure_login_attempts_columns()
+        ensure_users_2fa_columns()
 
         username = request.form.get('username', '').strip()
         password = request.form.get('password', '')
@@ -594,6 +741,17 @@ def login():
                     db.session.commit()
             except Exception as e:
                 print(f"[SECURITY] Error limpiando intentos: {e}")
+
+            # Enforce: only certain ranks can use 2FA
+            if not _twofa_role_allowed(user):
+                _twofa_disable_for_user(user)
+
+            # If user has 2FA enabled, do a second step before creating session
+            if _twofa_role_allowed(user) and getattr(user, 'twofa_enabled', False) and getattr(user, 'twofa_secret', None):
+                session['twofa_pending_user_id'] = user.id
+                session.permanent = True
+                session.modified = True
+                return redirect(url_for('twofa_login_verify'))
 
             # Update last login
             user.last_login = datetime.now()
@@ -874,6 +1032,7 @@ def search():
 
 @app.route('/analysis', methods=['GET'])
 @login_required
+@limiter.limit('20 per minute')
 def analysis_page():
     """View analysis history - accessible to all roles."""
     # Load history from session if available
@@ -888,6 +1047,7 @@ def analysis_page():
 
 @app.route('/clear_history', methods=['POST'])
 @login_required
+@limiter.limit('10 per minute')
 def clear_history():
     """Clear analysis history for current user."""
     user_key = current_user.username
@@ -903,8 +1063,12 @@ def clear_history():
 
 @app.route('/analyze', methods=['POST'])
 @login_required
+@limiter.limit('10 per minute')
 def analyze():
     """Analyze log - accessible to all roles."""
+    if not _validate_csrf():
+        flash('Solicitud inválida. Recarga la página e intenta nuevamente.', 'danger')
+        return redirect(url_for('paste_page'))
     log_text = request.form.get('log', '')
     resultado = None
     if not log_text.strip():
@@ -912,6 +1076,12 @@ def analyze():
         user_key = current_user.username
         history = session.get('logs_history', logs_history.get(user_key, []))
         return render_template('analysis.html', resultado=None, logs_history=history)
+    if len(log_text) > MAX_LOG_PASTE_CHARS:
+        flash(f'El log es demasiado grande. Máximo {MAX_LOG_PASTE_CHARS} caracteres.', 'danger')
+        user_key = current_user.username
+        history = session.get('logs_history', logs_history.get(user_key, []))
+        return render_template('analysis.html', resultado=None, logs_history=history)
+
     # Si hay texto, sigue el flujo normal
     if log_text.strip():
         from core import analyze_log_with_gpt
@@ -1015,64 +1185,44 @@ def analyze():
 
 @app.route('/paste', methods=['GET'])
 @login_required
+@limiter.limit('20 per minute')
 def paste_page():
     """Paste log page - accessible to all roles."""
     user_key = current_user.username
     history = session.get('logs_history', logs_history.get(user_key, []))
-    if request.method == 'POST':
-        log_text = request.form.get('logtext', '')
-        from core import analyze_log_with_gpt
-        openai_api_key = os.environ.get('OPENAI_API_KEY')
-        if openai_api_key:
-            resultado = analyze_log_with_gpt(log_text, openai_api_key)
-            if resultado.get('error'):
-                from analyze_mc_log_utils import analyze_log_lines
-                resultado = analyze_log_lines(log_text.splitlines())
-        else:
-            from analyze_mc_log_utils import analyze_log_lines
-            resultado = analyze_log_lines(log_text.splitlines())
-
-        # Guardar en historial igual que upload
-        if user_key not in logs_history:
-            logs_history[user_key] = []
-        history_item = {
-            'timestamp': datetime.now().strftime('%d/%m/%Y %H:%M:%S'),
-            'user': current_user.username,
-            'filename': 'pasted_log',
-            'resultado': resultado
-        }
-        logs_history[user_key].insert(0, history_item)
-        if len(logs_history[user_key]) > MAX_HISTORY_ITEMS:
-            logs_history[user_key].pop()
-        session['logs_history'] = logs_history.get(user_key, [])
-        session.permanent = True
-        session.modified = True
-        history_to_display = session.get('logs_history', logs_history.get(current_user.username, []))
-        if history_to_display:
-            logs_history[current_user.username] = history_to_display
-        return render_template('analysis.html', resultado=resultado, logs_history=history_to_display)
-    return render_template('paste.html', logs_history=history)
+    return render_template('paste.html', logs_history=history, csrf_token=_get_csrf_token())
 
 
 @app.route('/upload', methods=['GET', 'POST'])
 @login_required
+@limiter.limit('20 per minute')
 def upload():
     """Upload log file - accessible to all roles."""
     if request.method == 'GET':
         user_key = current_user.username
         history = session.get('logs_history', logs_history.get(user_key, []))
-        return render_template('upload.html', logs_history=history)
+        return render_template('upload.html', logs_history=history, csrf_token=_get_csrf_token())
+
+    if not _validate_csrf():
+        flash('Solicitud inválida. Recarga la página e intenta nuevamente.', 'danger')
+        return redirect(url_for('upload'))
     
     f = request.files.get('logfile')
     if not f or f.filename == '':
         flash('No se seleccionó archivo', 'danger')
-        return render_template('upload.html')
-    
-    filename = f.filename
+        return redirect(url_for('upload'))
+
+    filename = secure_filename(f.filename or '')
+    ext = Path(filename).suffix.lower()
+    if ext not in ('.log', '.txt'):
+        flash('Formato no válido. Solo se permiten archivos .log o .txt', 'danger')
+        return redirect(url_for('upload'))
+
     try:
-        content = f.read().decode('utf-8', errors='ignore')
-    except Exception:
-        content = f.read().decode('latin-1', errors='ignore')
+        content = _read_text_filestorage_limited(f, MAX_LOG_UPLOAD_BYTES)
+    except ValueError:
+        flash(f'Archivo demasiado grande. Máximo {MAX_LOG_UPLOAD_BYTES // (1024 * 1024)}MB.', 'danger')
+        return redirect(url_for('upload'))
     
     # Usar GPT-3.5-turbo si la variable de entorno está presente
     from core import analyze_log_with_gpt
@@ -1086,12 +1236,13 @@ def upload():
         resultado = analyze_log_lines(content.splitlines())
 
     # Adaptar el resultado IA (allowed/unknown/mods_main/dependencies) a los campos esperados por el frontend
-    # Log de depuración: guardar el JSON crudo de la IA para inspección
-    import logging
-    logging.basicConfig(level=logging.INFO)
-    with open('ia_raw_result.json', 'w', encoding='utf-8') as f:
-        import json as _json
-        f.write(_json.dumps(resultado, ensure_ascii=False, indent=2))
+    # Log de depuración: guardar el JSON crudo solo si se habilita explícitamente.
+    if os.environ.get('DEBUG_IA_RAW') == '1':
+        import logging
+        logging.basicConfig(level=logging.INFO)
+        with open('ia_raw_result.json', 'w', encoding='utf-8') as f:
+            import json as _json
+            f.write(_json.dumps(resultado, ensure_ascii=False, indent=2))
     # Si la IA ya devuelve la estructura final, solo la copiamos y calculamos el total
     if all(k in resultado for k in ['mods_permitidos', 'mods_prohibidos', 'mods_desconocidos', 'dependencias']):
         resultado['total'] = (
@@ -1273,7 +1424,29 @@ def admin_users():
         last_seen = online_users.get(user.username)
         is_online = last_seen is not None and (now - last_seen) < ONLINE_TIMEOUT
         users_with_status.append((user, is_online))
-    return render_template('admin_users.html', users=users_with_status)
+    return render_template('admin_users.html', users=users_with_status, csrf_token=_get_csrf_token())
+
+
+@app.route('/admin/users/<int:user_id>/twofa/reset', methods=['POST'])
+@admin_required
+@limiter.limit('20 per minute')
+def admin_reset_user_twofa(user_id):
+    """Admin action: disable and clear 2FA for a user."""
+    ensure_users_2fa_columns()
+    if not _validate_csrf():
+        flash('Solicitud inválida. Recarga la página e intenta nuevamente.', 'danger')
+        return redirect(url_for('admin_users'))
+
+    user = User.query.get_or_404(user_id)
+    user.twofa_enabled = False
+    user.twofa_secret = None
+    user.twofa_confirmed_at = None
+    db.session.commit()
+
+    print(f'[2FA] Admin reset 2FA for user: {user.username}', flush=True)
+    auto_commit_and_push(f'Reset 2FA for user: {user.username}')
+    flash(f'2FA removido para "{user.username}".', 'success')
+    return redirect(url_for('admin_users'))
 
 
 @app.route('/admin/users/create', methods=['POST'])
@@ -1597,6 +1770,165 @@ def change_password():
     return render_template('change_password.html')
 
 
+@app.route('/2fa', methods=['GET'])
+@login_required
+def twofa_page():
+    ensure_users_2fa_columns()
+    if not _twofa_role_allowed(current_user):
+        _twofa_disable_for_user(current_user)
+        session.pop('twofa_setup_secret', None)
+        session.modified = True
+        flash('2FA solo está disponible para rangos: Founder/Owner/Admin/Manager/Smod.', 'danger')
+        return redirect(url_for('menu'))
+    # If user is not enabled, create/keep a setup secret in session until verified.
+    setup_secret = session.get('twofa_setup_secret')
+    if not getattr(current_user, 'twofa_enabled', False):
+        if not setup_secret:
+            import pyotp
+            setup_secret = pyotp.random_base32()
+            session['twofa_setup_secret'] = setup_secret
+            session.modified = True
+
+        import pyotp
+        totp = pyotp.TOTP(setup_secret)
+        otpauth_url = totp.provisioning_uri(name=current_user.username, issuer_name=_twofa_issuer_name())
+        qr_data_uri = _twofa_qr_data_uri(otpauth_url)
+    else:
+        otpauth_url = None
+        qr_data_uri = None
+
+    return render_template(
+        'twofa.html',
+        twofa_enabled=bool(getattr(current_user, 'twofa_enabled', False)),
+        setup_secret=setup_secret if not getattr(current_user, 'twofa_enabled', False) else None,
+        qr_data_uri=qr_data_uri,
+        csrf_token=_get_csrf_token(),
+    )
+
+
+@app.route('/2fa/enable', methods=['POST'])
+@login_required
+@limiter.limit('10 per minute')
+def twofa_enable():
+    ensure_users_2fa_columns()
+    if not _twofa_role_allowed(current_user):
+        _twofa_disable_for_user(current_user)
+        session.pop('twofa_setup_secret', None)
+        session.modified = True
+        flash('2FA solo está disponible para rangos: Founder/Owner/Admin/Manager/Smod.', 'danger')
+        return redirect(url_for('menu'))
+    if not _validate_csrf():
+        flash('Solicitud inválida. Recarga la página e intenta nuevamente.', 'danger')
+        return redirect(url_for('twofa_page'))
+
+    if getattr(current_user, 'twofa_enabled', False):
+        flash('2FA ya está activado en tu cuenta.', 'info')
+        return redirect(url_for('twofa_page'))
+
+    code = (request.form.get('code') or '').strip().replace(' ', '')
+    secret = session.get('twofa_setup_secret')
+    if not secret:
+        flash('Sesión de vinculación expirada. Recarga la página.', 'danger')
+        return redirect(url_for('twofa_page'))
+
+    import pyotp
+    totp = pyotp.TOTP(secret)
+    if not totp.verify(code, valid_window=1):
+        flash('Código 2FA inválido. Intenta nuevamente.', 'danger')
+        return redirect(url_for('twofa_page'))
+
+    current_user.twofa_secret = secret
+    current_user.twofa_enabled = True
+    current_user.twofa_confirmed_at = datetime.utcnow()
+    db.session.commit()
+
+    session.pop('twofa_setup_secret', None)
+    session.modified = True
+    flash('2FA activado correctamente.', 'success')
+    return redirect(url_for('twofa_page'))
+
+
+@app.route('/2fa/disable', methods=['POST'])
+@login_required
+@limiter.limit('10 per minute')
+def twofa_disable():
+    ensure_users_2fa_columns()
+    if not _twofa_role_allowed(current_user):
+        _twofa_disable_for_user(current_user)
+        session.pop('twofa_setup_secret', None)
+        session.modified = True
+        flash('2FA solo está disponible para rangos: Founder/Owner/Admin/Manager/Smod.', 'danger')
+        return redirect(url_for('menu'))
+    if not _validate_csrf():
+        flash('Solicitud inválida. Recarga la página e intenta nuevamente.', 'danger')
+        return redirect(url_for('twofa_page'))
+
+    if not getattr(current_user, 'twofa_enabled', False):
+        flash('2FA no está activado.', 'info')
+        return redirect(url_for('twofa_page'))
+
+    password = request.form.get('password', '')
+    code = (request.form.get('code') or '').strip().replace(' ', '')
+    if not bcrypt.check_password_hash(current_user.password_hash, password):
+        flash('Contraseña incorrecta.', 'danger')
+        return redirect(url_for('twofa_page'))
+
+    import pyotp
+    totp = pyotp.TOTP(current_user.twofa_secret or '')
+    if not totp.verify(code, valid_window=1):
+        flash('Código 2FA inválido.', 'danger')
+        return redirect(url_for('twofa_page'))
+
+    current_user.twofa_enabled = False
+    current_user.twofa_secret = None
+    current_user.twofa_confirmed_at = None
+    db.session.commit()
+    flash('2FA desactivado.', 'success')
+    return redirect(url_for('twofa_page'))
+
+
+@app.route('/2fa/login', methods=['GET', 'POST'])
+@limiter.limit('10 per minute')
+def twofa_login_verify():
+    """Second step of login for users with 2FA enabled."""
+    ensure_users_2fa_columns()
+    pending_user_id = session.get('twofa_pending_user_id')
+    if not pending_user_id:
+        return redirect(url_for('login'))
+
+    user = db.session.get(User, int(pending_user_id))
+    if not user:
+        session.pop('twofa_pending_user_id', None)
+        return redirect(url_for('login'))
+
+    # Safety: if role is not allowed, don't keep user stuck in 2FA flow.
+    if not _twofa_role_allowed(user):
+        _twofa_disable_for_user(user)
+        session.pop('twofa_pending_user_id', None)
+        session.modified = True
+        return redirect(url_for('login'))
+
+    if request.method == 'GET':
+        return render_template('twofa_login.html', csrf_token=_get_csrf_token(), username=user.username)
+
+    if not _validate_csrf():
+        flash('Solicitud inválida. Recarga la página e intenta nuevamente.', 'danger')
+        return redirect(url_for('twofa_login_verify'))
+
+    code = (request.form.get('code') or '').strip().replace(' ', '')
+    import pyotp
+    totp = pyotp.TOTP(user.twofa_secret or '')
+    if not totp.verify(code, valid_window=1):
+        flash('Código 2FA inválido.', 'danger')
+        return redirect(url_for('twofa_login_verify'))
+
+    session.pop('twofa_pending_user_id', None)
+    session.modified = True
+    login_user(user, remember=True)
+    flash(f'¡Bienvenido, {user.username}!', 'success')
+    return redirect(url_for('menu'))
+
+
 # ============================================================================
 # SECURITY HEADERS
 # ============================================================================
@@ -1664,6 +1996,9 @@ if __name__ == '__main__':
     with app.app_context():
         # Create tables if they don't exist
         db.create_all()
+        # Runtime migrations
+        ensure_login_attempts_columns()
+        ensure_users_2fa_columns()
     
     # Run app
     port = int(os.environ.get('PORT', 5000))

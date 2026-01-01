@@ -130,6 +130,9 @@
               </span>
               <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
                 <li><a class="dropdown-item" href="{{ url_for('change_password') }}">Cambiar contraseña</a></li>
+                {% if current_user.has_role('admin','smod') %}
+                  <li><a class="dropdown-item" href="/2fa">Vinculacion de 2FA</a></li>
+                {% endif %}
               </ul>
             </div>
             <a class="btn btn-logout-custom ms-2" href="{{ url_for('logout') }}">Cerrar sesión</a>

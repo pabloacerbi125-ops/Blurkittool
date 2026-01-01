@@ -189,6 +189,16 @@
         background: linear-gradient(135deg, #e74c3c, #c0392b);
         color: #fff;
     }
+    .btn-twofa-reset {
+        background: linear-gradient(135deg, #ffc107, #ff8c42);
+        color: #000;
+    }
+    .btn-twofa-reset:disabled {
+        opacity: 0.45;
+        transform: none !important;
+        box-shadow: none !important;
+        cursor: not-allowed;
+    }
     .btn-security {
         background: linear-gradient(135deg, #ffc107, #ff8c42);
         border: none;
@@ -454,6 +464,16 @@
                                             ✏️
                                         </button>
                                         {% if user.id != current_user.id %}
+                                        {% if current_user.is_admin() %}
+                                        <form method="POST" action="{{ url_for('admin_reset_user_twofa', user_id=user.id) }}" class="d-inline"
+                                              onsubmit="return confirm('¿Quitar 2FA a {{ user.username }}?')">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                            <button type="submit" class="btn btn-action btn-twofa-reset" title="Quitar 2FA"
+                                                    {% if not user.twofa_enabled %}disabled{% endif %}>
+                                                🔓
+                                            </button>
+                                        </form>
+                                        {% endif %}
                                         <form method="POST" action="{{ url_for('admin_toggle_user', user_id=user.id) }}" class="d-inline">
                                             {% if user.is_active %}
                                             <button type="submit" class="btn btn-action btn-kick" title="Kick (desactivar)">
