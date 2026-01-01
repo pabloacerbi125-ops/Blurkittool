@@ -28,7 +28,7 @@
       border-bottom: 2px solid var(--card-border);
     }
     .page-title {
-      font-family: 'Press Start 2P', monospace, 'Inter', Arial, sans-serif;
+      font-family: 'Inter', Arial, sans-serif;
       font-size: 2rem;
       font-weight: 700;
       color: #ffc107;
@@ -51,7 +51,7 @@
       font-weight: 500;
       font-size: 0.9rem;
       transition: background 0.2s;
-      font-family: 'Press Start 2P', monospace, 'Inter', Arial, sans-serif;
+      font-family: 'Inter', Arial, sans-serif;
       letter-spacing: 1px;
     }
     .back-link:hover {
@@ -68,7 +68,7 @@
       font-weight: 500;
       font-size: 0.9rem;
       transition: background 0.2s;
-      font-family: 'Press Start 2P', monospace, 'Inter', Arial, sans-serif;
+      font-family: 'Inter', Arial, sans-serif;
       letter-spacing: 1px;
     }
     .login-link:hover {
@@ -76,20 +76,20 @@
       color: #fff;
     }
     .page-header h1.page-title {
-      font-family: 'Press Start 2P', monospace, 'Inter', Arial, sans-serif;
-      font-size: 2rem;
+      font-family: 'Inter', Arial, sans-serif;
+      font-size: 2.5rem;
       color: #ffc107;
       text-shadow: 0 0 8px #ff8c42, 0 0 2px #fff, 0 2px 8px #000a;
       animation: gamerGlow 2.2s infinite alternate;
     }
     .chip, .chip-bad, .chip-good {
-      font-family: 'Press Start 2P', monospace, 'Inter', Arial, sans-serif;
+      font-family: 'Inter', Arial, sans-serif;
       letter-spacing: 1px;
-      font-size: 0.85rem;
+      font-size: 1.1rem;
     }
     .mod-title {
-      font-family: 'Press Start 2P', monospace, 'Inter', Arial, sans-serif;
-      font-size: 1.1rem;
+      font-family: 'Inter', Arial, sans-serif;
+      font-size: 1.3rem;
       color: #fff;
       text-shadow: 0 0 4px #ffcc00cc;
     }
@@ -106,8 +106,8 @@
       transform: scale(1.04) rotate(-1deg);
     }
     .mod-meta .tag {
-      font-family: 'Press Start 2P', monospace, 'Inter', Arial, sans-serif;
-      font-size: 0.8rem;
+      font-family: 'Inter', Arial, sans-serif;
+      font-size: 1rem;
       letter-spacing: 1px;
     }
     .mod-desc {
@@ -132,95 +132,27 @@
 </head>
 <body>
   <!-- Public Navigation (idéntica al menú principal) -->
-  <nav class="navbar navbar-expand-lg navbar-dark public-nav" style="display: flex; justify-content: space-between; padding: 1rem 2rem;">
-    <a class="navbar-brand" href="/" style="margin: 0; display: flex; align-items: center; gap: 0.5rem;">
-      <img src="/static/bkicono.ico" alt="Logo" style="width:34px;height:34px;border-radius:6px;object-fit:cover;box-shadow:0 1px 6px #0002;vertical-align:middle;margin-right:0.5rem;">
-      <span style="color: #fff; font-weight: 600; font-size: 0.95rem;">BlurkitTool</span>
-    </a>
-    <a href="/login" class="login-link">🔐 Iniciar Sesión</a>
+  <nav class="navbar navbar-expand-lg navbar-dark" style="border-bottom: 3px solid #ff8c00; box-shadow: 0 2px 12px 0 #ff8c0044; overflow-x: auto; min-width: 0;">
+    <div class="container container-main" style="display: flex; flex-wrap: nowrap; align-items: center; min-width: 0; justify-content: space-between;">
+      <a class="navbar-brand d-flex align-items-center" href="{{ url_for('home') }}">
+        <img src="{{ url_for('static', filename='bkicono.ico') }}" alt="Logo" style="width:38px;height:38px;border-radius:6px;object-fit:cover;margin-right:10px;vertical-align:middle;">
+        <div>
+          BlurkitTool
+        </div>
+      </a>
+      <form method="get" action="/modsjg" class="d-flex align-items-center gap-2" style="max-width: 520px; width: 100%; min-width: 0;">
+        <div style="position: relative; flex-grow: 1; display: flex; align-items: center;">
+          <span class="gamer-search-icon" style="position: absolute; left: 16px; top: 50%; transform: translateY(-50%); font-size: 1.25rem; color: #6ec6ff; pointer-events: none; filter: drop-shadow(0 0 3px #ff8c42aa); animation: gamerIconPop 2.5s infinite alternate-reverse;">🔍</span>
+          <input type="text" name="search" class="form-control gamer-input search-placeholder-small" placeholder="Buscar por nombre o alias..." value="{{ request.args.get('search', '') }}" autocomplete="off" style="padding-left: 2.5rem; background: rgba(36,38,41,0.93); border: 2px solid #ffcc00; color: #fff; border-radius: 12px 0 0 12px; font-family: 'Inter', Arial, sans-serif; font-size: 1.18rem; letter-spacing: 1px; transition: border-color 0.2s, box-shadow 0.2s; box-shadow: 0 0 8px 0 #ffcc0033; outline: none; width: 100%; min-width: 0; height: 48px;" onfocus="this.style.borderColor='#ff8c42'; this.style.boxShadow='0 0 10px 2px #ff8c42aa';" onblur="this.style.borderColor='#ffcc00'; this.style.boxShadow='0 0 8px 0 #ffcc0033';">
+        </div>
+        <button type="submit" class="btn btn-primary gamer-btn" style="font-family: 'Inter', Arial, sans-serif; font-size: 1.18rem; padding: 0.5rem 1.7rem; border-radius: 0 12px 12px 0; box-shadow: 0 0 8px 0 #ff8c42aa; border: 2px solid #ffcc00; border-left: none; background: linear-gradient(90deg, #ff8c42 60%, #ffcc00 100%); color: #fff; letter-spacing: 1px; text-shadow: 0 0 3px #ffcc00aa; transition: background 0.2s, box-shadow 0.2s, border-color 0.2s; height: 48px;" onmouseover="this.style.background='linear-gradient(90deg, #ffcc00 0%, #ff8c42 100%)'; this.style.boxShadow='0 0 12px 2px #ffcc00aa'; this.style.borderColor='#ffcc00';" onmouseout="this.style.background='linear-gradient(90deg, #ff8c42 60%, #ffcc00 100%)'; this.style.boxShadow='0 0 8px 0 #ff8c42aa'; this.style.borderColor='#ffcc00';">Buscar</button>
+      </form>
+    </div>
   </nav>
 
 
 
   <div class="container-main" style="margin-top: 2rem;">
-    <div class="search-card gamer-search-bar" style="
-      max-width: 650px;
-      margin: 0 auto 2.5rem auto;
-      border-radius: 16px;
-      background: linear-gradient(135deg, #232526 0%, #181c22 100%);
-      box-shadow: 0 0 10px 2px #ffcc0055, 0 0 18px 3px #ff8c4255;
-      border: 2px solid #ffcc00;
-      backdrop-filter: blur(3px);
-      padding: 1.1rem 1.5rem 1.1rem 1.5rem;
-      display: flex;
-      align-items: center;
-      position: relative;
-      overflow: visible;
-      animation: fadeInSearch 0.7s cubic-bezier(.4,1.4,.6,1);
-    ">
-      <form method="get" action="/modsjg" class="d-flex flex-grow-1 align-items-center gap-2" style="width:100%;">
-        <div style="position: relative; flex-grow: 1;">
-          <span class="gamer-search-icon" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); font-size: 1.3rem; color: #ffcc00; pointer-events: none; filter: drop-shadow(0 0 2px #ff8c42aa); animation: gamerIconPop 2.5s infinite alternate-reverse;">🔍</span>
-          <input type="text" name="search" class="form-control gamer-input" placeholder="Buscar por nombre o alias..." value="{{ request.args.get('search', '') }}" autocomplete="off" style="
-            padding-left: 2.2rem;
-            background: rgba(36,38,41,0.97);
-            border: 2px solid #ffcc00;
-            color: #fff;
-            border-radius: 10px;
-            font-family: 'Press Start 2P', monospace, 'Inter', Arial, sans-serif;
-            font-size: 1.04rem;
-            letter-spacing: 1px;
-            transition: border-color 0.2s, box-shadow 0.2s;
-            box-shadow: 0 0 4px 0 #ffcc0033;
-            outline: none;
-          " onfocus="this.style.borderColor='#ff8c42'; this.style.boxShadow='0 0 8px 2px #ff8c42aa';" onblur="this.style.borderColor='#ffcc00'; this.style.boxShadow='0 0 4px 0 #ffcc0033';">
-        </div>
-        <button type="submit" class="btn btn-primary gamer-btn" style="
-          font-family: 'Press Start 2P', monospace, 'Inter', Arial, sans-serif;
-          font-size: 1.04rem;
-          padding: 0.5rem 1.2rem;
-          border-radius: 10px;
-          box-shadow: 0 0 4px 0 #ff8c42aa;
-          border: 2px solid #ff8c42;
-          background: linear-gradient(90deg, #ff8c42 60%, #ffcc00 100%);
-          color: #fff;
-          letter-spacing: 1px;
-          text-shadow: 0 0 3px #ffcc00aa;
-          transition: background 0.2s, box-shadow 0.2s, border-color 0.2s;
-        " onmouseover="this.style.background='linear-gradient(90deg, #ffcc00 0%, #ff8c42 100%)'; this.style.boxShadow='0 0 8px 2px #ffcc00aa'; this.style.borderColor='#ffcc00';" onmouseout="this.style.background='linear-gradient(90deg, #ff8c42 60%, #ffcc00 100%)'; this.style.boxShadow='0 0 4px 0 #ff8c42aa'; this.style.borderColor='#ff8c42';">Buscar</button>
-      </form>
-      <style>
-        @keyframes fadeInSearch {
-          0% { opacity: 0; transform: translateY(20px) scale(0.99); }
-          100% { opacity: 1; transform: translateY(0) scale(1); }
-        }
-        @keyframes gamerIconPop {
-          0% { transform: scale(1) rotate(-2deg); }
-          100% { transform: scale(1.07) rotate(2deg); }
-        }
-        .gamer-search-bar:before {
-          content: '';
-          position: absolute;
-          left: -10px; top: -10px; right: -10px; bottom: -10px;
-          z-index: 0;
-          background: radial-gradient(circle at 30% 30%, #ffcc0022 0%, transparent 70%), radial-gradient(circle at 70% 70%, #ff8c4215 0%, transparent 70%);
-          filter: blur(6px);
-          pointer-events: none;
-        }
-        .gamer-search-bar {
-          position: relative;
-          z-index: 1;
-        }
-        .gamer-input:focus {
-          border-color: #ff8c42 !important;
-          box-shadow: 0 0 8px 2px #ff8c42aa !important;
-        }
-        .gamer-btn:active {
-          background: #ffcc00 !important;
-          color: #232526 !important;
-        }
-      </style>
-    </div>
     <!-- Page Header -->
     <div class="page-header">
       <h1 class="page-title">📦 Lista de Modos</h1>

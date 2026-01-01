@@ -38,7 +38,7 @@
     animation: fadeInHero 1.1s cubic-bezier(.4,1.4,.6,1);
   }
   .hero-title {
-    font-family: 'Press Start 2P', monospace, 'Inter', Arial, sans-serif;
+    font-family: 'Inter', Arial, sans-serif;
     font-size: 2.5rem;
     color: {{ neon_color }};
     letter-spacing: 2px;
@@ -63,7 +63,7 @@
     color: #fff;
     font-size: 1.1rem;
     margin-bottom: 0.5rem;
-    font-family: 'Press Start 2P', monospace, 'Inter', Arial, sans-serif;
+    font-family: 'Inter', Arial, sans-serif;
     text-shadow: 0 0 4px #ffcc0077;
   }
   .menu-grid {
@@ -80,7 +80,7 @@
     background: linear-gradient(135deg, rgba(30,32,36,0.97) 80%, #ffcc0011 100%);
     border-radius: 14px;
     transition: box-shadow 0.3s, border-color 0.3s, transform 0.2s;
-    font-family: 'Press Start 2P', monospace, 'Inter', Arial, sans-serif;
+    font-family: 'Inter', Arial, sans-serif;
     min-width: 320px;
     max-width: 340px;
     padding: 2.2rem 1.5rem;
@@ -188,6 +188,13 @@
       <h3 class="menu-title">Pegar log</h3>
       <p class="menu-description">Pega el contenido del log directamente y analízalo al instante</p>
     </a>
+    {% if current_user.is_authenticated and current_user.role in ['smod', 'manager', 'admin', 'owner', 'founder', 'adminpage'] %}
+    <a href="/reglasadm" class="menu-card">
+      <div class="menu-icon">📜</div>
+      <h3 class="menu-title">Administración de reglas</h3>
+      <p class="menu-description">Gestiona las reglas y modalidades del servidor. Solo para staff autorizado.</p>
+    </a>
+    {% endif %}
     {% if current_user.is_admin() or current_user.role == 'smod' %}
     <a href="/admin/users" class="menu-card">
       <div class="menu-icon">👥</div>
@@ -197,8 +204,8 @@
     {% endif %}
     <a href="/mods" class="menu-card">
       <div class="menu-icon">📊</div>
-      <h3 class="menu-title">Ver lista de mods, editar, agregar y eliminar</h3>
-      <p class="menu-description">Visualiza todas las listas de mods permitidos y prohibidos e incluso aquí también podrás editar, agregar y eliminar los mods</p>
+      <h3 class="menu-title">Modificación de la lista de mods</h3>
+      <p class="menu-description">Edita, elimina y agrega mods en las listas de permitidos y prohibidos.</p>
     </a>
   </div>
 </div>

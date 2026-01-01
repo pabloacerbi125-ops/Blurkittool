@@ -283,14 +283,14 @@
                         <div class="mb-3">
                             <label for="role" class="form-label">Rol</label>
                             <select class="form-select" id="role" name="role" required>
-                                <option value="helper" class="role-helper">Helper</option>
-                                <option value="p-helper" class="role-p-helper">P-Helper</option>
-                                <option value="mod" class="role-mod">Mod</option>
-                                <option value="smod" class="role-smod">Smod</option>
-                                <option value="manager" class="role-manager">Manager</option>
-                                <option value="admin" class="role-admin">Admin</option>
-                                <option value="owner" class="role-owner">Owner</option>
                                 <option value="founder" class="role-founder">Founder</option>
+                                <option value="owner" class="role-owner">Owner</option>
+                                <option value="admin" class="role-admin">Admin</option>
+                                <option value="manager" class="role-manager">Manager</option>
+                                <option value="smod" class="role-smod">Smod</option>
+                                <option value="mod" class="role-mod">Mod</option>
+                                <option value="helper" class="role-helper">Helper</option>
+                                <option value="p-helper" class="role-p-helper" selected>P-Helper</option>
                             </select>
                         <style>
                         .role-helper { color: #222; background: #7cffb2; }
@@ -355,14 +355,14 @@
                                     {% if current_user.username == 'PonyGamer_uwu' and user.username == 'PonyGamer_uwu' %}
                                         <form method="POST" action="{{ url_for('admin_change_role', user_id=user.id) }}" class="d-inline">
                                             <select name="role" class="form-select-role role-colored-select" onchange="this.form.submit()" data-current-role="{{ user.role }}">
+                                                <option value="founder" {% if user.role == 'founder' %}selected{% endif %} class="role-founder">Founder</option>
+                                                <option value="owner" {% if user.role == 'owner' %}selected{% endif %} class="role-owner">Owner</option>
+                                                <option value="admin" {% if user.role == 'admin' %}selected{% endif %} class="role-admin">Admin</option>
+                                                <option value="manager" {% if user.role == 'manager' %}selected{% endif %} class="role-manager">Manager</option>
+                                                <option value="smod" {% if user.role == 'smod' %}selected{% endif %} class="role-smod">Smod</option>
+                                                <option value="mod" {% if user.role == 'mod' %}selected{% endif %} class="role-mod">Mod</option>
                                                 <option value="helper" {% if user.role == 'helper' %}selected{% endif %} class="role-helper">Helper</option>
                                                 <option value="p-helper" {% if user.role == 'p-helper' %}selected{% endif %} class="role-p-helper">P-Helper</option>
-                                                <option value="mod" {% if user.role == 'mod' %}selected{% endif %} class="role-mod">Mod</option>
-                                                <option value="smod" {% if user.role == 'smod' %}selected{% endif %} class="role-smod">Smod</option>
-                                                <option value="manager" {% if user.role == 'manager' %}selected{% endif %} class="role-manager">Manager</option>
-                                                <option value="admin" {% if user.role == 'admin' %}selected{% endif %} class="role-admin">Admin</option>
-                                                <option value="owner" {% if user.role == 'owner' %}selected{% endif %} class="role-owner">Owner</option>
-                                                <option value="founder" {% if user.role == 'founder' %}selected{% endif %} class="role-founder">Founder</option>
                                                 <option value="adminpage" {% if user.role == 'adminpage' %}selected{% endif %} class="role-adminpage">AdminPage</option>
                                             </select>
                                         </form>
@@ -392,14 +392,14 @@
                                 {% else %}
                                     <form method="POST" action="{{ url_for('admin_change_role', user_id=user.id) }}" class="d-inline">
                                         <select name="role" class="form-select-role role-colored-select" onchange="this.form.submit()" data-current-role="{{ user.role }}">
+                                            <option value="founder" {% if user.role == 'founder' %}selected{% endif %} class="role-founder">Founder</option>
+                                            <option value="owner" {% if user.role == 'owner' %}selected{% endif %} class="role-owner">Owner</option>
+                                            <option value="admin" {% if user.role == 'admin' %}selected{% endif %} class="role-admin">Admin</option>
+                                            <option value="manager" {% if user.role == 'manager' %}selected{% endif %} class="role-manager">Manager</option>
+                                            <option value="smod" {% if user.role == 'smod' %}selected{% endif %} class="role-smod">Smod</option>
+                                            <option value="mod" {% if user.role == 'mod' %}selected{% endif %} class="role-mod">Mod</option>
                                             <option value="helper" {% if user.role == 'helper' %}selected{% endif %} class="role-helper">Helper</option>
                                             <option value="p-helper" {% if user.role == 'p-helper' %}selected{% endif %} class="role-p-helper">P-Helper</option>
-                                            <option value="mod" {% if user.role == 'mod' %}selected{% endif %} class="role-mod">Mod</option>
-                                            <option value="smod" {% if user.role == 'smod' %}selected{% endif %} class="role-smod">Smod</option>
-                                            <option value="manager" {% if user.role == 'manager' %}selected{% endif %} class="role-manager">Manager</option>
-                                            <option value="admin" {% if user.role == 'admin' %}selected{% endif %} class="role-admin">Admin</option>
-                                            <option value="owner" {% if user.role == 'owner' %}selected{% endif %} class="role-owner">Owner</option>
-                                            <option value="founder" {% if user.role == 'founder' %}selected{% endif %} class="role-founder">Founder</option>
                                         </select>
                                     <!-- cierre correcto de select y form aquí, no tbody -->
                                     <style>

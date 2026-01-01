@@ -2,6 +2,21 @@
 .dropdown-menu {
   z-index: 2000 !important;
 }
+/* Evita que el menú de usuario se desborde hacia la izquierda */
+.dropdown-menu-end[aria-labelledby="userDropdown"] {
+  left: auto !important;
+  right: 0 !important;
+  transform: none !important;
+}
+
+/* Opcional: fuerza el dropdown a alinearse siempre a la derecha */
+@media (min-width: 992px) {
+  .navbar .dropdown-menu-end[aria-labelledby="userDropdown"] {
+    left: auto !important;
+    right: 0 !important;
+  }
+}
+
 /* Custom theme for BlurkitTool */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
 
@@ -21,6 +36,14 @@ body{
   background: var(--bg);
   color: #e6eef3;
   font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+}
+
+.home-bg {
+  background: url('/static/minecraft-bg.jpg') no-repeat center center fixed !important;
+  background-size: cover !important;
+  filter: none !important;
+  -webkit-filter: none !important;
+  backdrop-filter: none !important;
 }
 
 /* Scrollbar styling to match dark UI */
@@ -75,6 +98,24 @@ body{
 .right-col{ position:sticky; top:80px; }
 
 .footer-note{ color:var(--muted); font-size:0.85rem; }
+
+/* Rules typography + highlighting */
+.regla-text{
+  font-weight: 650;
+  letter-spacing: 0.2px;
+  color: #e6eef3;
+}
+
+.prohibido-word{
+  color: #ff4d4f;
+  font-weight: 800;
+  text-transform: uppercase;
+  padding: 0 6px;
+  border-radius: 8px;
+  background: rgba(231, 76, 60, 0.18);
+  border: 1px solid rgba(231, 76, 60, 0.55);
+  box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.12);
+}
 
 /* Mods page refresh */
 .mods-wrapper{ margin-top:8px; }

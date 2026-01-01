@@ -115,3 +115,29 @@ class LoginAttempt(db.Model):
     
     def __repr__(self):
         return f'<LoginAttempt {self.ip_address} - {self.username} ({self.attempts})>'
+
+# ===================== MODALIDAD =====================
+class Modalidad(db.Model):
+    __tablename__ = 'modalidades'
+    id = db.Column(db.Integer, primary_key=True)
+    nombre = db.Column(db.String(100), unique=True, nullable=False)
+    nota = db.Column(db.Text)  # Nota importante para la modalidad (opcional)
+    orden = db.Column(db.Integer, nullable=False, default=0, index=True)
+    # Puedes agregar más campos si lo necesitas
+
+    def __repr__(self):
+        return f'<Modalidad {self.nombre}>'
+
+
+# ===================== REGLA =====================
+class Regla(db.Model):
+    __tablename__ = 'reglas'
+    id = db.Column(db.Integer, primary_key=True)
+    descripcion = db.Column(db.Text, nullable=False)
+    modalidad_id = db.Column(db.Integer, db.ForeignKey('modalidades.id'), nullable=False)
+    orden = db.Column(db.Integer, default=0)  # Para ordenar reglas opcionalmente
+
+    modalidad = db.relationship('Modalidad', backref=db.backref('reglas', lazy=True, cascade="all, delete-orphan"))
+
+    def __repr__(self):
+        return f'<Regla {self.descripcion[:30]}... (Modalidad {self.modalidad_id})>'

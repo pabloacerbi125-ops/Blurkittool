@@ -12,12 +12,37 @@
       .table>:not(caption)>*>* { background-color: transparent !important; box-shadow: none !important; }
       .table-striped>tbody>tr:nth-of-type(odd)>* { --bs-table-accent-bg: transparent !important; background-color: transparent !important; }
       .table-responsive { background: transparent; }
+
+      /* Oculta la flecha del dropdown de Bootstrap solo en el usuario */
+      #userDropdown::after {
+        display: none !important;
+      }
+
+      /* Botón cerrar sesión estilo blanco, fondo transparente, borde blanco, texto bold, más pequeño */
+      .btn-logout-custom {
+        color: #fff !important;
+        background: transparent !important;
+        border: 1.5px solid #fff !important;
+        font-weight: bold !important;
+        border-radius: 7px !important;
+        padding: 2px 14px !important;
+        font-size: 1rem !important;
+        box-shadow: none !important;
+        line-height: 1.2 !important;
+        min-height: 28px !important;
+        transition: background 0.2s, color 0.2s;
+      }
+      .btn-logout-custom:hover, .btn-logout-custom:focus {
+        background: #fff !important;
+        color: #222 !important;
+        border-color: #fff !important;
+      }
     </style>
   </head>
   <body>
     <nav class="navbar navbar-expand-lg navbar-dark" style="border-bottom: 3px solid #ff8c00; box-shadow: 0 2px 12px 0 #ff8c0044;">
       <div class="container container-main" style="display: flex; flex-wrap: nowrap; align-items: center;">
-        <a class="navbar-brand d-flex align-items-center" href="{{ url_for('menu') if current_user.is_authenticated else url_for('home') }}">
+        <a class="navbar-brand d-flex align-items-center" href="{{ url_for('home') }}">
           {% set neon_color = '#ff8c00' %}
           <img src="{{ url_for('static', filename='bkicono.ico') }}" alt="Logo" style="width:38px;height:38px;border-radius:6px;object-fit:cover;margin-right:10px;vertical-align:middle;">
           <div>
@@ -33,7 +58,7 @@
         <div class="collapse navbar-collapse" id="navbarNav">
           <ul class="navbar-nav me-auto">
             <li class="nav-item">
-              <a class="nav-link" href="{{ url_for('home') }}">🏠 Inicio</a>
+              <a class="nav-link" href="{{ url_for('menu') }}">🏠 Inicio</a>
             </li>
             {% if request.endpoint != 'menu' %}
             <li class="nav-item">
@@ -65,31 +90,36 @@
             {% endif %}
           </ul>
           <div class="d-flex align-items-center ms-auto">
-            <span class="text-light me-3" style="font-weight: bold; font-size: 1.08rem;">
-              {{ current_user.username }}
-              {% if current_user.role == 'adminpage' %}
-                <span class="badge" style="background:#ff00aa;color:#fff;font-weight:bold; margin-left: 0.5rem;">Adminpage</span>
-              {% elif current_user.role == 'owner' %}
-                <span class="badge" style="background:#ff9800;color:#fff;font-weight:bold; margin-left: 0.5rem;">Owner</span>
-              {% elif current_user.role == 'founder' %}
-                <span class="badge" style="background:#FFD700;color:#222;font-weight:bold; margin-left: 0.5rem;">Founder</span>
-              {% elif current_user.role == 'manager' %}
-                <span class="badge" style="background:#8e24aa;color:#fff; margin-left: 0.5rem;">Manager</span>
-              {% elif current_user.role == 'p-helper' %}
-                <span class="badge" style="background:#7cffb2;color:#222; margin-left: 0.5rem;">P-helper</span>
-              {% elif current_user.role == 'helper' %}
-                <span class="badge" style="background:#7cffb2;color:#222; margin-left: 0.5rem;">Helper</span>
-              {% elif current_user.role == 'admin' %}
-                <span class="badge bg-danger" style="margin-left: 0.5rem;">Admin</span>
-              {% elif current_user.role == 'smod' %}
-                <span class="badge" style="background:#009fae;color:#fff; margin-left: 0.5rem;">Smod</span>
-              {% elif current_user.role == 'mod' %}
-                <span class="badge" style="background:#006400;color:#fff; margin-left: 0.5rem;">Mod</span>
-              {% else %}
-                <span class="badge bg-info" style="margin-left: 0.5rem;">{{ current_user.role|capitalize }}</span>
-              {% endif %}
-            </span>
-            <a href="{{ url_for('logout') }}" class="btn btn-sm btn-outline-light" style="font-weight:bold;">Cerrar sesión</a>
+            <div class="dropdown">
+              <span class="text-light me-2 dropdown-toggle" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false" style="font-weight: bold; font-size: 1.08rem; text-decoration: none; cursor:pointer;">
+                {{ current_user.username }}
+                {% if current_user.role == 'adminpage' %}
+                  <span class="badge" style="background:#ff00aa;color:#fff;font-weight:bold; margin-left: 0.5rem;">Adminpage</span>
+                {% elif current_user.role == 'owner' %}
+                  <span class="badge" style="background:#ff9800;color:#fff;font-weight:bold; margin-left: 0.5rem;">Owner</span>
+                {% elif current_user.role == 'founder' %}
+                  <span class="badge" style="background:#FFD700;color:#222;font-weight:bold; margin-left: 0.5rem;">Founder</span>
+                {% elif current_user.role == 'manager' %}
+                  <span class="badge" style="background:#8e24aa;color:#fff; margin-left: 0.5rem;">Manager</span>
+                {% elif current_user.role == 'p-helper' %}
+                  <span class="badge" style="background:#7cffb2;color:#222; margin-left: 0.5rem;">P-helper</span>
+                {% elif current_user.role == 'helper' %}
+                  <span class="badge" style="background:#7cffb2;color:#222; margin-left: 0.5rem;">Helper</span>
+                {% elif current_user.role == 'admin' %}
+                  <span class="badge bg-danger" style="margin-left: 0.5rem;">Admin</span>
+                {% elif current_user.role == 'smod' %}
+                  <span class="badge" style="background:#009fae;color:#fff; margin-left: 0.5rem;">Smod</span>
+                {% elif current_user.role == 'mod' %}
+                  <span class="badge" style="background:#006400;color:#fff; margin-left: 0.5rem;">Mod</span>
+                {% else %}
+                  <span class="badge bg-info" style="margin-left: 0.5rem;">{{ current_user.role|capitalize }}</span>
+                {% endif %}
+              </span>
+              <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+                <li><a class="dropdown-item" href="{{ url_for('change_password') }}">Cambiar contraseña</a></li>
+              </ul>
+            </div>
+            <a class="btn btn-logout-custom ms-2" href="{{ url_for('logout') }}">Cerrar sesión</a>
           </div>
         </div>
         {% endif %}

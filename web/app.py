@@ -1,12 +1,5 @@
-
-# Handler personalizado para error 429 (Too Many Requests)
-# Endpoint para compatibilidad con url_for('menu') en plantillas y redirecciones
+# Editar nombre de modalidad
 """Flask web application for BlurkitModsTool with authentication.
-# Handler personalizado para error 429 (Too Many Requests)
-@app.errorhandler(429)
-def ratelimit_handler(e):
-    flash('Demasiados intentos. Vuelve a intentarlo más tarde.', 'danger')
-    return render_template('login.html'), 429
 
 Multi-user system with role-based permissions and SQLite database.
 """
@@ -14,9 +7,12 @@ Multi-user system with role-based permissions and SQLite database.
 import sys
 import os
 import subprocess
+import re
 from pathlib import Path
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 from flask_limiter import Limiter
+from markupsafe import Markup, escape
+from sqlalchemy import inspect, text
 
 # Función para obtener la IP real incluso detrás de proxy (Render)
 def get_real_ip():
@@ -104,7 +100,7 @@ def resource_path(relative_path):
 # Make sure web module can import core
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from models import db, User, Mod
+from models import db, User, Mod, Modalidad, Regla
 from auth import login_required, roles_required, mod_required, smod_required, admin_required
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -113,6 +109,144 @@ from flask import jsonify
 
 # Flask app with proper paths
 app = Flask(__name__)
+
+
+_modalidad_orden_ready = False
+_regla_orden_ready = False
+
+
+def ensure_modalidad_orden_column():
+    """Ensure the 'orden' column exists on 'modalidades' table.
+
+    This project doesn't use Alembic; so we run a small, idempotent migration at
+    runtime to support drag-and-drop ordering.
+    """
+    global _modalidad_orden_ready
+    if _modalidad_orden_ready:
+        return
+
+    try:
+        inspector = inspect(db.engine)
+        if 'modalidades' not in inspector.get_table_names():
+            _modalidad_orden_ready = True
+            return
+
+        column_names = {c['name'] for c in inspector.get_columns('modalidades')}
+        if 'orden' not in column_names:
+            db.session.execute(text('ALTER TABLE modalidades ADD COLUMN orden INTEGER NOT NULL DEFAULT 0'))
+            db.session.commit()
+
+            modalidades_init = Modalidad.query.order_by(Modalidad.nombre.asc()).all()
+            for idx, modalidad in enumerate(modalidades_init, start=1):
+                modalidad.orden = idx
+            db.session.commit()
+
+        _modalidad_orden_ready = True
+    except Exception as exc:
+        print(f"[Modalidad orden] Warning: could not ensure column: {exc}", flush=True)
+        _modalidad_orden_ready = True
+
+
+def ensure_regla_orden_column():
+    """Ensure the 'orden' column exists on 'reglas' table.
+
+    Like Modalidad ordering, this project doesn't use Alembic; so we run an
+    idempotent migration at runtime.
+    """
+    global _regla_orden_ready
+    if _regla_orden_ready:
+        return
+
+    try:
+        inspector = inspect(db.engine)
+        if 'reglas' not in inspector.get_table_names():
+            _regla_orden_ready = True
+            return
+
+        column_names = {c['name'] for c in inspector.get_columns('reglas')}
+        if 'orden' not in column_names:
+            db.session.execute(text('ALTER TABLE reglas ADD COLUMN orden INTEGER NOT NULL DEFAULT 0'))
+            db.session.commit()
+
+            # Initialize per-modalidad order based on insertion (id)
+            modalidad_ids = [row[0] for row in db.session.query(Regla.modalidad_id).distinct().all()]
+            for modalidad_id in modalidad_ids:
+                reglas_init = (
+                    Regla.query.filter_by(modalidad_id=modalidad_id)
+                    .order_by(Regla.id.asc())
+                    .all()
+                )
+                for idx, regla in enumerate(reglas_init, start=1):
+                    regla.orden = idx
+            db.session.commit()
+
+        _regla_orden_ready = True
+    except Exception as exc:
+        print(f"[Regla orden] Warning: could not ensure column: {exc}", flush=True)
+        _regla_orden_ready = True
+
+
+@app.template_filter('highlight_prohibido')
+def highlight_prohibido(text):
+    """Highlight the word 'PROHIBIDO' in rendered text.
+
+    Escapes input first to prevent XSS, then wraps case-insensitive whole-word
+    matches in a span so CSS can style it.
+    """
+    if text is None:
+        return ''
+
+    escaped = escape(str(text))
+
+    def repl(match):
+        return f'<span class="prohibido-word">{match.group(0)}</span>'
+
+    highlighted = re.sub(r'\bPROHIBIDO\b', repl, str(escaped), flags=re.IGNORECASE)
+    return Markup(highlighted)
+
+@app.route('/editar_modalidad/<int:modalidad_id>', methods=['POST'])
+@login_required
+@admin_required
+def editar_modalidad(modalidad_id):
+    modalidad = Modalidad.query.get_or_404(modalidad_id)
+    nuevo_nombre = request.form.get('nuevo_nombre', '').strip()
+    if not nuevo_nombre:
+        flash('El nombre no puede estar vacío.', 'danger')
+        return redirect(url_for('reglasadm', modalidad_id=modalidad_id))
+    if Modalidad.query.filter(Modalidad.nombre == nuevo_nombre, Modalidad.id != modalidad_id).first():
+        flash('Ya existe otra modalidad con ese nombre.', 'danger')
+        return redirect(url_for('reglasadm', modalidad_id=modalidad_id))
+    modalidad.nombre = nuevo_nombre
+    db.session.commit()
+    flash('Nombre de modalidad actualizado.', 'success')
+    return redirect(url_for('reglasadm', modalidad_id=modalidad_id))
+@app.route('/editar_regla/<int:regla_id>', methods=['POST'])
+def editar_regla(regla_id):
+    regla = Regla.query.get_or_404(regla_id)
+    ensure_regla_orden_column()
+    nueva_desc = request.form.get('nueva_descripcion', '').strip()
+    nuevo_orden_raw = request.form.get('nuevo_orden', '').strip()
+    if not nueva_desc:
+        flash('La descripción no puede estar vacía.', 'danger')
+        return redirect(url_for('reglasadm', modalidad_id=regla.modalidad_id))
+
+    nuevo_orden = None
+    if nuevo_orden_raw:
+        try:
+            nuevo_orden = int(nuevo_orden_raw)
+        except ValueError:
+            flash('El número de regla debe ser un entero válido.', 'danger')
+            return redirect(url_for('reglasadm', modalidad_id=regla.modalidad_id))
+        if nuevo_orden < 1:
+            flash('El número de regla debe ser mayor o igual a 1.', 'danger')
+            return redirect(url_for('reglasadm', modalidad_id=regla.modalidad_id))
+
+    regla.descripcion = nueva_desc
+    if nuevo_orden is not None:
+        regla.orden = nuevo_orden
+    db.session.commit()
+    flash('Regla editada correctamente.', 'success')
+    return redirect(url_for('reglasadm', modalidad_id=regla.modalidad_id))
 limiter = Limiter(get_real_ip, app=app)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
 
@@ -463,8 +597,125 @@ def modsjg():
 @app.route('/reglas')
 def reglas():
     """Public rules page - separate page for viewing rules."""
-    return render_template('reglas.html')
+    ensure_modalidad_orden_column()
+    ensure_regla_orden_column()
+    modalidades = Modalidad.query.order_by(Modalidad.orden.asc(), Modalidad.nombre.asc()).all()
+    return render_template('reglas.html', modalidades=modalidades)
 
+
+@app.route('/reglasadm', methods=['GET', 'POST'])
+def reglasadm():
+    """Admin rules management - view and create modalities, and show/add rules for selected modality."""
+    ensure_modalidad_orden_column()
+    ensure_regla_orden_column()
+    modalidades = Modalidad.query.order_by(Modalidad.orden.asc(), Modalidad.nombre.asc()).all()
+    modalidad_id = request.args.get('modalidad_id', type=int)
+    modalidad_seleccionada = None
+    reglas = []
+    if modalidad_id:
+        modalidad_seleccionada = db.session.get(Modalidad, modalidad_id)
+        if modalidad_seleccionada:
+            reglas = (
+                Regla.query.filter_by(modalidad_id=modalidad_id)
+                .order_by(Regla.orden.asc(), Regla.id.asc())
+                .all()
+            )
+
+    if request.method == 'POST':
+        # Agregar modalidad
+        if 'nombre' in request.form:
+            nombre = request.form.get('nombre', '').strip()
+            if not nombre:
+                flash('El nombre de la modalidad es obligatorio.', 'danger')
+                return redirect(url_for('reglasadm'))
+            if Modalidad.query.filter_by(nombre=nombre).first():
+                flash('Ya existe una modalidad con ese nombre.', 'danger')
+                return redirect(url_for('reglasadm'))
+            max_orden = db.session.query(db.func.max(Modalidad.orden)).scalar() or 0
+            nueva = Modalidad(nombre=nombre, orden=int(max_orden) + 1)
+            db.session.add(nueva)
+            db.session.commit()
+            flash('Modalidad agregada.', 'success')
+            return redirect(url_for('reglasadm'))
+        # Agregar regla
+        elif 'descripcion_regla' in request.form and modalidad_id:
+            descripcion = request.form.get('descripcion_regla', '').strip()
+            if not descripcion:
+                flash('La descripción de la regla es obligatoria.', 'danger')
+                return redirect(url_for('reglasadm', modalidad_id=modalidad_id))
+
+            max_orden = (
+                db.session.query(db.func.max(Regla.orden))
+                .filter(Regla.modalidad_id == modalidad_id)
+                .scalar()
+                or 0
+            )
+            nueva_regla = Regla(descripcion=descripcion, modalidad_id=modalidad_id, orden=int(max_orden) + 1)
+            db.session.add(nueva_regla)
+            db.session.commit()
+            flash('Regla agregada.', 'success')
+            return redirect(url_for('reglasadm', modalidad_id=modalidad_id))
+
+    return render_template('reglasadm.html', modalidades=modalidades, modalidad_seleccionada=modalidad_seleccionada, reglas=reglas)
+
+
+@app.route('/reordenar_modalidades', methods=['POST'])
+def reordenar_modalidades():
+    """Persist drag-and-drop ordering for modalidades."""
+    ensure_modalidad_orden_column()
+
+    data = request.get_json(silent=True) or {}
+    order = data.get('order')
+    if not isinstance(order, list):
+        return jsonify({'ok': False, 'error': 'Formato inválido'}), 400
+
+    ids = []
+    for raw_id in order:
+        try:
+            ids.append(int(raw_id))
+        except (TypeError, ValueError):
+            continue
+
+    if not ids:
+        return jsonify({'ok': False, 'error': 'Lista vacía'}), 400
+
+    for idx, modalidad_id in enumerate(ids, start=1):
+        modalidad = db.session.get(Modalidad, modalidad_id)
+        if modalidad:
+            modalidad.orden = idx
+
+    db.session.commit()
+    return jsonify({'ok': True})
+
+
+
+# Editar nota de modalidad
+@app.route('/editar_nota_modalidad/<int:modalidad_id>', methods=['POST'])
+def editar_nota_modalidad(modalidad_id):
+    modalidad = Modalidad.query.get_or_404(modalidad_id)
+    nueva_nota = request.form.get('nueva_nota', '').strip()
+    modalidad.nota = nueva_nota
+    db.session.commit()
+    flash('Nota de la modalidad actualizada.', 'success')
+    return redirect(url_for('reglasadm', modalidad_id=modalidad_id))
+
+@app.route('/eliminar_modalidad/<int:modalidad_id>', methods=['POST'])
+def eliminar_modalidad(modalidad_id):
+    modalidad = Modalidad.query.get_or_404(modalidad_id)
+    db.session.delete(modalidad)
+    db.session.commit()
+    flash('Modalidad eliminada correctamente.', 'success')
+    return redirect(url_for('reglasadm'))
+
+
+@app.route('/eliminar_regla/<int:regla_id>', methods=['POST'])
+def eliminar_regla(regla_id):
+    regla = Regla.query.get_or_404(regla_id)
+    modalidad_id = regla.modalidad_id
+    db.session.delete(regla)
+    db.session.commit()
+    flash('Regla eliminada correctamente.', 'success')
+    return redirect(url_for('reglasadm', modalidad_id=modalidad_id))
 
 # ============================================================================
 # AUTHENTICATED ROUTES (Login required, all roles can access)
@@ -1159,6 +1410,36 @@ def admin_clear_all_blocks():
     total = count_memory + count_db
     flash(f'{total} direcciones IP desbloqueadas.', 'success')
     return redirect(url_for('admin_security'))
+
+
+# ===================== CAMBIO DE CONTRASEÑA USUARIO =====================
+@app.route('/change_password', methods=['GET', 'POST'])
+@login_required
+def change_password():
+    if request.method == 'POST':
+        current_password = request.form.get('current_password', '')
+        new_password = request.form.get('new_password', '')
+        confirm_password = request.form.get('confirm_password', '')
+        if not current_user.is_authenticated:
+            flash('Debes iniciar sesión.', 'danger')
+            return redirect(url_for('login'))
+        if not current_password or not new_password or not confirm_password:
+            flash('Todos los campos son obligatorios.', 'danger')
+            return redirect(url_for('change_password'))
+        if not bcrypt.check_password_hash(current_user.password_hash, current_password):
+            flash('La contraseña actual es incorrecta.', 'danger')
+            return redirect(url_for('change_password'))
+        if new_password != confirm_password:
+            flash('Las nuevas contraseñas no coinciden.', 'danger')
+            return redirect(url_for('change_password'))
+        if len(new_password) < 6:
+            flash('La nueva contraseña debe tener al menos 6 caracteres.', 'danger')
+            return redirect(url_for('change_password'))
+        current_user.password_hash = bcrypt.generate_password_hash(new_password).decode('utf-8')
+        db.session.commit()
+        flash('Contraseña cambiada exitosamente.', 'success')
+        return redirect(url_for('menu'))
+    return render_template('change_password.html')
 
 
 # ============================================================================

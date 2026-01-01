@@ -1,0 +1,919 @@
+{% extends 'base.html' %}
+{% block title %}Administración de Reglas{% endblock %}
+{% block content %}
+<style>
+  .reglas-container {
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 1.25rem 0.75rem;
+  }
+
+  .hero-section-reglas {
+    background: linear-gradient(135deg, rgba(255, 204, 0, 0.1) 0%, rgba(255, 140, 66, 0.1) 100%);
+    border: 2px solid #ffcc00;
+    border-radius: 16px;
+    padding: 2.5rem;
+    margin-bottom: 2.5rem;
+    text-align: center;
+    box-shadow: 0 8px 24px rgba(255, 204, 0, 0.15);
+  }
+
+  .hero-section-reglas .hero-title {
+    font-size: 2.8rem;
+    font-weight: 700;
+    color: #ffcc00;
+    margin-bottom: 0.5rem;
+    text-shadow: 0 0 20px rgba(255, 204, 0, 0.3);
+  }
+
+  .hero-section-reglas .hero-subtitle {
+    font-size: 1.1rem;
+    color: #b8c1ca;
+    margin: 0;
+  }
+
+  .modalidades-section {
+    margin-bottom: 3rem;
+    background: radial-gradient(circle at 20% 20%, rgba(255, 204, 0, 0.06), transparent 55%);
+    padding: 0.6rem 0.3rem;
+    border-radius: 14px;
+  }
+
+  .section-label {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #ffcc00;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .modalidades-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1rem;
+    padding: 1rem;
+    background: rgba(255, 204, 0, 0.02);
+    border-radius: 12px;
+    border: 1px solid rgba(255, 204, 0, 0.1);
+    align-items: stretch;
+    align-content: start;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+  }
+
+  .modalidad-card {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 0.55rem;
+    padding: 0.55rem;
+    width: 100%;
+    min-height: 86px;
+    background: linear-gradient(180deg, rgba(255, 204, 0, 0.05), rgba(0, 0, 0, 0.18));
+    border: 1px solid rgba(255, 204, 0, 0.16);
+    border-radius: 14px;
+    box-shadow: 0 10px 22px rgba(0, 0, 0, 0.38);
+    align-items: center;
+    position: relative;
+  }
+
+  .modalidad-card.is-editing {
+    grid-template-columns: 1fr;
+  }
+
+  .modalidad-card.is-editing .modalidad-actions {
+    display: none;
+  }
+
+  .modalidad-card.is-editing .drag-handle {
+    display: none;
+  }
+
+  .modalidad-card.is-editing .modalidad-tab {
+    opacity: 0.25;
+  }
+
+  .modalidad-tab {
+    min-width: 0;
+    width: 100%;
+    min-height: 74px;
+    background: radial-gradient(circle at 20% 20%, rgba(255, 204, 0, 0.12), rgba(255, 204, 0, 0.02) 55%),
+                linear-gradient(135deg, var(--panel, #17181a) 0%, rgba(34, 34, 40, 0.98) 100%);
+    color: var(--accent, #ffcc00);
+    border-radius: 12px;
+    font-weight: 700;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    text-align: left;
+    border: 1px solid rgba(255, 204, 0, 0.45);
+    font-size: 1.05rem;
+    padding: 0.75rem 1rem;
+    overflow: hidden;
+    transition: all 0.25s ease;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+    white-space: normal;
+    position: relative;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+  }
+
+  .modalidad-tab:focus-visible {
+    outline: 3px solid rgba(255, 204, 0, 0.55);
+    outline-offset: 3px;
+  }
+
+  .modalidad-tab.active {
+    background: linear-gradient(135deg, rgba(255, 204, 0, 0.22), rgba(255, 140, 66, 0.12));
+    border-color: #ffcc00;
+    box-shadow: 0 10px 28px rgba(255, 204, 0, 0.18);
+  }
+
+  .modalidad-tab.editing {
+    min-height: auto;
+    padding: 0.6rem 1rem;
+    pointer-events: none;
+  }
+
+  .modalidad-tab.editing:hover {
+    transform: none;
+    color: var(--accent, #ffcc00);
+    background: radial-gradient(circle at 20% 20%, rgba(255, 204, 0, 0.12), rgba(255, 204, 0, 0.02) 55%),
+                linear-gradient(135deg, var(--panel, #17181a) 0%, rgba(34, 34, 40, 0.98) 100%);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+  }
+
+  .modalidad-tab:hover {
+    background: linear-gradient(135deg, #ffcc00 0%, #ff8c42 100%);
+    color: #000;
+    box-shadow: 0 6px 20px rgba(255, 204, 0, 0.3);
+    transform: translateY(-1px);
+    z-index: 2;
+  }
+
+  .modalidad-tab span {
+    display: block;
+    width: 100%;
+    overflow: visible;
+    line-height: 1.28;
+    letter-spacing: 0.18px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .form-editar-inline {
+    display: none;
+    position: absolute;
+    inset: 0.55rem;
+    width: auto;
+    gap: 0.55rem;
+    align-items: center;
+    justify-content: flex-start;
+    flex-wrap: nowrap;
+    padding: 0.6rem;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 204, 0, 0.28);
+    background: linear-gradient(135deg, rgba(0, 0, 0, 0.55), rgba(23, 24, 26, 0.85));
+    box-shadow: 0 14px 30px rgba(0, 0, 0, 0.55);
+    z-index: 3;
+  }
+
+  .form-editar-inline.visible {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      "input input"
+      "save cancel";
+    align-items: center;
+  }
+
+  .form-editar-inline input {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: 100%;
+    height: 44px;
+    font-size: 1rem;
+    font-weight: 700;
+    background: rgba(0, 0, 0, 0.7);
+    border: 1px solid rgba(255, 204, 0, 0.55) !important;
+    color: #ffcc00 !important;
+    border-radius: 6px;
+    padding: 0.5rem 0.8rem;
+    transition: all 0.2s ease;
+    grid-area: input;
+  }
+
+  .form-editar-inline .btn-save { grid-area: save; }
+  .form-editar-inline .btn-cancel { grid-area: cancel; }
+
+  .form-editar-inline input:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(255, 204, 0, 0.35);
+    background: rgba(0, 0, 0, 0.82);
+  }
+
+  .form-editar-inline input::placeholder {
+    color: rgba(255, 204, 0, 0.6);
+  }
+
+  .form-editar-inline button {
+    padding: 0.5rem 0.85rem;
+    font-size: 0.95rem;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    font-weight: 700;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+    height: 44px;
+  }
+
+  .form-editar-inline .btn-save {
+    background: linear-gradient(135deg, #2ecc71, #27ae60);
+    color: white;
+    box-shadow: 0 3px 6px rgba(46, 204, 113, 0.3);
+  }
+
+  .form-editar-inline .btn-save:hover {
+    background: linear-gradient(135deg, #27ae60, #229954);
+    transform: scale(1.05);
+    box-shadow: 0 4px 8px rgba(46, 204, 113, 0.5);
+  }
+
+  .form-editar-inline .btn-cancel {
+    background: linear-gradient(135deg, #e74c3c, #c0392b);
+    color: white;
+    box-shadow: 0 3px 6px rgba(231, 76, 60, 0.3);
+  }
+
+  .form-editar-inline .btn-cancel:hover {
+    background: linear-gradient(135deg, #c0392b, #a93226);
+    transform: scale(1.05);
+    box-shadow: 0 4px 8px rgba(231, 76, 60, 0.5);
+  }
+
+  .modalidad-actions {
+    display: inline-flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    padding: 0.05rem 0;
+  }
+
+  .btn-action.drag-handle {
+    cursor: grab;
+    background: linear-gradient(135deg, #ffcc00, #ff8c42);
+    color: #000;
+    user-select: none;
+    touch-action: none;
+  }
+
+  .btn-action.drag-handle:active {
+    cursor: grabbing;
+  }
+
+  .modalidad-card.sorting {
+    opacity: 0.85;
+  }
+
+  .order-status {
+    margin-left: auto;
+    font-size: 0.95rem;
+    color: #b8c1ca;
+    font-weight: 600;
+    min-height: 1.2rem;
+  }
+
+  .btn-action {
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    font-size: 1.05rem;
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-weight: 600;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.28);
+    display: grid;
+    place-items: center;
+    line-height: 1;
+  }
+
+  .btn-action:focus-visible {
+    outline: 3px solid rgba(255, 204, 0, 0.55);
+    outline-offset: 2px;
+  }
+
+  .btn-action.edit {
+    background: linear-gradient(135deg, #ff8c42, #ff7628);
+    color: white;
+    box-shadow: 0 4px 8px rgba(255, 140, 66, 0.3);
+  }
+
+  .btn-action.edit:hover {
+    background: linear-gradient(135deg, #ff7628, #ff6000);
+    transform: scale(1.15);
+    box-shadow: 0 6px 12px rgba(255, 140, 66, 0.5);
+  }
+
+  .btn-action.delete {
+    background: linear-gradient(135deg, #e74c3c, #c0392b);
+    color: white;
+    box-shadow: 0 4px 8px rgba(231, 76, 60, 0.3);
+  }
+
+  .btn-action.delete:hover {
+    background: linear-gradient(135deg, #c0392b, #a93226);
+    transform: scale(1.15);
+    box-shadow: 0 6px 12px rgba(231, 76, 60, 0.5);
+  }
+
+  .btn-add-modalidad {
+    height: 86px;
+    width: 100%;
+    background: linear-gradient(135deg, rgba(255, 204, 0, 0.2), rgba(255, 140, 66, 0.2));
+    color: #ffcc00;
+    border: 2px dashed #ffcc00;
+    border-radius: 12px;
+    font-size: 2rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .btn-add-modalidad:focus-visible {
+    outline: 3px solid rgba(255, 204, 0, 0.55);
+    outline-offset: 3px;
+  }
+
+  .btn-add-modalidad:hover {
+    background: linear-gradient(135deg, rgba(255, 204, 0, 0.3), rgba(255, 140, 66, 0.3));
+    border-color: #ff8c42;
+    transform: scale(1.02);
+  }
+
+  .rules-section {
+    background: linear-gradient(135deg, rgba(26, 26, 30, 0.97), rgba(34, 34, 40, 0.97));
+    border: 2px solid rgba(255, 204, 0, 0.2);
+    border-radius: 16px;
+    padding: 2.5rem;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  }
+
+  .rules-title {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #ffcc00;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .rules-subtitle {
+    color: #b8c1ca;
+    font-size: 0.95rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .nota-box {
+    background:
+      radial-gradient(circle at 10% 0%, rgba(255, 204, 0, 0.14), transparent 55%),
+      linear-gradient(135deg, rgba(255, 204, 0, 0.10), rgba(255, 140, 66, 0.08));
+    border-left: 6px solid #ffcc00;
+    border-radius: 14px;
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 2rem;
+    border: 1px solid rgba(255, 204, 0, 0.22);
+    box-shadow:
+      0 18px 42px rgba(0, 0, 0, 0.55),
+      0 0 0 1px rgba(255, 204, 0, 0.10),
+      0 0 26px rgba(255, 204, 0, 0.10);
+  }
+
+  .nota-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.85rem;
+  }
+
+  .nota-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.28rem 0.65rem;
+    border-radius: 999px;
+    font-weight: 800;
+    font-size: 0.78rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #ffd666;
+    border: 1px solid rgba(255, 204, 0, 0.35);
+    background: rgba(255, 204, 0, 0.10);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  }
+
+  .nota-title {
+    color: #ffcc00;
+    font-size: 1.15rem;
+    font-weight: 700;
+    margin: 0;
+  }
+
+  .nota-texto {
+    color: #e6eef3;
+    line-height: 1.6;
+    font-size: 1.02rem;
+  }
+
+  .nota-empty {
+    color: #777;
+    font-style: italic;
+  }
+
+  .btn-edit-nota {
+    margin-left: auto;
+    background: #ff8c42;
+    color: white;
+    border: none;
+    width: 42px;
+    height: 42px;
+    padding: 0;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: grid;
+    place-items: center;
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.35);
+  }
+
+  .btn-edit-nota:hover {
+    background: #ff7628;
+    transform: scale(1.1);
+  }
+
+  .form-edit-nota {
+    margin-top: 1rem;
+    display: none;
+  }
+
+  .form-edit-nota textarea {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 204, 0, 0.3);
+    color: #e6eef3;
+    border-radius: 8px;
+    padding: 0.8rem;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+
+  .form-edit-nota textarea::placeholder {
+    color: #666;
+  }
+
+  .btn-add-regla {
+    background: linear-gradient(135deg, #ffcc00, #ff8c42);
+    color: #000;
+    border: none;
+    padding: 0.7rem 1.5rem;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-bottom: 1.8rem;
+    transition: all 0.3s ease;
+    font-size: 0.95rem;
+  }
+
+  .btn-add-regla:hover {
+    box-shadow: 0 6px 20px rgba(255, 204, 0, 0.4);
+    transform: translateY(-2px);
+  }
+
+  .form-nueva-regla {
+    background: rgba(255, 204, 0, 0.05);
+    border: 1px dashed #ffcc00;
+    border-radius: 10px;
+    padding: 1.2rem;
+    margin-bottom: 1.8rem;
+    display: none;
+  }
+
+  .form-nueva-regla input {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 204, 0, 0.3);
+    color: #e6eef3;
+    border-radius: 8px;
+  }
+
+  .form-nueva-regla input::placeholder {
+    color: #666;
+  }
+
+  .reglas-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .regla-item {
+    background: rgba(255, 204, 0, 0.05);
+    border-left: 4px solid #ffcc00;
+    border-radius: 8px;
+    padding: 1rem 1.2rem;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    transition: all 0.2s ease;
+    border: 1px solid rgba(255, 204, 0, 0.1);
+  }
+
+  .regla-item:hover {
+    background: rgba(255, 204, 0, 0.1);
+    border-color: rgba(255, 204, 0, 0.2);
+  }
+
+  .regla-item::before {
+    content: attr(data-number);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    background: linear-gradient(135deg, #ffcc00, #ff8c42);
+    color: #000;
+    border-radius: 50%;
+    font-weight: 700;
+    font-size: 0.9rem;
+    flex-shrink: 0;
+  }
+
+  .regla-text {
+    flex: 1;
+    color: #e6eef3;
+    font-size: 1rem;
+  }
+
+  .regla-edit-form {
+    display: none;
+    flex: 1;
+    gap: 0.6rem;
+  }
+
+  .regla-orden-input {
+    width: 92px;
+    max-width: 110px;
+    text-align: center;
+  }
+
+  .regla-actions {
+    display: flex;
+    gap: 0.4rem;
+  }
+
+  .regla-actions .btn-action {
+    padding: 0.45rem 0.6rem;
+    font-size: 0.9rem;
+  }
+
+  .no-reglas {
+    text-align: center;
+    color: #777;
+    padding: 2rem;
+    font-style: italic;
+  }
+
+  .no-modalidad {
+    text-align: center;
+    color: #b8c1ca;
+    padding: 2rem;
+    font-size: 1.1rem;
+  }
+
+  .btn-add-regla:focus-visible,
+  .btn-edit-nota:focus-visible {
+    outline: 3px solid rgba(255, 204, 0, 0.55);
+    outline-offset: 3px;
+  }
+
+  @media (max-width: 768px) {
+    .reglas-container { padding: 1rem 0.5rem; }
+    .hero-section-reglas { padding: 1.6rem; }
+    .hero-section-reglas .hero-title { font-size: 2.1rem; }
+    .modalidades-grid { padding: 0.85rem; grid-template-columns: 1fr; }
+    .modalidad-actions { flex-direction: row; }
+    .rules-section { padding: 1.4rem; }
+  }
+
+  @media (max-width: 420px) {
+    .form-editar-inline { gap: 0.45rem; }
+    .form-editar-inline.visible { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+
+<div class="reglas-container">
+  <div class="hero-section-reglas">
+    <div class="hero-title">📜 Administración de Reglas</div>
+    <p class="hero-subtitle">Panel para gestionar reglas y modalidades del servidor</p>
+  </div>
+
+  <div class="modalidades-section">
+    <div class="section-label">🎮 Modalidades <span class="order-status" id="orderStatus"></span></div>
+    <div class="modalidades-grid">
+      {% for modalidad in modalidades %}
+        <div class="modalidad-card" data-modalidad-id="{{ modalidad.id }}">
+          <a href="{{ url_for('reglasadm', modalidad_id=modalidad.id) }}"
+             class="modalidad-tab {% if modalidad_seleccionada and modalidad_seleccionada.id == modalidad.id %}active{% endif %}"
+             id="tab-{{ modalidad.id }}"
+             style="cursor: pointer;"
+          >
+            <span id="modalidad-nombre-{{ modalidad.id }}">{{ modalidad.nombre }}</span>
+          </a>
+
+          <form method="POST" action="{{ url_for('editar_modalidad', modalidad_id=modalidad.id) }}" id="form-editar-inline-{{ modalidad.id }}" class="form-editar-inline" autocomplete="off">
+            <input type="text" name="nuevo_nombre" value="{{ modalidad.nombre }}" placeholder="Nombre de la modalidad" required maxlength="100">
+            <button type="submit" class="btn-save" title="Guardar">Guardar</button>
+            <button type="button" class="btn-cancel" title="Cancelar" onclick="cancelarEditarModalidad({{ modalidad.id }}); return false;">Cancelar</button>
+          </form>
+
+          <div class="modalidad-actions" id="acciones-{{ modalidad.id }}">
+            <button type="button" class="btn-action drag-handle" title="Arrastrar para reordenar" onclick="return false;">↕</button>
+            <button class="btn-action edit" id="btn-editar-modalidad-{{ modalidad.id }}" title="Editar nombre" onclick="mostrarEditarModalidad({{ modalidad.id }}, '{{ modalidad.nombre|escape }}'); return false;">✏️</button>
+            <form method="POST" action="{{ url_for('eliminar_modalidad', modalidad_id=modalidad.id) }}" style="display:inline;">
+              <button type="submit" class="btn-action delete" title="Eliminar modalidad" onclick="return confirm('¿Eliminar modalidad y todas sus reglas?');">🗑️</button>
+            </form>
+          </div>
+        </div>
+      {% endfor %}
+      <button id="btn-nuevo-mod" class="btn-add-modalidad" onclick="mostrarFormNuevaModalidad()">+</button>
+    </div>
+    <form id="form-nueva-modalidad" method="POST" action="{{ url_for('reglasadm') }}" style="display:none; margin-top: 1rem;">
+      <div style="display: flex; gap: 0.8rem; max-width: 600px;">
+        <input type="text" name="nombre" class="form-control" placeholder="Nombre de la nueva modalidad" required maxlength="100" style="flex: 1; font-size: 1rem; font-weight: 600; background: rgba(0, 0, 0, 0.4); border: 2px solid #ffcc00; color: #ffcc00; border-radius: 8px; padding: 0.8rem 1rem;">
+        <button type="submit" class="btn btn-warning" style="white-space: nowrap; padding: 0.7rem 1.5rem; font-weight: 600; font-size: 1rem; border-radius: 8px;">Agregar</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="rules-section">
+    {% if modalidad_seleccionada %}
+      <div class="rules-title">⚖️ Reglas de {{ modalidad_seleccionada.nombre }}</div>
+      <p class="rules-subtitle">Gestiona las reglas específicas para esta modalidad de juego</p>
+      
+      {% if modalidad_seleccionada.nota %}
+        <div class="nota-box">
+          <div class="nota-header">
+            <div class="nota-title">📝 Nota Importante</div>
+            <div class="nota-pill">⚠ Importante</div>
+            <button class="btn-edit-nota" id="btn-editar-nota" onclick="mostrarEditarNota()">✏️</button>
+          </div>
+          <div class="nota-texto" id="nota-texto">{{ modalidad_seleccionada.nota|highlight_prohibido }}</div>
+          <form method="POST" action="{{ url_for('editar_nota_modalidad', modalidad_id=modalidad_seleccionada.id) }}" id="form-editar-nota" class="form-edit-nota">
+            <textarea name="nueva_nota" class="form-control" rows="3" maxlength="1000" style="width:100%;">{{ modalidad_seleccionada.nota }}</textarea>
+            <div style="margin-top:0.8rem; display:flex; gap:0.6rem;">
+              <button type="submit" class="btn btn-success" style="padding: 0.5rem 1rem; border-radius: 6px;">Guardar</button>
+              <button type="button" class="btn btn-secondary" style="padding: 0.5rem 1rem; border-radius: 6px;" onclick="cancelarEditarNota()">Cancelar</button>
+            </div>
+          </form>
+        </div>
+      {% else %}
+        <div class="nota-box">
+          <div class="nota-header">
+            <div class="nota-title">📝 Nota Importante</div>
+            <div class="nota-pill">⚠ Importante</div>
+            <button class="btn-edit-nota" id="btn-editar-nota" onclick="mostrarEditarNota()">✏️</button>
+          </div>
+          <div class="nota-texto nota-empty" id="nota-texto">No hay nota para esta modalidad</div>
+          <form method="POST" action="{{ url_for('editar_nota_modalidad', modalidad_id=modalidad_seleccionada.id) }}" id="form-editar-nota" class="form-edit-nota">
+            <textarea name="nueva_nota" class="form-control" rows="3" maxlength="1000" style="width:100%;"></textarea>
+            <div style="margin-top:0.8rem; display:flex; gap:0.6rem;">
+              <button type="submit" class="btn btn-success" style="padding: 0.5rem 1rem; border-radius: 6px;">Guardar</button>
+              <button type="button" class="btn btn-secondary" style="padding: 0.5rem 1rem; border-radius: 6px;" onclick="cancelarEditarNota()">Cancelar</button>
+            </div>
+          </form>
+        </div>
+      {% endif %}
+
+      <button class="btn-add-regla" id="btn-mostrar-form-regla">+ Agregar regla</button>
+      
+      <form id="form-nueva-regla" class="form-nueva-regla" method="POST" action="{{ url_for('reglasadm', modalidad_id=modalidad_seleccionada.id) }}">
+        <div class="input-group">
+          <input type="text" name="descripcion_regla" class="form-control" placeholder="Descripción de la nueva regla" required maxlength="500">
+          <button type="submit" class="btn btn-warning">Agregar</button>
+        </div>
+      </form>
+
+      {% if reglas %}
+        <ol class="reglas-list">
+          {% for regla in reglas %}
+            <li class="regla-item" data-number="{{ regla.orden if regla.orden else loop.index }}">
+              <span class="regla-text" id="regla-text-{{ regla.id }}">{{ regla.descripcion|highlight_prohibido }}</span>
+              <form method="POST" action="{{ url_for('editar_regla', regla_id=regla.id) }}" class="regla-edit-form" id="regla-form-{{ regla.id }}" style="display:none;">
+                <input type="number" name="nuevo_orden" value="{{ regla.orden if regla.orden else loop.index }}" min="1" class="form-control form-control-sm regla-orden-input" style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,204,0,0.3); color: #e6eef3;" required>
+                <input type="text" name="nueva_descripcion" value="{{ regla.descripcion }}" class="form-control form-control-sm" style="flex: 1; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,204,0,0.3); color: #e6eef3;" required>
+                <button type="submit" class="btn-action" style="background: #2ecc71; color: white;" title="Guardar cambios">💾</button>
+                <button type="button" class="btn-action" style="background: #555; color: white;" title="Cancelar" onclick="cancelarEdicion({{ regla.id }})">✖</button>
+              </form>
+              <div class="regla-actions">
+                <button type="button" class="btn-action edit" title="Editar regla" onclick="editarRegla({{ regla.id }})">✏️</button>
+                <form method="POST" action="{{ url_for('eliminar_regla', regla_id=regla.id) }}" style="display:inline;">
+                  <button type="submit" class="btn-action delete" title="Eliminar regla" onclick="return confirm('¿Eliminar esta regla?');">🗑️</button>
+                </form>
+              </div>
+            </li>
+          {% endfor %}
+        </ol>
+      {% else %}
+        <div class="no-reglas">No hay reglas para esta modalidad. ¡Empieza creando una!</div>
+      {% endif %}
+    {% else %}
+      <div class="no-modalidad">
+        <p>👈 Selecciona una modalidad para ver y gestionar sus reglas</p>
+      </div>
+    {% endif %}
+  </div>
+
+<script>
+// SortableJS (drag & drop)
+</script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+
+<script>
+// Mostrar/ocultar formulario de edición de modalidad
+let modalidadEditando = null;
+function mostrarEditarModalidad(id, nombre) {
+  if (modalidadEditando !== null && modalidadEditando !== id) {
+    cancelarEditarModalidad(modalidadEditando);
+  }
+
+  const span = document.getElementById('modalidad-nombre-' + id);
+  const form = document.getElementById('form-editar-inline-' + id);
+  const tab = document.getElementById('tab-' + id);
+  const card = form ? form.closest('.modalidad-card') : null;
+  
+  if (span) span.style.display = 'none';
+  if (form) form.classList.add('visible');
+  if (tab) tab.classList.add('editing');
+  if (card) card.classList.add('is-editing');
+  modalidadEditando = id;
+  
+  setTimeout(() => {
+    const input = form.querySelector('input');
+    input.focus();
+    input.select();
+  }, 100);
+}
+
+function cancelarEditarModalidad(id) {
+  const span = document.getElementById('modalidad-nombre-' + id);
+  const form = document.getElementById('form-editar-inline-' + id);
+  const tab = document.getElementById('tab-' + id);
+  const card = form ? form.closest('.modalidad-card') : null;
+  
+  if (span) span.style.display = '';
+  if (form) form.classList.remove('visible');
+  if (tab) tab.classList.remove('editing');
+  if (card) card.classList.remove('is-editing');
+  if (modalidadEditando === id) modalidadEditando = null;
+}
+
+// Mostrar/ocultar formulario de nueva modalidad
+function mostrarFormNuevaModalidad() {
+  document.getElementById('form-nueva-modalidad').style.display = 'flex';
+  document.getElementById('btn-nuevo-mod').style.display = 'none';
+  setTimeout(function() {
+    document.querySelector('#form-nueva-modalidad input[name="nombre"]').focus();
+  }, 100);
+}
+
+// Drag & drop ordenar modalidades
+async function guardarOrdenModalidades() {
+  const status = document.getElementById('orderStatus');
+  const grid = document.querySelector('.modalidades-grid');
+  if (!grid) return;
+
+  const ids = Array.from(grid.querySelectorAll('.modalidad-card[data-modalidad-id]'))
+    .map(el => el.getAttribute('data-modalidad-id'))
+    .filter(Boolean);
+
+  if (!ids.length) return;
+
+  if (status) status.textContent = 'Guardando orden...';
+
+  try {
+    const resp = await fetch('{{ url_for("reordenar_modalidades") }}', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest'
+      },
+      body: JSON.stringify({ order: ids })
+    });
+
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok || !data.ok) {
+      if (status) status.textContent = 'No se pudo guardar';
+      return;
+    }
+
+    if (status) {
+      status.textContent = 'Orden guardado';
+      setTimeout(() => {
+        if (status.textContent === 'Orden guardado') status.textContent = '';
+      }, 1600);
+    }
+  } catch (e) {
+    if (status) status.textContent = 'No se pudo guardar';
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const grid = document.querySelector('.modalidades-grid');
+  if (!grid || typeof Sortable === 'undefined') return;
+
+  new Sortable(grid, {
+    animation: 150,
+    handle: '.drag-handle',
+    draggable: '.modalidad-card',
+    filter: '#btn-nuevo-mod',
+    onChoose: (evt) => {
+      const item = evt.item;
+      if (item) item.classList.add('sorting');
+    },
+    onUnchoose: (evt) => {
+      const item = evt.item;
+      if (item) item.classList.remove('sorting');
+    },
+    onEnd: () => {
+      guardarOrdenModalidades();
+    }
+  });
+});
+
+const formModalidad = document.getElementById('form-nueva-modalidad');
+if(formModalidad){
+  formModalidad.addEventListener('submit', function(){
+    formModalidad.style.display = 'none';
+    document.getElementById('btn-nuevo-mod').style.display = 'flex';
+  });
+}
+
+// Mostrar/ocultar formulario de nueva regla
+const btnMostrarFormRegla = document.getElementById('btn-mostrar-form-regla');
+const formNuevaRegla = document.getElementById('form-nueva-regla');
+if(btnMostrarFormRegla && formNuevaRegla){
+  btnMostrarFormRegla.addEventListener('click', function(){
+    formNuevaRegla.style.display = (formNuevaRegla.style.display === 'block') ? 'none' : 'block';
+  });
+}
+
+// Mostrar/ocultar formulario de edición de nota
+function mostrarEditarNota() {
+  document.getElementById('form-editar-nota').style.display = 'block';
+  var notaTexto = document.getElementById('nota-texto');
+  if(notaTexto) notaTexto.style.display = 'none';
+  document.getElementById('btn-editar-nota').style.display = 'none';
+}
+
+function cancelarEditarNota() {
+  document.getElementById('form-editar-nota').style.display = 'none';
+  var notaTexto = document.getElementById('nota-texto');
+  if(notaTexto) notaTexto.style.display = '';
+  document.getElementById('btn-editar-nota').style.display = '';
+}
+
+// Edición de reglas
+let reglaEditando = null;
+function editarRegla(id) {
+  if (reglaEditando !== null) {
+    cancelarEdicion(reglaEditando);
+  }
+  const text = document.getElementById('regla-text-' + id);
+  const form = document.getElementById('regla-form-' + id);
+  if (text) text.style.display = 'none';
+  if (form) form.style.display = 'inline-flex';
+  reglaEditando = id;
+
+  setTimeout(() => {
+    const input = form ? form.querySelector('input[name="nueva_descripcion"]') : null;
+    if (input) {
+      input.focus();
+      input.select();
+    }
+  }, 50);
+}
+
+function cancelarEdicion(id) {
+  document.getElementById('regla-text-' + id).style.display = '';
+  document.getElementById('regla-form-' + id).style.display = 'none';
+  reglaEditando = null;
+}
+</script>
+{% endblock %}
