@@ -265,12 +265,7 @@
                         </div>
                     </div>
                     
-                    <div class="col-md-3">
-                        <div class="mb-3">
-                            <label for="email" class="form-label">Email</label>
-                            <input type="email" class="form-control" id="email" name="email" required>
-                        </div>
-                    </div>
+                    {# Email removido: los usuarios lo cambian luego #}
                     
                     <div class="col-md-3">
                         <div class="mb-3">
@@ -293,7 +288,7 @@
                                 <option value="p-helper" class="role-p-helper" selected>P-Helper</option>
                             </select>
                         <style>
-                        .role-helper { color: #222; background: #7cffb2; }
+                        .role-helper { color: #222; background: #55e39a; }
                         .role-p-helper { color: #222; background: #7cffb2; }
                         .role-mod { color: #fff; background: #006400; }
                         .role-smod { color: #fff; background: #009fae; }
@@ -324,7 +319,7 @@
                     <tr>
                         {# <th>ID</th> #}
                         <th>Usuario</th>
-                        <th>Email</th>
+                        {# Email removido #}
                         <th>Rol</th>
                         <th>Estado</th>
                         <th>Último login</th>
@@ -349,7 +344,7 @@
                                 <span class="badge-you">Tú</span>
                                 {% endif %}
                             </td>
-                            <td style="color: #b8c1ca;">{{ user.email }}</td>
+                            {# Email removido #}
                             <td>
                                 {% if user.username == 'PonyGamer_uwu' %}
                                     {% if current_user.username == 'PonyGamer_uwu' and user.username == 'PonyGamer_uwu' %}
@@ -378,7 +373,7 @@
                                         {% elif user.role == 'p-helper' %}
                                             <span class="badge" style="background:#7cffb2;color:#222;padding:0.4rem 0.8rem;border-radius:8px;">P-Helper</span>
                                         {% elif user.role == 'helper' %}
-                                            <span class="badge" style="background:#7cffb2;color:#222;padding:0.4rem 0.8rem;border-radius:8px;">helper</span>
+                                            <span class="badge" style="background:#55e39a;color:#222;padding:0.4rem 0.8rem;border-radius:8px;">helper</span>
                                         {% elif user.role == 'admin' %}
                                             <span class="badge bg-danger" style="padding:0.4rem 0.8rem;border-radius:8px;">admin</span>
                                         {% elif user.role == 'smod' %}
@@ -409,7 +404,7 @@
                                         color: #fff;
                                         background: #181c22;
                                     }
-                                    .role-helper { color: #222; background: #7cffb2; }
+                                    .role-helper { color: #222; background: #55e39a; }
                                     .role-p-helper { color: #222; background: #7cffb2; }
                                     .role-mod { color: #fff; background: #006400; }
                                     .role-smod { color: #fff; background: #009fae; }
@@ -516,8 +511,7 @@
                     </div>
                     
                     <div class="mb-3">
-                        <label for="edit_email{{ user.id }}" class="form-label">Email</label>
-                        <input type="email" class="form-control" id="edit_email{{ user.id }}" name="email" value="{{ user.email }}" required>
+                        {# Email removido: los usuarios lo cambian luego #}
                     </div>
                     
                     <div class="mb-3">

@@ -57,9 +57,14 @@
         </button>
         <div class="collapse navbar-collapse" id="navbarNav">
           <ul class="navbar-nav me-auto">
+            {% if request.endpoint != 'menu' %}
             <li class="nav-item">
-              <a class="nav-link" href="{{ url_for('menu') }}">🏠 Inicio</a>
+              <a class="nav-link" href="{{ url_for('menu') }}"> Inicio</a>
             </li>
+            <li class="nav-item">
+              <a class="nav-link" href="{{ url_for('reglas') }}"> Reglas</a>
+            </li>
+            {% endif %}
             {% if request.endpoint != 'menu' %}
             <li class="nav-item">
               <a class="nav-link" href="{{ url_for('index') }}">Lista de Mods</a>
@@ -90,6 +95,14 @@
             {% endif %}
           </ul>
           <div class="d-flex align-items-center ms-auto">
+            {% if request.endpoint == 'menu' and current_user.can_edit() %}
+            <form method="POST" action="{{ url_for('admin_change_background') }}" enctype="multipart/form-data" class="me-2" style="margin-bottom:0;">
+              <input type="file" name="background" id="bgUpload" accept=".jpg,.jpeg,image/jpeg" style="display:none" onchange="this.form.submit()">
+              <label for="bgUpload" class="btn btn-outline-warning btn-sm" style="font-weight: 800; border-radius: 10px; padding: 0.35rem 0.75rem;">
+                🖼️ Cambiar fondo
+              </label>
+            </form>
+            {% endif %}
             <div class="dropdown">
               <span class="text-light me-2 dropdown-toggle" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false" style="font-weight: bold; font-size: 1.08rem; text-decoration: none; cursor:pointer;">
                 {{ current_user.username }}
@@ -104,7 +117,7 @@
                 {% elif current_user.role == 'p-helper' %}
                   <span class="badge" style="background:#7cffb2;color:#222; margin-left: 0.5rem;">P-helper</span>
                 {% elif current_user.role == 'helper' %}
-                  <span class="badge" style="background:#7cffb2;color:#222; margin-left: 0.5rem;">Helper</span>
+                  <span class="badge" style="background:#55e39a;color:#222; margin-left: 0.5rem;">Helper</span>
                 {% elif current_user.role == 'admin' %}
                   <span class="badge bg-danger" style="margin-left: 0.5rem;">Admin</span>
                 {% elif current_user.role == 'smod' %}

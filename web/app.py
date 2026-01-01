@@ -13,6 +13,7 @@ from flask import Flask, render_template, request, redirect, url_for, flash, ses
 from flask_limiter import Limiter
 from markupsafe import Markup, escape
 from sqlalchemy import inspect, text
+from werkzeug.utils import secure_filename
 
 # Función para obtener la IP real incluso detrás de proxy (Render)
 def get_real_ip():
@@ -21,7 +22,7 @@ def get_real_ip():
     return request.remote_addr
 from flask_login import LoginManager, login_user, logout_user, current_user
 from flask_bcrypt import Bcrypt
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from time import time
 
@@ -113,6 +114,7 @@ app = Flask(__name__)
 
 _modalidad_orden_ready = False
 _regla_orden_ready = False
+_login_attempts_ready = False
 
 
 def ensure_modalidad_orden_column():
@@ -184,6 +186,41 @@ def ensure_regla_orden_column():
     except Exception as exc:
         print(f"[Regla orden] Warning: could not ensure column: {exc}", flush=True)
         _regla_orden_ready = True
+
+
+def ensure_login_attempts_columns():
+    """Ensure incremental-lockout columns exist on 'login_attempts'.
+
+    Adds:
+    - block_count (int)
+    - blocked_until (datetime)
+
+    This project doesn't use Alembic; so we run an idempotent migration at runtime.
+    """
+    global _login_attempts_ready
+    if _login_attempts_ready:
+        return
+
+    try:
+        inspector = inspect(db.engine)
+        if 'login_attempts' not in inspector.get_table_names():
+            _login_attempts_ready = True
+            return
+
+        column_names = {c['name'] for c in inspector.get_columns('login_attempts')}
+        if 'block_count' not in column_names:
+            db.session.execute(text('ALTER TABLE login_attempts ADD COLUMN block_count INTEGER NOT NULL DEFAULT 0'))
+            db.session.commit()
+
+        column_names = {c['name'] for c in inspector.get_columns('login_attempts')}
+        if 'blocked_until' not in column_names:
+            db.session.execute(text('ALTER TABLE login_attempts ADD COLUMN blocked_until DATETIME'))
+            db.session.commit()
+
+        _login_attempts_ready = True
+    except Exception as exc:
+        print(f"[LoginAttempt] Warning: could not ensure columns: {exc}", flush=True)
+        _login_attempts_ready = True
 
 
 @app.template_filter('highlight_prohibido')
@@ -302,6 +339,34 @@ db_path = basedir / 'instance' / 'blurkit.db'
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', f'sqlite:///{db_path}')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['TEMPLATES_AUTO_RELOAD'] = True
+
+
+@app.route('/admin/change-background', methods=['POST'])
+@roles_required('smod', 'admin')
+def admin_change_background():
+    """Replace the public background image (minecraft-bg.jpg).
+
+    Admin-only; used from the /menu navbar.
+    """
+    file = request.files.get('background')
+    if not file or not file.filename:
+        flash('Selecciona una imagen para cambiar el fondo.', 'danger')
+        return redirect(url_for('menu'))
+
+    filename = secure_filename(file.filename)
+    ext = Path(filename).suffix.lower()
+    if ext not in ('.jpg', '.jpeg'):
+        flash('Formato no válido. Solo se permiten imágenes JPG/JPEG.', 'danger')
+        return redirect(url_for('menu'))
+
+    try:
+        target_path = Path(app.static_folder) / 'minecraft-bg.jpg'
+        file.save(target_path)
+        flash('Fondo actualizado correctamente.', 'success')
+    except Exception as exc:
+        flash(f'Error al actualizar el fondo: {exc}', 'danger')
+
+    return redirect(url_for('menu'))
 
 # Initialize extensions
 db.init_app(app)
@@ -467,6 +532,8 @@ def login():
         return redirect(url_for('menu'))
     
     if request.method == 'POST':
+        ensure_login_attempts_columns()
+
         username = request.form.get('username', '').strip()
         password = request.form.get('password', '')
         ip_address = get_real_ip()
@@ -480,9 +547,38 @@ def login():
         from models import LoginAttempt
         now = datetime.now()
         attempt = LoginAttempt.query.filter_by(ip_address=ip_address, username=username).first()
-        if attempt and (attempt.is_blocked or attempt.attempts >= 5):
-            flash('Demasiados intentos. Vuelve a intentarlo más tarde.', 'danger')
-            return render_template('login.html'), 429
+
+        # Handle incremental lockouts: 15m, 30m, 45m... per block event.
+        if attempt:
+            # If lock expired, clear it but keep block_count.
+            if attempt.blocked_until and now >= attempt.blocked_until:
+                attempt.is_blocked = False
+                attempt.blocked_until = None
+                attempt.attempts = 0
+                db.session.commit()
+
+            # Active lock
+            if attempt.blocked_until and now < attempt.blocked_until:
+                remaining_minutes = max(1, int((attempt.blocked_until - now).total_seconds() / 60))
+                flash(f'Demasiados intentos. Bloqueado por {remaining_minutes} min.', 'danger')
+                return render_template('login.html'), 429
+
+            # Legacy fallback: older rows may have is_blocked/attempts>=5 without blocked_until.
+            if (attempt.is_blocked or attempt.attempts >= 5) and not attempt.blocked_until:
+                legacy_until = attempt.last_attempt + timedelta(minutes=15)
+                if now < legacy_until:
+                    attempt.is_blocked = True
+                    attempt.blocked_until = legacy_until
+                    attempt.block_count = max(int(attempt.block_count or 0), 1)
+                    db.session.commit()
+                    remaining_minutes = max(1, int((legacy_until - now).total_seconds() / 60))
+                    flash(f'Demasiados intentos. Bloqueado por {remaining_minutes} min.', 'danger')
+                    return render_template('login.html'), 429
+                else:
+                    attempt.is_blocked = False
+                    attempt.attempts = 0
+                    attempt.blocked_until = None
+                    db.session.commit()
 
         if user and bcrypt.check_password_hash(user.password_hash, password):
             if not user.is_active:
@@ -518,31 +614,43 @@ def login():
             from models import LoginAttempt
             now = datetime.now()
             try:
-                # Limpiar intentos viejos (más de 15 min)
-                old_attempts = LoginAttempt.query.filter(LoginAttempt.last_attempt < now.replace(microsecond=0)).all()
-                for old in old_attempts:
-                    if (now - old.last_attempt).total_seconds() > 900:
-                        db.session.delete(old)
-                db.session.commit()
-
                 attempt = LoginAttempt.query.filter_by(ip_address=ip_address, username=username).first()
+
                 if attempt:
-                    if attempt.attempts < 5:
-                        attempt.attempts += 1
-                        attempt.last_attempt = now
-                        if attempt.attempts >= 5:
-                            attempt.is_blocked = True
-                        db.session.commit()
+                    # If the last attempt was long ago (15m+), reset counter window.
+                    if (now - attempt.last_attempt).total_seconds() > 900 and not attempt.blocked_until:
+                        attempt.attempts = 0
+                        attempt.is_blocked = False
+
+                    # If currently blocked, don't mutate counters here.
+                    if attempt.blocked_until and now < attempt.blocked_until:
+                        remaining_minutes = max(1, int((attempt.blocked_until - now).total_seconds() / 60))
+                        flash(f'Demasiados intentos. Bloqueado por {remaining_minutes} min.', 'danger')
+                        return render_template('login.html'), 429
+
+                    attempt.attempts = int(attempt.attempts or 0) + 1
+                    attempt.last_attempt = now
+
+                    if attempt.attempts >= 5:
+                        attempt.block_count = int(attempt.block_count or 0) + 1
+                        lock_minutes = 15 * attempt.block_count
+                        attempt.blocked_until = now + timedelta(minutes=lock_minutes)
+                        attempt.is_blocked = True
+
+                    db.session.commit()
                 else:
                     attempt = LoginAttempt(
                         ip_address=ip_address,
                         username=username,
                         attempts=1,
                         last_attempt=now,
-                        is_blocked=False
+                        is_blocked=False,
+                        block_count=0,
+                        blocked_until=None,
                     )
                     db.session.add(attempt)
                     db.session.commit()
+
             except Exception as e:
                 print(f"[SECURITY] Error registrando intento fallido: {e}")
 
@@ -1176,10 +1284,29 @@ def admin_create_user():
     email = request.form.get('email', '').strip()
     password = request.form.get('password', '')
     role = request.form.get('role', 'helper')
-    
-    if not all([username, email, password]):
-        flash('Todos los campos son requeridos.', 'danger')
+
+    if not all([username, password]):
+        flash('Usuario y contraseña son requeridos.', 'danger')
         return redirect(url_for('admin_users'))
+
+    def _placeholder_email_for(username_value: str) -> str:
+        base_local = re.sub(r'[^a-z0-9._-]+', '.', (username_value or '').strip().lower()).strip('.')
+        if not base_local:
+            base_local = 'user'
+        candidate = f"{base_local}@change.local"
+        if not User.query.filter_by(email=candidate).first():
+            return candidate
+        # Ensure uniqueness
+        for i in range(2, 5000):
+            candidate_i = f"{base_local}{i}@change.local"
+            if not User.query.filter_by(email=candidate_i).first():
+                return candidate_i
+        # Fallback (extremely unlikely)
+        return f"{base_local}{int(time())}@change.local"
+
+    # If staff doesn't provide an email, generate a unique placeholder.
+    if not email:
+        email = _placeholder_email_for(username)
     
     # Check if user exists
     if User.query.filter_by(username=username).first():
@@ -1261,8 +1388,8 @@ def admin_edit_user(user_id):
     password = request.form.get('password', '')
     confirm_password = request.form.get('confirm_password', '')
     
-    if not username or not email:
-        flash('Usuario y email son requeridos.', 'danger')
+    if not username:
+        flash('Usuario es requerido.', 'danger')
         return redirect(url_for('admin_users'))
     
     # Check if username is taken by another user
@@ -1271,15 +1398,17 @@ def admin_edit_user(user_id):
         flash(f'El nombre de usuario "{username}" ya está en uso.', 'danger')
         return redirect(url_for('admin_users'))
     
-    # Check if email is taken by another user
-    existing = User.query.filter(User.email == email, User.id != user_id).first()
-    if existing:
-        flash(f'El email "{email}" ya está en uso.', 'danger')
-        return redirect(url_for('admin_users'))
+    # Update email only if explicitly provided (email is hidden/removed from UI)
+    if email and email != user.email:
+        existing = User.query.filter(User.email == email, User.id != user_id).first()
+        if existing:
+            flash(f'El email "{email}" ya está en uso.', 'danger')
+            return redirect(url_for('admin_users'))
     
     # Update user
     user.username = username
-    user.email = email
+    if email:
+        user.email = email
     
     # Update password if provided
     if password:
@@ -1330,20 +1459,46 @@ def admin_security():
     blocked_ips = []
     current_time = datetime.now()
     
+    ensure_login_attempts_columns()
+
     # Get from database first (persistent data)
     db_attempts = LoginAttempt.query.all()
     for attempt in db_attempts:
-        # Skip if older than 15 minutes
-        if (current_time - attempt.last_attempt).total_seconds() > 900:
-            db.session.delete(attempt)
-            continue
-            
+        is_blocked_now = False
+        time_remaining_min = 0
+
+        if attempt.blocked_until:
+            if current_time < attempt.blocked_until:
+                is_blocked_now = True
+                time_remaining_min = max(1, int((attempt.blocked_until - current_time).total_seconds() / 60))
+            else:
+                # Expired lock - clear it (keep history)
+                attempt.is_blocked = False
+                attempt.blocked_until = None
+                attempt.attempts = 0
+
+        # Legacy compatibility: if an old row was marked blocked, interpret as 15m lock from last_attempt.
+        if not attempt.blocked_until and (attempt.is_blocked or attempt.attempts >= 5):
+            legacy_until = attempt.last_attempt + timedelta(minutes=15)
+            if current_time < legacy_until:
+                is_blocked_now = True
+                time_remaining_min = max(1, int((legacy_until - current_time).total_seconds() / 60))
+            else:
+                attempt.is_blocked = False
+                attempt.attempts = 0
+
+        # Basic cleanup: keep recent items, or anything with block history.
+        if not is_blocked_now and int(getattr(attempt, 'block_count', 0) or 0) == 0:
+            if (current_time - attempt.last_attempt).total_seconds() > 900:
+                db.session.delete(attempt)
+                continue
+
         blocked_ips.append({
             'ip': attempt.ip_address,
             'username': attempt.username if attempt.username else 'desconocido',
             'attempts': attempt.attempts,
-            'blocked': attempt.is_blocked or attempt.attempts >= 5,
-            'time_remaining': max(0, int((900 - (current_time - attempt.last_attempt).total_seconds()) / 60))
+            'blocked': is_blocked_now,
+            'time_remaining': time_remaining_min,
         })
     db.session.commit()
     

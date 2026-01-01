@@ -266,7 +266,11 @@
           BlurkitTool
         </div>
       </a>
-      <!-- Botón de inicio de sesión removido en esta página -->
+      <div class="ms-auto" style="display: flex; align-items: center; gap: 0.5rem;">
+        <a class="btn btn-outline-warning" href="{{ url_for('home') }}" style="font-weight: 800; border-radius: 12px; padding: 0.45rem 0.9rem; white-space: nowrap;">
+          ← Home
+        </a>
+      </div>
     </div>
   </nav>
 
@@ -305,6 +309,15 @@
                 <div class="nota-pill">⚠ Importante</div>
               </div>
               <div class="nota-text">{{ modalidad.nota|highlight_prohibido }}</div>
+
+              {% set _mod_name = (modalidad.nombre or '')|upper %}
+              {% if 'MODS ILEGALES' in _mod_name or 'CLIENTES' in _mod_name %}
+                <div style="margin-top: 0.9rem; display: flex; flex-wrap: wrap; gap: 0.6rem;">
+                  <a class="btn btn-outline-warning" href="{{ url_for('modsjg') }}" style="font-weight: 800; border-radius: 12px; padding: 0.55rem 1rem;">
+                    📦 Ver lista de mods
+                  </a>
+                </div>
+              {% endif %}
             </div>
           {% endif %}
 

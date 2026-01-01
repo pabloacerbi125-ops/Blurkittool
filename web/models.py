@@ -112,6 +112,8 @@ class LoginAttempt(db.Model):
     attempts = db.Column(db.Integer, default=1, nullable=False)
     last_attempt = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     is_blocked = db.Column(db.Boolean, default=False, nullable=False)
+    block_count = db.Column(db.Integer, default=0, nullable=False)
+    blocked_until = db.Column(db.DateTime, nullable=True)
     
     def __repr__(self):
         return f'<LoginAttempt {self.ip_address} - {self.username} ({self.attempts})>'
