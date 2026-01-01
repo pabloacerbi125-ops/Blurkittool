@@ -40,6 +40,7 @@ mods.json
 web/instance/*.db
 web/instance/*.sqlite
 web/instance/*.sqlite3
+web/instance/*.sqbpro
 
 # Local downloads / installers (never commit)
 web/static/*.exe

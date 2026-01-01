@@ -36,62 +36,11 @@ ONLINE_TIMEOUT = 180  # 3 minutos
 online_users = {}
 
 # ============================================================================
-# AUTO GIT PULL ON STARTUP (keep database in sync)
+# AUTO GIT PULL ON STARTUP (legacy)
 # ============================================================================
 
-def auto_git_pull_on_startup():
-    """Pull latest changes from GitHub on app startup.
-    
-    Ensures database is always in sync between local and Render.
-    Runs silently - doesn't interrupt app if git is unavailable.
-    Only runs in production (Render), not in local development.
-    """
-    try:
-        # Skip auto-pull in local development
-        if os.environ.get('FLASK_ENV') != 'production':
-            return
-        
-        repo_path = Path(__file__).resolve().parent.parent
-        
-        # Only pull if .git folder exists
-        if not (repo_path / '.git').exists():
-            return
-        
-        # Configure git
-        subprocess.run(
-            ['git', 'config', 'user.email', 'auto-sync@blurkittool.local'],
-            cwd=repo_path,
-            capture_output=True,
-            timeout=5
-        )
-        subprocess.run(
-            ['git', 'config', 'user.name', 'Auto Sync'],
-            cwd=repo_path,
-            capture_output=True,
-            timeout=5
-        )
-        
-        # Fetch and reset to origin/main (works in detached HEAD state on Render)
-        subprocess.run(
-            ['git', 'fetch', 'origin', 'main', '--quiet'],
-            cwd=repo_path,
-            capture_output=True,
-            timeout=10
-        )
-        result = subprocess.run(
-            ['git', 'reset', '--hard', 'origin/main'],
-            cwd=repo_path,
-            capture_output=True,
-            timeout=10
-        )
-        
-        if result.returncode == 0:
-            print("[Auto-sync] Database synced from GitHub", flush=True)
-        else:
-            print(f"[Auto-sync warning] Git pull failed: {result.stderr.decode()}", flush=True)
-    except Exception as e:
-        # Silently fail - don't interrupt app startup
-        print(f"[Auto-sync error] {str(e)}", flush=True)
+# NOTE: This project previously synced a SQLite database via git pulls.
+# Now we use a real database (Render Postgres). Do not auto-git-pull on startup.
 
 # Helper to locate resources when packaged with PyInstaller
 def resource_path(relative_path):
@@ -478,6 +427,9 @@ if database_url:
         database_url = database_url.replace('postgres://', 'postgresql://', 1)
     app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 else:
+    # In Render production we must NOT fall back to a local SQLite DB.
+    if os.environ.get('FLASK_ENV') == 'production':
+        raise RuntimeError('DATABASE_URL is required in production. Set it to Render Internal Database URL.')
     app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
 
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
@@ -522,8 +474,7 @@ login_manager.login_view = 'login'
 login_manager.login_message = 'Por favor inicia sesión para acceder a esta página.'
 login_manager.login_message_category = 'info'
 
-# Auto-pull database changes on app startup
-auto_git_pull_on_startup()
+
 
 
 @login_manager.user_loader
@@ -578,97 +529,14 @@ MAX_HISTORY_ITEMS = 20
 # ============================================================================
 
 def auto_commit_and_push(message):
-    """Auto-commit database changes and push to GitHub.
-    
-    Uses GITHUB_TOKEN environment variable for authentication.
-    Only works on Render or environments with git configured.
+    """Legacy: git-based DB syncing.
+
+    This project used to sync a local SQLite DB via GitHub commits.
+    Now the app uses Render Postgres (DATABASE_URL), so we intentionally
+    disable any git commits/pushes of database state.
     """
-    try:
-        # Only run in production (Render) to avoid local pushes
-        if os.environ.get('FLASK_ENV') != 'production':
-            print("[Auto-sync] Skipped: Not running in production", flush=True)
-            return False
-
-        # Only run if token is configured (production/Render)
-        github_token = os.environ.get('GITHUB_TOKEN')
-        if not github_token:
-            print(f"[Auto-sync] Skipped: No GITHUB_TOKEN configured", flush=True)
-            return False
-        
-        print(f"[Auto-sync] Starting push: {message}", flush=True)
-        
-        repo_path = Path(__file__).resolve().parent.parent
-        
-        # Configure git with token (temporary, for this session)
-        subprocess.run(
-            ['git', 'config', 'user.email', 'render-auto-sync@blurkittool.local'],
-            cwd=repo_path,
-            capture_output=True,
-            timeout=5
-        )
-        subprocess.run(
-            ['git', 'config', 'user.name', 'Render Auto-Sync'],
-            cwd=repo_path,
-            capture_output=True,
-            timeout=5
-        )
-        
-        # Pull antes de hacer commit/push
-        subprocess.run(
-            ['git', 'pull', 'origin', 'main', '--rebase'],
-            cwd=repo_path,
-            capture_output=True,
-            timeout=10
-        )
-
-        # Stage database file
-        subprocess.run(
-            ['git', 'add', 'web/instance/blurkit.db'],
-            cwd=repo_path,
-            capture_output=True,
-            timeout=5
-        )
-        
-        # Check if there are changes
-        result = subprocess.run(
-            ['git', 'diff', '--cached', '--quiet'],
-            cwd=repo_path,
-            capture_output=True,
-            timeout=5
-        )
-        
-        if result.returncode != 0:  # There are changes
-            # Commit
-            commit_result = subprocess.run(
-                ['git', 'commit', '-m', message],
-                cwd=repo_path,
-                capture_output=True,
-                timeout=5
-            )
-            print(f"[Auto-sync] Commit result: {commit_result.returncode}", flush=True)
-            
-            # Push with token
-            # Format: https://<token>@github.com/<user>/<repo>.git
-            remote_url = f'https://{github_token}@github.com/pabloacerbi125-ops/Blurkittool.git'
-            push_result = subprocess.run(
-                ['git', 'push', remote_url, 'HEAD:main'],  # use HEAD because Render runs in detached HEAD
-                cwd=repo_path,
-                capture_output=True,
-                timeout=10
-            )
-            print(f"[Auto-sync] Push result: {push_result.returncode}", flush=True)
-            if push_result.returncode == 0:
-                print(f"[Auto-sync] SUCCESS: {message}", flush=True)
-            else:
-                print(f"[Auto-sync] Push failed: {push_result.stderr.decode()}", flush=True)
-            return push_result.returncode == 0
-        else:
-            print(f"[Auto-sync] No changes to commit", flush=True)
-            return False
-    except Exception as e:
-        # Silently fail - don't interrupt the app
-        print(f"[Auto-sync error] {str(e)}", flush=True)
-        return False
+    print(f"[Auto-sync disabled] {message}", flush=True)
+    return False
 
 
 @app.route('/login', methods=['GET', 'POST'])
