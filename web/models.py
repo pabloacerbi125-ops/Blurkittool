@@ -31,6 +31,7 @@ class User(UserMixin, db.Model):
     is_active = db.Column(db.Boolean, default=True, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     last_login = db.Column(db.DateTime)
+    last_active = db.Column(db.DateTime)
 
     # 2FA (TOTP, compatible con Google Authenticator)
     twofa_enabled = db.Column(db.Boolean, default=False, nullable=False)

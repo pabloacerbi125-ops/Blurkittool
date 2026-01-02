@@ -403,7 +403,7 @@
 
                             <td>
                                 {% if is_online %}
-                                    <span class="badge-active" style="background-color: #28a745;">🟢 Online</span>
+                                    <span class="badge-active" style="background-color: #28a745;">Online</span>
                                 {% elif user.is_active %}
                                     <span class="badge-inactive">Offline</span>
                                 {% else %}
@@ -413,7 +413,7 @@
 
                             <td style="color: #b8c1ca;">
                                 {% if user.last_login %}
-                                    {{ user.last_login.strftime('%Y-%m-%d %H:%M') }}
+                                    <span class="js-local-dt" data-utc="{{ user.last_login.isoformat() }}Z">{{ user.last_login.strftime('%Y-%m-%d %H:%M') }}</span>
                                 {% else %}
                                     <span style="color: #6c757d;">Nunca</span>
                                 {% endif %}

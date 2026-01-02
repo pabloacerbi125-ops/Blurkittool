@@ -1,20 +1,36 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="container-main">
-  <h4>Buscar log (archivo)</h4>
-  <form action="/upload" method="post" enctype="multipart/form-data">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <div class="mb-2">
-      <input type="file" name="logfile" class="form-control" accept=".log,.txt">
+<div class="tool-page">
+  <div class="tool-hero">
+    <div class="tool-hero__icon">📄</div>
+    <div class="tool-hero__body">
+      <h3 class="tool-title">Buscar log (archivo)</h3>
+      <p class="tool-subtitle">Sube un archivo <strong>.log</strong> o <strong>.txt</strong> para analizar mods permitidos y prohibidos.</p>
     </div>
-    <button class="btn btn-primary">Subir y Analizar</button>
-    <a href="/menu" class="btn btn-secondary">Volver</a>
-  </form>
+  </div>
+
+  <div class="search-card tool-card tool-card--elevated">
+    <form action="/upload" method="post" enctype="multipart/form-data">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="mb-3">
+        <label class="form-label" style="color:#fff; font-weight:700;">Archivo</label>
+        <div class="file-input-wrap">
+          <input type="file" name="logfile" class="form-control" accept=".log,.txt" required>
+        </div>
+        <div class="form-text" style="color: var(--muted);">Máximo: 2MB</div>
+      </div>
+      <div class="d-flex flex-wrap gap-2">
+        <button class="btn btn-primary" style="font-weight:800;">Subir y Analizar</button>
+        <a href="/menu" class="btn btn-secondary">Volver</a>
+      </div>
+    </form>
+  </div>
 
   <!-- Logs leídos recientemente -->
   {% if logs_history %}
-  <div class="mt-5">
-    <h5 style="color: #ffc107; margin-bottom: 1rem;">📜 Logs leídos recientemente</h5>
+  <div class="mt-4">
+    <div class="search-card tool-card">
+      <h5 style="color: #ffc107; margin-bottom: 1rem;">📜 Logs leídos recientemente</h5>
     <div class="table-responsive">
       <table class="table table-dark table-striped table-sm">
         <thead>
@@ -47,6 +63,7 @@
       </table>
     </div>
     <a href="/analysis" class="btn btn-sm btn-info">📊 Ver historial completo</a>
+    </div>
   </div>
   {% endif %}
 </div>

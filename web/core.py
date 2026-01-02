@@ -1,4 +1,115 @@
 import openai
+import json
+from pathlib import Path
+
+
+def load_mods(db_path=None):
+    """Carga mods desde la fuente disponible.
+
+    Prioridad:
+    1) Base de datos principal vía SQLAlchemy (Postgres/SQLite según DATABASE_URL)
+    2) Archivo mods.json (legacy)
+    3) Base SQLite legacy (si se provee db_path o se encuentra en rutas comunes)
+
+    Devuelve una lista de dicts con al menos: name, status, category, platform, alias.
+    """
+    # 1) Preferir SQLAlchemy (lo que usa la app actualmente)
+    try:
+        from flask import has_app_context
+        if has_app_context():
+            from models import Mod
+
+            rows = Mod.query.order_by(Mod.name.asc()).all()
+            mods = []
+            for m in rows:
+                try:
+                    aliases = m.get_aliases_list()
+                except Exception:
+                    aliases = []
+                mods.append(
+                    {
+                        'name': m.name,
+                        'status': m.status,
+                        'category': m.category,
+                        'platform': m.platform,
+                        'alias': aliases,
+                    }
+                )
+            if mods:
+                return mods
+    except Exception:
+        # Silencioso: seguimos con fallbacks
+        pass
+
+    # 2) Fallback a mods.json (legacy)
+    try:
+        base_dir = Path(__file__).resolve().parent.parent
+        candidates = [base_dir / 'mods.json']
+        for p in candidates:
+            if p.exists():
+                data = json.loads(p.read_text(encoding='utf-8'))
+                if isinstance(data, dict) and 'mods' in data:
+                    data = data['mods']
+                if isinstance(data, list):
+                    return data
+    except Exception:
+        pass
+
+    # 3) Legacy SQLite (evitar romper, pero no fallar duro)
+    try:
+        import sqlite3
+
+        possibles = []
+        if db_path is not None:
+            possibles.append(str(db_path))
+
+        web_dir = Path(__file__).resolve().parent
+        possibles.extend(
+            [
+                str(web_dir / 'instance' / 'blurkit.db'),
+                str(web_dir.parent / 'instance' / 'blurkit.db'),
+                'web/instance/blurkit.db',
+                'instance/blurkit.db',
+                './web/instance/blurkit.db',
+                './instance/blurkit.db',
+            ]
+        )
+
+        for path in possibles:
+            try:
+                if not path:
+                    continue
+                if not Path(path).exists():
+                    continue
+                conn = sqlite3.connect(path)
+                cursor = conn.cursor()
+                cursor.execute("SELECT name, status, category, platform FROM mods")
+                mods = []
+                for row in cursor.fetchall():
+                    mods.append(
+                        {
+                            'name': row[0],
+                            'status': row[1],
+                            'category': row[2],
+                            'platform': row[3],
+                            'alias': [],
+                        }
+                    )
+                conn.close()
+                if mods:
+                    return mods
+            except Exception:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+                continue
+    except Exception:
+        pass
+
+    # Nada disponible: devolvemos vacío (el analizador igual puede funcionar)
+    return []
+
 
 def analyze_log_with_gpt(log_text: str, openai_api_key: str) -> dict:
     """
@@ -59,40 +170,7 @@ def analyze_log_with_gpt(log_text: str, openai_api_key: str) -> dict:
         except Exception:
             pass
     return {"error": "No se pudo analizar el JSON", "raw": content}
-# Cargar mods desde la base de datos SQLite
-import sqlite3
 
-def load_mods(db_path=None):
-    """Carga los mods desde la base de datos SQLite y los devuelve como lista de dicts."""
-    # Buscar la base de datos en la ruta más probable
-    posibles = [
-        'web/instance/blurkit.db',
-        'instance/blurkit.db',
-        './web/instance/blurkit.db',
-        './instance/blurkit.db'
-    ]
-    if db_path is not None:
-        posibles.insert(0, db_path)
-    for path in posibles:
-        if os.path.exists(path):
-            db_path = path
-            break
-    else:
-        raise FileNotFoundError("No se encontró la base de datos SQLite de mods.")
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
-    cursor.execute("SELECT name, status, category, platform FROM mods")
-    mods = []
-    for row in cursor.fetchall():
-        mods.append({
-            'name': row[0],
-            'status': row[1],
-            'category': row[2],
-            'platform': row[3],
-            'alias': []  # Si tienes alias en la tabla, agrégalo aquí
-        })
-    conn.close()
-    return mods
 """Core utilities for Blurkit web UI.
 
 Contains functions to load/save `mods.json` and to extract / classify mods

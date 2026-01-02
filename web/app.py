@@ -32,8 +32,8 @@ from time import time
 # Tiempo máximo para considerar a un usuario como online (en segundos)
 ONLINE_TIMEOUT = 180  # 3 minutos
 
-# Diccionario en memoria para usuarios online
-online_users = {}
+# Intervalo mínimo entre escrituras de last_active para evitar exceso de commits
+LAST_ACTIVE_MIN_UPDATE_SECONDS = 30
 
 # ============================================================================
 # AUTO GIT PULL ON STARTUP (legacy)
@@ -72,6 +72,7 @@ _modalidad_orden_ready = False
 _regla_orden_ready = False
 _login_attempts_ready = False
 _users_2fa_ready = False
+_users_last_active_ready = False
 
 
 def _twofa_role_allowed(user) -> bool:
@@ -132,6 +133,37 @@ def ensure_users_2fa_columns():
         _users_2fa_ready = True
     except Exception as e:
         print(f"[MIGRATION] ensure_users_2fa_columns failed: {e}")
+
+
+def ensure_users_last_active_column():
+    """Idempotent runtime migration for 'last_active' column on users table.
+
+    IMPORTANT: must run before any request touches current_user/load_user when
+    the model contains the column, otherwise SELECTs can fail on older DBs.
+    """
+    global _users_last_active_ready
+    if _users_last_active_ready:
+        return
+
+    try:
+        dialect = getattr(getattr(db, 'engine', None), 'dialect', None)
+        dialect_name = getattr(dialect, 'name', '') or ''
+        is_postgres = dialect_name.startswith('postgres')
+        insp = inspect(db.engine)
+        cols = {c['name'] for c in insp.get_columns('users')}
+        if 'last_active' in cols:
+            _users_last_active_ready = True
+            return
+
+        with db.engine.begin() as conn:
+            if is_postgres:
+                conn.execute(text("ALTER TABLE users ADD COLUMN last_active TIMESTAMP"))
+            else:
+                conn.execute(text("ALTER TABLE users ADD COLUMN last_active DATETIME"))
+
+        _users_last_active_ready = True
+    except Exception as e:
+        print(f"[MIGRATION] ensure_users_last_active_column failed: {e}")
 
 
 def _twofa_issuer_name() -> str:
@@ -398,6 +430,128 @@ MAX_LOG_UPLOAD_BYTES = int(os.environ.get('MAX_LOG_UPLOAD_BYTES', str(2 * 1024 *
 MAX_LOG_PASTE_CHARS = int(os.environ.get('MAX_LOG_PASTE_CHARS', str(200_000)))  # 200k chars
 
 
+def _normalize_analysis_result(resultado: dict, log_lines: list[str]) -> dict:
+    """Normalize analysis result to the structure expected by analysis.html.
+
+    Target structure:
+      mods_permitidos, mods_prohibidos, mods_desconocidos, dependencias,
+      total, total_mods, plus optional player/mc_version.
+
+    If resultado already matches, we keep it and only compute totals.
+    """
+    if not isinstance(resultado, dict):
+        return {'error': 'resultado_invalid'}
+
+    # If the analyzer already returns the final structure, just compute totals.
+    if all(k in resultado for k in ['mods_permitidos', 'mods_prohibidos', 'mods_desconocidos', 'dependencias']):
+        resultado['total'] = (
+            len(resultado.get('mods_permitidos') or [])
+            + len(resultado.get('mods_prohibidos') or [])
+            + len(resultado.get('mods_desconocidos') or [])
+            + len(resultado.get('dependencias') or [])
+        )
+        resultado['total_mods'] = (
+            len(resultado.get('mods_permitidos') or [])
+            + len(resultado.get('mods_prohibidos') or [])
+            + len(resultado.get('mods_desconocidos') or [])
+        )
+        return resultado
+
+    # Otherwise, convert from legacy structure: {mods: [...], dependencies: [...]}
+    mods = resultado.get('mods') or []
+    dependencies = resultado.get('dependencies') or []
+
+    mods_prohibidos = []
+    mods_permitidos = []
+    mods_desconocidos = []
+
+    all_mods_db = []
+    try:
+        all_mods_db = list(Mod.query.all())
+    except Exception:
+        all_mods_db = []
+
+    def match_mod(mod_name: str):
+        mod_name_norm = (mod_name or '').lower().replace(' ', '')
+        if not mod_name_norm:
+            return None
+        for m in all_mods_db:
+            try:
+                db_name = (m.name or '').lower().replace(' ', '')
+                if mod_name_norm == db_name:
+                    return m
+                if getattr(m, 'aliases', None):
+                    for alias in (m.aliases or '').split(','):
+                        if mod_name_norm == alias.strip().lower().replace(' ', ''):
+                            return m
+            except Exception:
+                continue
+        return None
+
+    for mod in mods:
+        mod_name = (mod or {}).get('name', '')
+        db_mod = match_mod(mod_name)
+        if db_mod:
+            mod_info = {**mod, 'category': db_mod.category, 'platform': db_mod.platform, 'description': db_mod.description}
+            if db_mod.status == 'prohibido':
+                mods_prohibidos.append(mod_info)
+            elif db_mod.status == 'permitido':
+                mods_permitidos.append(mod_info)
+            else:
+                mods_desconocidos.append(mod)
+        else:
+            mods_desconocidos.append(mod)
+
+    # Dependencias (solo se listan en analysis.html; no hay columnas extra ahí)
+    # Intentamos matchear igual para consistencia, pero mantenemos el listado final en resultado['dependencias'].
+    dependencias = []
+    for dep in dependencies:
+        dep_name = (dep or {}).get('name', '')
+        db_mod = match_mod(dep_name)
+        if db_mod:
+            dependencias.append({**dep, 'category': db_mod.category, 'platform': db_mod.platform})
+        else:
+            dependencias.append(dep)
+
+    resultado['mods_prohibidos'] = mods_prohibidos
+    resultado['mods_permitidos'] = mods_permitidos
+    resultado['mods_desconocidos'] = mods_desconocidos
+    resultado['dependencias'] = dependencias
+    resultado['total'] = len(mods) + len(dependencies)
+    resultado['total_mods'] = len(mods_permitidos) + len(mods_prohibidos) + len(mods_desconocidos)
+    return resultado
+
+
+def _analyze_log_text_unified(log_text: str) -> dict:
+    """Unified analyzer used by both /upload and /analyze."""
+    from core import analyze_log_with_gpt
+    from analyze_mc_log_utils import extract_player
+    openai_api_key = os.environ.get('OPENAI_API_KEY')
+    if openai_api_key:
+        resultado = analyze_log_with_gpt(log_text, openai_api_key)
+        if isinstance(resultado, dict) and resultado.get('error'):
+            resultado = analyze_log_lines(log_text.splitlines())
+    else:
+        resultado = analyze_log_lines(log_text.splitlines())
+
+    # Ensure player is present
+    if isinstance(resultado, dict) and not resultado.get('player'):
+        resultado['player'] = extract_player(log_text.splitlines())
+
+    # Normalize structure
+    resultado = _normalize_analysis_result(resultado or {}, log_text.splitlines())
+
+    # Optional debug dump
+    if os.environ.get('DEBUG_IA_RAW') == '1':
+        import logging
+        logging.basicConfig(level=logging.INFO)
+        with open('ia_raw_result.json', 'w', encoding='utf-8') as f:
+            import json as _json
+            f.write(_json.dumps(resultado, ensure_ascii=False, indent=2))
+
+    return resultado
+
+
 def _get_csrf_token() -> str:
     token = session.get('_csrf_token')
     if not token:
@@ -484,6 +638,12 @@ login_manager.login_message = 'Por favor inicia sesión para acceder a esta pág
 login_manager.login_message_category = 'info'
 
 
+@app.context_processor
+def inject_csrf_token():
+    # Make csrf_token available in all templates (base.html heartbeat, etc.)
+    return {'csrf_token': _get_csrf_token()}
+
+
 
 
 @login_manager.user_loader
@@ -492,6 +652,16 @@ def load_user(user_id):
         return db.session.get(User, int(user_id))
     except:
         return None
+
+
+@app.before_request
+def ensure_runtime_schema_before_auth():
+    """Ensure required columns exist before anything touches current_user.
+
+    This MUST run before other before_request handlers that access current_user,
+    otherwise load_user() may run a SELECT for missing columns.
+    """
+    ensure_users_last_active_column()
 
 
 @app.before_request
@@ -519,6 +689,32 @@ def force_logout_on_render():
             logout_user()
             flash('Por seguridad, vuelve a iniciar sesión.', 'info')
             return redirect(url_for('login'))
+
+
+@app.before_request
+def track_user_last_active():
+    """Persist last activity in DB (multi-worker safe).
+
+    Throttles updates to avoid committing on every request.
+    """
+    try:
+        if not current_user.is_authenticated:
+            return
+
+        ensure_users_last_active_column()
+
+        now_utc = datetime.utcnow()
+        last_active = getattr(current_user, 'last_active', None)
+
+        if last_active is None or (now_utc - last_active).total_seconds() >= LAST_ACTIVE_MIN_UPDATE_SECONDS:
+            current_user.last_active = now_utc
+            db.session.commit()
+    except Exception as exc:
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+        print(f"[PRESENCE] Warning: could not update last_active: {exc}")
 
 
 # ============================================================================
@@ -630,8 +826,13 @@ def login():
                 session.modified = True
                 return redirect(url_for('twofa_login_verify'))
 
-            # Update last login
-            user.last_login = datetime.now()
+            # Update last login (store as UTC so UI can localize per viewer)
+            user.last_login = datetime.utcnow()
+            # Also mark as active now (used for online/offline status)
+            try:
+                user.last_active = user.last_login
+            except Exception:
+                pass
             db.session.commit()
 
             login_user(user, remember=True)
@@ -959,85 +1160,9 @@ def analyze():
         history = session.get('logs_history', logs_history.get(user_key, []))
         return render_template('analysis.html', resultado=None, logs_history=history)
 
-    # Si hay texto, sigue el flujo normal
+    # Si hay texto, sigue el mismo flujo que /upload
     if log_text.strip():
-        from core import analyze_log_with_gpt
-        openai_api_key = os.environ.get('OPENAI_API_KEY')
-        if openai_api_key:
-            resultado = analyze_log_with_gpt(log_text, openai_api_key)
-            # Si hay error, fallback al análisis local
-            if resultado.get('error'):
-                from analyze_mc_log_utils import analyze_log_lines
-                resultado = analyze_log_lines(log_text.splitlines())
-        else:
-            from analyze_mc_log_utils import analyze_log_lines
-            resultado = analyze_log_lines(log_text.splitlines())
-
-        # Si la IA no detectó el nombre del jugador, intenta extraerlo localmente
-        if not resultado.get('player'):
-            from analyze_mc_log_utils import extract_player
-            resultado['player'] = extract_player(log_text.splitlines())
-
-        # Clasificar mods y dependencias igual que en upload
-        mods = resultado.get('mods', [])
-        dependencies = resultado.get('dependencies', [])
-        mods_prohibidos = []
-        mods_permitidos = []
-        mods_desconocidos = []
-        # Mejor comparación: ignora mayúsculas/minúsculas y espacios, busca en aliases
-        all_mods_db = list(Mod.query.all())
-        def match_mod(mod_name):
-            mod_name_norm = mod_name.lower().replace(' ', '')
-            for m in all_mods_db:
-                # Normaliza nombre y aliases
-                db_name = m.name.lower().replace(' ', '')
-                if mod_name_norm == db_name:
-                    return m
-                if m.aliases:
-                    for alias in m.aliases.split(','):
-                        if mod_name_norm == alias.strip().lower().replace(' ', ''):
-                            return m
-            return None
-
-        for mod in mods:
-            mod_name = mod['name']
-            db_mod = match_mod(mod_name)
-            if db_mod:
-                mod_info = {**mod, 'category': db_mod.category, 'platform': db_mod.platform, 'description': db_mod.description}
-                if db_mod.status == 'prohibido':
-                    mods_prohibidos.append(mod_info)
-                elif db_mod.status == 'permitido':
-                    mods_permitidos.append(mod_info)
-                else:
-                    mods_desconocidos.append(mod)
-            else:
-                mods_desconocidos.append(mod)
-        # Clasificar dependencias/librerías igual que mods
-        dependencias_permitidas = []
-        dependencias_prohibidas = []
-        dependencias_desconocidas = []
-        for dep in dependencies:
-            dep_name = dep.get('name', '')
-            db_mod = match_mod(dep_name)
-            if db_mod:
-                if db_mod.status == 'prohibido':
-                    dependencias_prohibidas.append({**dep, 'category': db_mod.category, 'platform': db_mod.platform})
-                elif db_mod.status == 'permitido':
-                    dependencias_permitidas.append({**dep, 'category': db_mod.category, 'platform': db_mod.platform})
-                else:
-                    dependencias_desconocidas.append(dep)
-            else:
-                dependencias_desconocidas.append(dep)
-
-        resultado['mods_prohibidos'] = mods_prohibidos
-        resultado['mods_permitidos'] = mods_permitidos
-        resultado['mods_desconocidos'] = mods_desconocidos
-        resultado['dependencias_permitidas'] = dependencias_permitidas
-        resultado['dependencias_prohibidas'] = dependencias_prohibidas
-        resultado['dependencias_desconocidas'] = dependencias_desconocidas
-        resultado['dependencias'] = dependencies  # Para compatibilidad con el frontend
-        resultado['total'] = len(mods) + len(dependencies)
-        resultado['total_mods'] = len(mods_permitidos) + len(mods_prohibidos) + len(mods_desconocidos)
+        resultado = _analyze_log_text_unified(log_text)
 
         user_key = current_user.username
         if user_key not in logs_history:
@@ -1101,44 +1226,7 @@ def upload():
         flash(f'Archivo demasiado grande. Máximo {MAX_LOG_UPLOAD_BYTES // (1024 * 1024)}MB.', 'danger')
         return redirect(url_for('upload'))
     
-    # Usar GPT-3.5-turbo si la variable de entorno está presente
-    from core import analyze_log_with_gpt
-    openai_api_key = os.environ.get('OPENAI_API_KEY')
-    if openai_api_key:
-        resultado = analyze_log_with_gpt(content, openai_api_key)
-        # Si hay error, fallback al análisis local
-        if resultado.get('error'):
-            resultado = analyze_log_lines(content.splitlines())
-    else:
-        resultado = analyze_log_lines(content.splitlines())
-
-    # Adaptar el resultado IA (allowed/unknown/mods_main/dependencies) a los campos esperados por el frontend
-    # Log de depuración: guardar el JSON crudo solo si se habilita explícitamente.
-    if os.environ.get('DEBUG_IA_RAW') == '1':
-        import logging
-        logging.basicConfig(level=logging.INFO)
-        with open('ia_raw_result.json', 'w', encoding='utf-8') as f:
-            import json as _json
-            f.write(_json.dumps(resultado, ensure_ascii=False, indent=2))
-    # Si la IA ya devuelve la estructura final, solo la copiamos y calculamos el total
-    if all(k in resultado for k in ['mods_permitidos', 'mods_prohibidos', 'mods_desconocidos', 'dependencias']):
-        resultado['total'] = (
-            len(resultado['mods_permitidos'])
-            + len(resultado['mods_prohibidos'])
-            + len(resultado['mods_desconocidos'])
-            + len(resultado['dependencias'])
-        )
-        resultado['total_mods'] = (
-            len(resultado['mods_permitidos'])
-            + len(resultado['mods_prohibidos'])
-            + len(resultado['mods_desconocidos'])
-        )
-    elif any(k in resultado for k in ['allowed', 'unknown', 'mods_main', 'dependencies']):
-        pass  # Aquí iría el código legacy si se necesitara
-    # Si la IA no detectó el nombre del jugador, intenta extraerlo localmente
-    if not resultado.get('player'):
-        from analyze_mc_log_utils import extract_player
-        resultado['player'] = extract_player(content.splitlines())
+    resultado = _analyze_log_text_unified(content)
 
     user_key = current_user.username
     if user_key not in logs_history:
@@ -1293,15 +1381,37 @@ def delete(idx):
 @smod_required
 def admin_users():
     """Manage users - smod y admin."""
+    ensure_users_last_active_column()
     users = User.query.order_by(User.created_at.desc()).all()
-    # Marcar online si el usuario está en online_users y fue activo en los últimos 3 minutos
-    now = time()
+    # Marcar online si el usuario fue activo en los últimos ONLINE_TIMEOUT segundos
+    now_utc = datetime.utcnow()
     users_with_status = []
     for user in users:
-        last_seen = online_users.get(user.username)
-        is_online = last_seen is not None and (now - last_seen) < ONLINE_TIMEOUT
+        last_active = getattr(user, 'last_active', None)
+        is_online = bool(last_active) and (now_utc - last_active).total_seconds() < ONLINE_TIMEOUT
         users_with_status.append((user, is_online))
     return render_template('admin_users.html', users=users_with_status, csrf_token=_get_csrf_token())
+
+
+@app.route('/api/heartbeat', methods=['POST'])
+@login_required
+@limiter.limit('120 per minute')
+def api_heartbeat():
+    """Client heartbeat to keep online status accurate while idle on a page."""
+    ensure_users_last_active_column()
+    if not _validate_csrf():
+        return jsonify({'ok': False, 'error': 'csrf'}), 400
+
+    try:
+        current_user.last_active = datetime.utcnow()
+        db.session.commit()
+        return jsonify({'ok': True})
+    except Exception as exc:
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+        return jsonify({'ok': False, 'error': str(exc)}), 500
 
 
 @app.route('/admin/users/<int:user_id>/twofa/reset', methods=['POST'])
