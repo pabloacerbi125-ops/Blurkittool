@@ -1,17 +1,23 @@
 {% extends 'base.html' %}
 {% block content %}
 <div class="tool-page">
-  <h3 class="tool-title">Pegar log manualmente</h3>
-  <p class="tool-subtitle">Pega el contenido del log y presiona “Analizar”.</p>
+  <div class="tool-hero">
+    <div class="tool-hero__icon">📝</div>
+    <div class="tool-hero__body">
+      <h3 class="tool-title">Pegar log manualmente</h3>
+      <p class="tool-subtitle">Pega el contenido del log y presiona “Analizar”.</p>
+    </div>
+  </div>
 
-  <div class="search-card tool-card">
+  <div class="search-card tool-card tool-card--elevated">
     <form action="/analyze" method="post">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <div class="mb-3">
-        <textarea name="log" class="form-control" rows="12" placeholder="Pega el contenido del log aquí" required></textarea>
+        <label class="form-label" style="color:#fff; font-weight:700;">Log</label>
+        <textarea name="log" class="form-control log-textarea" rows="12" placeholder="Pega el contenido del log aquí" required></textarea>
       </div>
-      <div class="d-flex gap-2">
-        <button class="btn btn-warning">Analizar</button>
+      <div class="d-flex flex-wrap gap-2">
+        <button class="btn btn-primary" style="font-weight:800;">Analizar</button>
         <a href="/menu" class="btn btn-secondary">Volver</a>
       </div>
     </form>
@@ -21,15 +27,15 @@
   {% if logs_history %}
   <div class="mt-4">
     <div class="search-card tool-card">
-      <h5 style="color: #ffc107; margin-bottom: 1rem;">📜 Logs leídos recientemente</h5>
+      <h5 class="text-warning mb-3">📜 Logs leídos recientemente</h5>
     <div class="table-responsive">
       <table class="table table-dark table-striped table-sm">
         <thead>
           <tr style="border-color: var(--card-border);">
-            <th style="color: #ffc107; width: 140px;">Fecha/Hora</th>
-            <th style="color: #ffc107;">Archivo</th>
-            <th style="color: #ffc107; width: 90px;">Prohibidos</th>
-            <th style="color: #ffc107; width: 90px;">Permitidos</th>
+            <th class="text-warning" style="width: 140px;">Fecha/Hora</th>
+            <th class="text-warning">Archivo</th>
+            <th class="text-warning" style="width: 90px;">Prohibidos</th>
+            <th class="text-warning" style="width: 90px;">Permitidos</th>
           </tr>
         </thead>
         <tbody>
@@ -37,16 +43,16 @@
           <tr class="history-row-clickable" data-index="{{ loop.index0 }}" 
               style="border-color: var(--card-border); font-size: 0.85rem; cursor: pointer; transition: background 0.2s;">
             <td>
-              <small style="color: #b8c1ca;">{{ item.timestamp }}</small>
+              <small class="text-muted">{{ item.timestamp }}</small>
             </td>
             <td>
-              <span style="color: #ffffff;">{{ item.filename }}</span>
+              <span>{{ item.filename }}</span>
             </td>
             <td>
-              <span class="badge" style="background: #dc3545;">{{ item.resultado.mods_prohibidos|length }}</span>
+              <span class="badge bg-danger">{{ item.resultado.mods_prohibidos|length }}</span>
             </td>
             <td>
-              <span class="badge" style="background: #51cf66; color: #07210f;">{{ item.resultado.mods_permitidos|length }}</span>
+              <span class="badge bg-success text-dark">{{ item.resultado.mods_permitidos|length }}</span>
             </td>
           </tr>
           {% endfor %}
