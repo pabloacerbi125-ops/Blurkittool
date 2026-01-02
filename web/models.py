@@ -142,6 +142,7 @@ class Regla(db.Model):
     __tablename__ = 'reglas'
     id = db.Column(db.Integer, primary_key=True)
     descripcion = db.Column(db.Text, nullable=False)
+    ejemplo = db.Column(db.Text)  # Ejemplo opcional para aclarar la regla
     modalidad_id = db.Column(db.Integer, db.ForeignKey('modalidades.id'), nullable=False)
     orden = db.Column(db.Integer, default=0)  # Para ordenar reglas opcionalmente
 

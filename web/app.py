@@ -70,6 +70,7 @@ app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
 _modalidad_orden_ready = False
 _regla_orden_ready = False
+_regla_ejemplo_ready = False
 _login_attempts_ready = False
 _users_2fa_ready = False
 _users_last_active_ready = False
@@ -252,6 +253,32 @@ def ensure_regla_orden_column():
         _regla_orden_ready = True
 
 
+def ensure_regla_ejemplo_column():
+    """Ensure the optional 'ejemplo' column exists on 'reglas' table.
+
+    This project doesn't use Alembic; so we run an idempotent migration at runtime.
+    """
+    global _regla_ejemplo_ready
+    if _regla_ejemplo_ready:
+        return
+
+    try:
+        inspector = inspect(db.engine)
+        if 'reglas' not in inspector.get_table_names():
+            _regla_ejemplo_ready = True
+            return
+
+        column_names = {c['name'] for c in inspector.get_columns('reglas')}
+        if 'ejemplo' not in column_names:
+            db.session.execute(text('ALTER TABLE reglas ADD COLUMN ejemplo TEXT'))
+            db.session.commit()
+
+        _regla_ejemplo_ready = True
+    except Exception as exc:
+        print(f"[Regla ejemplo] Warning: could not ensure column: {exc}", flush=True)
+        _regla_ejemplo_ready = True
+
+
 def ensure_login_attempts_columns():
     """Ensure incremental-lockout columns exist on 'login_attempts'.
 
@@ -329,8 +356,9 @@ def editar_modalidad(modalidad_id):
     return redirect(url_for('reglasadm', modalidad_id=modalidad_id))
 @app.route('/editar_regla/<int:regla_id>', methods=['POST'])
 def editar_regla(regla_id):
-    regla = Regla.query.get_or_404(regla_id)
     ensure_regla_orden_column()
+    ensure_regla_ejemplo_column()
+    regla = Regla.query.get_or_404(regla_id)
     nueva_desc = request.form.get('nueva_descripcion', '').strip()
     nuevo_orden_raw = request.form.get('nuevo_orden', '').strip()
     if not nueva_desc:
@@ -353,6 +381,22 @@ def editar_regla(regla_id):
         regla.orden = nuevo_orden
     db.session.commit()
     flash('Regla editada correctamente.', 'success')
+    return redirect(url_for('reglasadm', modalidad_id=regla.modalidad_id))
+
+
+@app.route('/editar_ejemplo_regla/<int:regla_id>', methods=['POST'])
+def editar_ejemplo_regla(regla_id):
+    ensure_regla_orden_column()
+    ensure_regla_ejemplo_column()
+    regla = Regla.query.get_or_404(regla_id)
+
+    nuevo_ejemplo = request.form.get('nuevo_ejemplo', '')
+    # Permitir vaciar el ejemplo
+    nuevo_ejemplo = (nuevo_ejemplo or '').strip()
+    regla.ejemplo = nuevo_ejemplo if nuevo_ejemplo else None
+
+    db.session.commit()
+    flash('Ejemplo actualizado correctamente.', 'success')
     return redirect(url_for('reglasadm', modalidad_id=regla.modalidad_id))
 limiter = Limiter(
     key_func=get_real_ip,
@@ -943,6 +987,7 @@ def reglas():
     """Public rules page - separate page for viewing rules."""
     ensure_modalidad_orden_column()
     ensure_regla_orden_column()
+    ensure_regla_ejemplo_column()
     modalidades = Modalidad.query.order_by(Modalidad.orden.asc(), Modalidad.nombre.asc()).all()
     return render_template('reglas.html', modalidades=modalidades)
 
@@ -952,6 +997,7 @@ def reglasadm():
     """Admin rules management - view and create modalities, and show/add rules for selected modality."""
     ensure_modalidad_orden_column()
     ensure_regla_orden_column()
+    ensure_regla_ejemplo_column()
     modalidades = Modalidad.query.order_by(Modalidad.orden.asc(), Modalidad.nombre.asc()).all()
     modalidad_id = request.args.get('modalidad_id', type=int)
     modalidad_seleccionada = None
@@ -1054,6 +1100,8 @@ def eliminar_modalidad(modalidad_id):
 
 @app.route('/eliminar_regla/<int:regla_id>', methods=['POST'])
 def eliminar_regla(regla_id):
+    ensure_regla_orden_column()
+    ensure_regla_ejemplo_column()
     regla = Regla.query.get_or_404(regla_id)
     modalidad_id = regla.modalidad_id
     db.session.delete(regla)

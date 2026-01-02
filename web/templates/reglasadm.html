@@ -529,10 +529,18 @@
     padding: 1rem 1.2rem;
     margin-bottom: 1rem;
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 1rem;
     transition: all 0.2s ease;
     border: 1px solid rgba(255, 204, 0, 0.1);
+  }
+
+  .regla-content{
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
   }
 
   .regla-item:hover {
@@ -556,15 +564,61 @@
   }
 
   .regla-text {
-    flex: 1;
     color: #e6eef3;
     font-size: 1rem;
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
 
   .regla-edit-form {
     display: none;
-    flex: 1;
+    width: 100%;
     gap: 0.6rem;
+  }
+
+  .regla-example-text{
+    margin-top: 0.55rem;
+    padding: 0.6rem 0.75rem;
+    border-radius: 10px;
+    border: 1px dashed rgba(255, 204, 0, 0.28);
+    background: rgba(255, 204, 0, 0.06);
+    color: #e6eef3;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    line-height: 1.35;
+    font-size: 1rem !important;
+    font-weight: inherit;
+  }
+
+  .regla-example-text *{
+    font-size: inherit !important;
+  }
+
+  .regla-example-form{
+    display: none;
+    width: 100%;
+    margin-top: 0.55rem;
+    gap: 0.6rem;
+  }
+
+  .regla-example-form.is-open{
+    display: block;
+  }
+
+  .regla-example-form textarea{
+    width: 100%;
+    min-height: 80px;
+    resize: vertical;
+    background: rgba(0,0,0,0.3) !important;
+    border: 1px solid rgba(255,204,0,0.3) !important;
+    color: #e6eef3 !important;
+  }
+
+  .regla-example-actions{
+    display: flex;
+    gap: 0.4rem;
+    margin-top: 0.45rem;
   }
 
   .regla-orden-input {
@@ -714,15 +768,34 @@
         <ol class="reglas-list">
           {% for regla in reglas %}
             <li class="regla-item" data-number="{{ regla.orden if regla.orden else loop.index }}">
-              <span class="regla-text" id="regla-text-{{ regla.id }}">{{ regla.descripcion|highlight_prohibido }}</span>
-              <form method="POST" action="{{ url_for('editar_regla', regla_id=regla.id) }}" class="regla-edit-form" id="regla-form-{{ regla.id }}" style="display:none;">
-                <input type="number" name="nuevo_orden" value="{{ regla.orden if regla.orden else loop.index }}" min="1" class="form-control form-control-sm regla-orden-input" style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,204,0,0.3); color: #e6eef3;" required>
-                <input type="text" name="nueva_descripcion" value="{{ regla.descripcion }}" class="form-control form-control-sm" style="flex: 1; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,204,0,0.3); color: #e6eef3;" required>
-                <button type="submit" class="btn-action" style="background: #2ecc71; color: white;" title="Guardar cambios">💾</button>
-                <button type="button" class="btn-action" style="background: #555; color: white;" title="Cancelar" data-regla-id="{{ regla.id }}" onclick="cancelarEdicion(parseInt(this.dataset.reglaId, 10))">✖</button>
-              </form>
+              <div class="regla-content">
+                <span class="regla-text" id="regla-text-{{ regla.id }}">{{ regla.descripcion|highlight_prohibido }}</span>
+
+                {% if regla.ejemplo %}
+                  <div class="regla-example-text" id="regla-example-text-{{ regla.id }}">Ejemplo: {{ regla.ejemplo|highlight_prohibido }}</div>
+                {% else %}
+                  <div class="regla-example-text" id="regla-example-text-{{ regla.id }}" style="display:none;"></div>
+                {% endif %}
+
+                <form method="POST" action="{{ url_for('editar_regla', regla_id=regla.id) }}" class="regla-edit-form" id="regla-form-{{ regla.id }}" style="display:none;">
+                  <input type="number" name="nuevo_orden" value="{{ regla.orden if regla.orden else loop.index }}" min="1" class="form-control form-control-sm regla-orden-input" style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,204,0,0.3); color: #e6eef3;" required>
+                  <input type="text" name="nueva_descripcion" value="{{ regla.descripcion }}" class="form-control form-control-sm" style="flex: 1; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,204,0,0.3); color: #e6eef3;" required>
+                  <button type="submit" class="btn-action" style="background: #2ecc71; color: white;" title="Guardar cambios">💾</button>
+                  <button type="button" class="btn-action" style="background: #555; color: white;" title="Cancelar" data-regla-id="{{ regla.id }}" onclick="cancelarEdicion(parseInt(this.dataset.reglaId, 10))">✖</button>
+                </form>
+
+                <form method="POST" action="{{ url_for('editar_ejemplo_regla', regla_id=regla.id) }}" class="regla-example-form" id="regla-example-form-{{ regla.id }}">
+                  <textarea name="nuevo_ejemplo" class="form-control form-control-sm" placeholder="Escribe un ejemplo (opcional)" maxlength="1500">{{ regla.ejemplo or '' }}</textarea>
+                  <div class="regla-example-actions">
+                    <button type="submit" class="btn-action" style="background: #2ecc71; color: white;" title="Guardar ejemplo">💾</button>
+                    <button type="button" class="btn-action" style="background: #555; color: white;" title="Cancelar" data-regla-id="{{ regla.id }}" onclick="cancelarEjemploEdicion(parseInt(this.dataset.reglaId, 10))">✖</button>
+                  </div>
+                </form>
+              </div>
+
               <div class="regla-actions">
                 <button type="button" class="btn-action edit" title="Editar regla" data-regla-id="{{ regla.id }}" onclick="editarRegla(parseInt(this.dataset.reglaId, 10))">✏️</button>
+                <button type="button" class="btn-action" title="Agregar/editar ejemplo" data-regla-id="{{ regla.id }}" onclick="editarEjemploRegla(parseInt(this.dataset.reglaId, 10))">💡</button>
                 <form method="POST" action="{{ url_for('eliminar_regla', regla_id=regla.id) }}" style="display:inline;">
                   <button type="submit" class="btn-action delete" title="Eliminar regla" onclick="return confirm('¿Eliminar esta regla?');">🗑️</button>
                 </form>
@@ -891,7 +964,11 @@ function cancelarEditarNota() {
 
 // Edición de reglas
 let reglaEditando = null;
+let reglaEjemploEditando = null;
 function editarRegla(id) {
+  if (reglaEjemploEditando !== null) {
+    cancelarEjemploEdicion(reglaEjemploEditando);
+  }
   if (reglaEditando !== null) {
     cancelarEdicion(reglaEditando);
   }
@@ -914,6 +991,42 @@ function cancelarEdicion(id) {
   document.getElementById('regla-text-' + id).style.display = '';
   document.getElementById('regla-form-' + id).style.display = 'none';
   reglaEditando = null;
+}
+
+function editarEjemploRegla(id) {
+  if (reglaEditando !== null) {
+    cancelarEdicion(reglaEditando);
+  }
+  if (reglaEjemploEditando !== null && reglaEjemploEditando !== id) {
+    cancelarEjemploEdicion(reglaEjemploEditando);
+  }
+
+  const exampleText = document.getElementById('regla-example-text-' + id);
+  const exampleForm = document.getElementById('regla-example-form-' + id);
+
+  if (exampleText) exampleText.style.display = 'none';
+  if (exampleForm) exampleForm.classList.add('is-open');
+  reglaEjemploEditando = id;
+
+  setTimeout(() => {
+    const textarea = exampleForm ? exampleForm.querySelector('textarea[name="nuevo_ejemplo"]') : null;
+    if (textarea) {
+      textarea.focus();
+      textarea.select();
+    }
+  }, 50);
+}
+
+function cancelarEjemploEdicion(id) {
+  const exampleText = document.getElementById('regla-example-text-' + id);
+  const exampleForm = document.getElementById('regla-example-form-' + id);
+  if (exampleText) {
+    // Mostrar el bloque aunque esté vacío solo si tenía contenido
+    const hasContent = (exampleText.textContent || '').trim().length > 0;
+    exampleText.style.display = hasContent ? '' : 'none';
+  }
+  if (exampleForm) exampleForm.classList.remove('is-open');
+  if (reglaEjemploEditando === id) reglaEjemploEditando = null;
 }
 </script>
 {% endblock %}
