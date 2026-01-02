@@ -566,6 +566,7 @@
   .regla-text {
     color: #e6eef3;
     font-size: 1rem;
+    font-weight: 700;
     overflow-wrap: anywhere;
     word-break: break-word;
   }
@@ -582,13 +583,40 @@
     border-radius: 10px;
     border: 1px dashed rgba(255, 204, 0, 0.28);
     background: rgba(255, 204, 0, 0.06);
-    color: #e6eef3;
+    color: #e6eef3 !important;
+    font-family: inherit !important;
     white-space: pre-wrap;
     overflow-wrap: anywhere;
     word-break: break-word;
     line-height: 1.35;
     font-size: 1rem !important;
-    font-weight: inherit;
+    font-weight: 700 !important;
+  }
+
+  .regla-example-head{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.35rem;
+  }
+
+  .regla-example-label{
+    opacity: 0.95;
+  }
+
+  .btn-example-delete{
+    border: none;
+    background: transparent;
+    color: #ff9a8a;
+    padding: 0.2rem 0.35rem;
+    border-radius: 8px;
+    line-height: 1;
+  }
+
+  .btn-example-delete:hover{
+    background: rgba(231,76,60,0.18);
+    color: #ffb4a8;
   }
 
   .regla-example-text *{
@@ -772,9 +800,18 @@
                 <span class="regla-text" id="regla-text-{{ regla.id }}">{{ regla.descripcion|highlight_prohibido }}</span>
 
                 {% if regla.ejemplo %}
-                  <div class="regla-example-text" id="regla-example-text-{{ regla.id }}">Ejemplo: {{ regla.ejemplo|highlight_prohibido }}</div>
+                  <div class="regla-example-text" id="regla-example-text-{{ regla.id }}" data-has-example="1">
+                    <div class="regla-example-head">
+                      <span class="regla-example-label">Ejemplo:</span>
+                      <form method="POST" action="{{ url_for('editar_ejemplo_regla', regla_id=regla.id) }}" style="display:inline; margin:0;">
+                        <input type="hidden" name="nuevo_ejemplo" value="">
+                        <button type="submit" class="btn-example-delete" title="Eliminar ejemplo" onclick="return confirm('¿Eliminar el ejemplo?');">🗑️</button>
+                      </form>
+                    </div>
+                    <div>{{ regla.ejemplo|highlight_prohibido }}</div>
+                  </div>
                 {% else %}
-                  <div class="regla-example-text" id="regla-example-text-{{ regla.id }}" style="display:none;"></div>
+                  <div class="regla-example-text" id="regla-example-text-{{ regla.id }}" data-has-example="0" style="display:none;"></div>
                 {% endif %}
 
                 <form method="POST" action="{{ url_for('editar_regla', regla_id=regla.id) }}" class="regla-edit-form" id="regla-form-{{ regla.id }}" style="display:none;">
@@ -1021,9 +1058,8 @@ function cancelarEjemploEdicion(id) {
   const exampleText = document.getElementById('regla-example-text-' + id);
   const exampleForm = document.getElementById('regla-example-form-' + id);
   if (exampleText) {
-    // Mostrar el bloque aunque esté vacío solo si tenía contenido
-    const hasContent = (exampleText.textContent || '').trim().length > 0;
-    exampleText.style.display = hasContent ? '' : 'none';
+    const hasExample = exampleText.getAttribute('data-has-example') === '1';
+    exampleText.style.display = hasExample ? '' : 'none';
   }
   if (exampleForm) exampleForm.classList.remove('is-open');
   if (reglaEjemploEditando === id) reglaEjemploEditando = null;

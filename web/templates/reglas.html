@@ -246,6 +246,33 @@
       margin: 0;
     }
 
+    .public-regla-text{
+      color: #e6eef3;
+      font-weight: 800;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+
+    .public-ejemplo{
+      margin-top: 0.6rem;
+      padding: 0.65rem 0.8rem;
+      border-radius: 12px;
+      border: 1px dashed rgba(255, 204, 0, 0.22);
+      background: rgba(255, 204, 0, 0.05);
+      color: #e6eef3;
+      line-height: 1.4;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+      white-space: pre-wrap;
+    }
+
+    .public-ejemplo .label{
+      display: block;
+      font-weight: 900;
+      color: #ffe066;
+      margin-bottom: 0.25rem;
+    }
+
     @media (max-width: 900px) {
       .rules-card { padding: 1.35rem 1rem; }
       .hero-title { font-size: 2rem; }
@@ -325,7 +352,15 @@
             <div class="public-reglas-list">
               {% for regla in modalidad.reglas|sort(attribute='orden') %}
                 <div class="public-regla-item">
-                  <span class="regla-text">{{ regla.descripcion|highlight_prohibido }}</span>
+                  <div>
+                    <div class="public-regla-text">{{ regla.descripcion|highlight_prohibido }}</div>
+                    {% if regla.ejemplo and regla.ejemplo|trim %}
+                      <div class="public-ejemplo">
+                        <span class="label">Ejemplo:</span>
+                        <div>{{ regla.ejemplo|highlight_prohibido }}</div>
+                      </div>
+                    {% endif %}
+                  </div>
                 </div>
               {% endfor %}
             </div>
