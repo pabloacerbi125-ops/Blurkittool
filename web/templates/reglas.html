@@ -313,7 +313,7 @@
               {% set _mod_name = (modalidad.nombre or '')|upper %}
               {% if 'MODS ILEGALES' in _mod_name or 'CLIENTES' in _mod_name %}
                 <div style="margin-top: 0.9rem; display: flex; flex-wrap: wrap; gap: 0.6rem;">
-                  <a class="btn btn-outline-warning" href="{{ url_for('modsjg') }}" style="font-weight: 800; border-radius: 12px; padding: 0.55rem 1rem;">
+                  <a class="btn btn-outline-warning js-modsjg-warning" href="{{ url_for('modsjg') }}" data-target-url="{{ url_for('modsjg') }}" style="font-weight: 800; border-radius: 12px; padding: 0.55rem 1rem;">
                     📦 Ver lista de mods
                   </a>
                 </div>
@@ -352,6 +352,37 @@
       }
     </script>
 
+    <!-- Modal Advertencia (Lista de Mods) -->
+    <div class="modal fade" id="modsjgModal" tabindex="-1" aria-labelledby="modsjgModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered" style="max-width: 720px;">
+        <div class="modal-content" style="border-radius: 18px; background: linear-gradient(135deg, #fffbe6 0%, #ffe082 100%, #fffde7 100%); border: 3px solid #ffb300; box-shadow: 0 4px 32px 0 rgba(255,193,7,0.18), 0 1.5px 8px 0 rgba(255,193,7,0.10);">
+          <div class="modal-body" style="padding: 2.2rem 2.5rem 2rem 2.5rem; color: #7a5600; font-size: 1.13rem; font-weight: 500;">
+            <div class="d-flex align-items-center mb-2" style="gap: 1.1rem;">
+              <span class="alert-important-anim" style="font-size: 2.7rem; color: #ff9100; filter: drop-shadow(0 0 6px #fff176);">⚠️</span>
+              <h3 class="mb-0" style="color: #ff9100; font-weight: 900; letter-spacing: 1px; font-size: 2.1rem; text-shadow: 0 2px 8px #fffde7;">ACLARACIÓN GENERAL</h3>
+            </div>
+            <div style="display: flex; flex-wrap: wrap; gap: 1.2rem;">
+              <ul style="flex: 1 1 320px; min-width: 320px; margin: 0; padding-left: 1.5rem; color: #7a5600; font-size: 1.08rem; font-weight: 600;">
+                <li style="font-weight: 900; color: #d35400;">Están prohibidos todos los mods, clientes o herramientas que den ventajas ilegales, incluso si no están en la lista.</li>
+                <li>Si un mod hace lo mismo que un hack conocido (xray, aimbot, automine, auto-heal, radar, etc.), también está prohibido.</li>
+                <li>No importa el nombre, lo que cuenta es la función y la ventaja que otorga.</li>
+                <li style="color: #c0392b; font-weight: 700;">Usar mods prohibidos puede causar sanciones, según la gravedad o si se intenta ocultar.</li>
+              </ul>
+              <ul style="flex: 1 1 320px; min-width: 320px; margin: 0; padding-left: 1.5rem; color: #7a5600; font-size: 1.08rem; font-weight: 600;">
+                <li>Si crees que fue un error, puedes apelar mostrando pruebas (capturas o logs) al staff.</li>
+                <li>La lista puede actualizarse y los cambios serán anunciados por el staff.</li>
+                <li style="color: #1976d2; font-weight: 700;">Si no sabes si un mod es legal, puedes consultar aquí o preguntar al staff antes de usarlo para evitar problemas.</li>
+              </ul>
+            </div>
+          </div>
+          <div class="modal-footer" style="border: none; justify-content: flex-end; background: transparent;">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            <button type="button" class="btn btn-primary" id="go-modsjg" data-target-url="{{ url_for('modsjg') }}">Entiendo, ver lista</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Footer -->
     <div class="text-center" style="padding: 2rem 0; color: var(--muted); font-size: 0.9rem;">
       <p>BlurkitTool &copy; 2025 • by: PonyGamer_uwu</p>
@@ -359,5 +390,29 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      var triggers = document.querySelectorAll('.js-modsjg-warning');
+      var modalEl = document.getElementById('modsjgModal');
+      var goBtn = document.getElementById('go-modsjg');
+
+      if (!modalEl || !triggers || triggers.length === 0) return;
+      var modsjgModal = new bootstrap.Modal(modalEl);
+
+      triggers.forEach(function(trigger) {
+        trigger.addEventListener('click', function(e) {
+          e.preventDefault();
+          modsjgModal.show();
+        });
+      });
+
+      if (goBtn) {
+        goBtn.addEventListener('click', function() {
+          var targetUrl = goBtn.dataset.targetUrl || triggers[0].dataset.targetUrl;
+          if (targetUrl) window.location.href = targetUrl;
+        });
+      }
+    });
+  </script>
 </body>
 </html>
