@@ -254,23 +254,39 @@
     }
 
     .public-ejemplo{
-      margin-top: 0.6rem;
-      padding: 0.65rem 0.8rem;
+      margin: 0.6rem 0 0 -2rem;
+      max-width: calc(100% + 1rem);
+      width: calc(100% + 1rem);
+      padding: 0.7rem 0.85rem;
       border-radius: 12px;
-      border: 1px dashed rgba(255, 204, 0, 0.22);
-      background: rgba(255, 204, 0, 0.05);
+      border: 1px dashed rgba(255, 204, 0, 0.26);
+      background: linear-gradient(145deg, rgba(255, 204, 0, 0.08), rgba(0, 0, 0, 0.18));
       color: #e6eef3;
       line-height: 1.4;
       overflow-wrap: anywhere;
       word-break: break-word;
       white-space: pre-wrap;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.25rem;
+      box-shadow: inset 0 1px 0 rgba(255, 204, 0, 0.12);
     }
 
     .public-ejemplo .label{
-      display: block;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
       font-weight: 900;
       color: #ffe066;
-      margin-bottom: 0.25rem;
+      margin: 0;
+      flex-shrink: 0;
+      padding-top: 0;
+    }
+
+    .public-ejemplo-body{
+      margin-top: 0;
+      display: block;
     }
 
     @media (max-width: 900px) {
@@ -354,10 +370,11 @@
                 <div class="public-regla-item">
                   <div>
                     <div class="public-regla-text">{{ regla.descripcion|highlight_prohibido }}</div>
-                    {% if regla.ejemplo and regla.ejemplo|trim %}
+                    {% set ejemplo_limpio = (regla.ejemplo or '')|trim %}
+                    {% if ejemplo_limpio %}
                       <div class="public-ejemplo">
                         <span class="label">Ejemplo:</span>
-                        <div>{{ regla.ejemplo|highlight_prohibido }}</div>
+                        <div class="public-ejemplo-body">{{ ejemplo_limpio|highlight_prohibido }}</div>
                       </div>
                     {% endif %}
                   </div>

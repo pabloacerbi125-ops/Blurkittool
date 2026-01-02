@@ -330,12 +330,24 @@ def highlight_prohibido(text):
     if text is None:
         return ''
 
-    escaped = escape(str(text))
+    raw_text = str(text)
+    # Normaliza saltos de línea reales y también secuencias literales "\\n" / "\\r\\n"
+    # que pueden venir almacenadas en la BD como texto.
+    normalized = (
+        raw_text
+        .replace('\\r\\n', '\n')
+        .replace('\\n', '\n')
+        .replace('\r\n', '\n')
+    )
+
+    escaped = escape(normalized)
 
     def repl(match):
         return f'<span class="prohibido-word">{match.group(0)}</span>'
 
+
     highlighted = re.sub(r'\bPROHIBIDO\b', repl, str(escaped), flags=re.IGNORECASE)
+    highlighted = highlighted.replace('\n', '<br>')
     return Markup(highlighted)
 
 @app.route('/editar_modalidad/<int:modalidad_id>', methods=['POST'])
