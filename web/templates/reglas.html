@@ -291,7 +291,7 @@
             type="button"
             class="public-modalidad-btn {% if loop.index0 == 0 %}active{% endif %}"
             data-idx="{{ loop.index0 }}"
-            onclick="mostrarModalidad({{ loop.index0 }}, this)"
+            onclick="mostrarModalidad(parseInt(this.dataset.idx, 10), this)"
           >{{ modalidad.nombre }}</button>
         {% endfor %}
       </div>

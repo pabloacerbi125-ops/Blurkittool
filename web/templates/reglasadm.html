@@ -640,12 +640,12 @@
           <form method="POST" action="{{ url_for('editar_modalidad', modalidad_id=modalidad.id) }}" id="form-editar-inline-{{ modalidad.id }}" class="form-editar-inline" autocomplete="off">
             <input type="text" name="nuevo_nombre" value="{{ modalidad.nombre }}" placeholder="Nombre de la modalidad" required maxlength="100">
             <button type="submit" class="btn-save" title="Guardar">Guardar</button>
-            <button type="button" class="btn-cancel" title="Cancelar" onclick="cancelarEditarModalidad({{ modalidad.id }}); return false;">Cancelar</button>
+            <button type="button" class="btn-cancel" title="Cancelar" data-modalidad-id="{{ modalidad.id }}" onclick="cancelarEditarModalidad(parseInt(this.dataset.modalidadId, 10)); return false;">Cancelar</button>
           </form>
 
           <div class="modalidad-actions" id="acciones-{{ modalidad.id }}">
             <button type="button" class="btn-action drag-handle" title="Arrastrar para reordenar" onclick="return false;">↕</button>
-            <button class="btn-action edit" id="btn-editar-modalidad-{{ modalidad.id }}" title="Editar nombre" onclick="mostrarEditarModalidad({{ modalidad.id }}, '{{ modalidad.nombre|escape }}'); return false;">✏️</button>
+            <button class="btn-action edit" id="btn-editar-modalidad-{{ modalidad.id }}" title="Editar nombre" data-modalidad-id="{{ modalidad.id }}" data-modalidad-nombre="{{ modalidad.nombre|escape }}" onclick="mostrarEditarModalidad(parseInt(this.dataset.modalidadId, 10), this.dataset.modalidadNombre); return false;">✏️</button>
             <form method="POST" action="{{ url_for('eliminar_modalidad', modalidad_id=modalidad.id) }}" style="display:inline;">
               <button type="submit" class="btn-action delete" title="Eliminar modalidad" onclick="return confirm('¿Eliminar modalidad y todas sus reglas?');">🗑️</button>
             </form>
@@ -719,10 +719,10 @@
                 <input type="number" name="nuevo_orden" value="{{ regla.orden if regla.orden else loop.index }}" min="1" class="form-control form-control-sm regla-orden-input" style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,204,0,0.3); color: #e6eef3;" required>
                 <input type="text" name="nueva_descripcion" value="{{ regla.descripcion }}" class="form-control form-control-sm" style="flex: 1; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,204,0,0.3); color: #e6eef3;" required>
                 <button type="submit" class="btn-action" style="background: #2ecc71; color: white;" title="Guardar cambios">💾</button>
-                <button type="button" class="btn-action" style="background: #555; color: white;" title="Cancelar" onclick="cancelarEdicion({{ regla.id }})">✖</button>
+                <button type="button" class="btn-action" style="background: #555; color: white;" title="Cancelar" data-regla-id="{{ regla.id }}" onclick="cancelarEdicion(parseInt(this.dataset.reglaId, 10))">✖</button>
               </form>
               <div class="regla-actions">
-                <button type="button" class="btn-action edit" title="Editar regla" onclick="editarRegla({{ regla.id }})">✏️</button>
+                <button type="button" class="btn-action edit" title="Editar regla" data-regla-id="{{ regla.id }}" onclick="editarRegla(parseInt(this.dataset.reglaId, 10))">✏️</button>
                 <form method="POST" action="{{ url_for('eliminar_regla', regla_id=regla.id) }}" style="display:inline;">
                   <button type="submit" class="btn-action delete" title="Eliminar regla" onclick="return confirm('¿Eliminar esta regla?');">🗑️</button>
                 </form>

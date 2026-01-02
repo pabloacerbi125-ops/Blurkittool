@@ -229,6 +229,22 @@
         box-shadow: 0 0 0 0.2rem rgba(255, 204, 0, 0.15);
         color: #ffc107;
     }
+
+    /* Role colored select (no inline <style>/<script> per-row) */
+    .role-colored-select {
+        border: 2px solid #ffcc00;
+        font-weight: 700;
+        background: #181c22;
+    }
+    .role-colored-select.role-founder { color: #222; background: #FFD700; }
+    .role-colored-select.role-owner { color: #fff; background: #ff9800; }
+    .role-colored-select.role-admin { color: #fff; background: #d32f2f; }
+    .role-colored-select.role-manager { color: #fff; background: #8e24aa; }
+    .role-colored-select.role-smod { color: #fff; background: #009fae; }
+    .role-colored-select.role-mod { color: #fff; background: #006400; }
+    .role-colored-select.role-helper { color: #222; background: #55e39a; }
+    .role-colored-select.role-p-helper { color: #222; background: #7cffb2; }
+    .role-colored-select.role-adminpage { color: #fff; background: #ff00aa; }
     .modal-content {
         background: #17181a;
         border: 2px solid rgba(255, 204, 0, 0.3);
@@ -338,7 +354,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                        {% for item in users %}
+                    {% for item in users %}
                         {% if item is iterable and item|length == 2 %}
                             {% set user = item[0] %}
                             {% set is_online = item[1] %}
@@ -346,158 +362,100 @@
                             {% set user = item %}
                             {% set is_online = false %}
                         {% endif %}
+
+                        {% set is_pgc = user.username == 'PonyGamer_uwu' %}
+
                         <tr {% if not user.is_active %}style="opacity: 0.6;"{% endif %}>
-                            {# <td><strong style="color: #ffffff;">{{ user.id }}</strong></td> #}
                             <td>
                                 <strong style="color: #ffffff;">{{ user.username }}</strong>
                                 {% if user.id == current_user.id %}
-                                <span class="badge-you">Tú</span>
+                                    <span class="badge-you">Tú</span>
                                 {% endif %}
                             </td>
-                            {# Email removido #}
+
                             <td>
-                                {% if user.username == 'PonyGamer_uwu' %}
-                                    {% if current_user.username == 'PonyGamer_uwu' and user.username == 'PonyGamer_uwu' %}
+                                {% if current_user.is_admin() %}
+                                    {% if user.username == 'PonyGamer_uwu' and current_user.username != 'PonyGamer_uwu' %}
+                                        <select class="form-select-role role-colored-select role-{{ user.role }}" disabled title="Rol bloqueado">
+                                            <option selected>🔒 {{ user.role }}</option>
+                                        </select>
+                                    {% else %}
                                         <form method="POST" action="{{ url_for('admin_change_role', user_id=user.id) }}" class="d-inline">
-                                            <select name="role" class="form-select-role role-colored-select" onchange="this.form.submit()" data-current-role="{{ user.role }}">
-                                                <option value="founder" {% if user.role == 'founder' %}selected{% endif %} class="role-founder">Founder</option>
-                                                <option value="owner" {% if user.role == 'owner' %}selected{% endif %} class="role-owner">Owner</option>
-                                                <option value="admin" {% if user.role == 'admin' %}selected{% endif %} class="role-admin">Admin</option>
-                                                <option value="manager" {% if user.role == 'manager' %}selected{% endif %} class="role-manager">Manager</option>
-                                                <option value="smod" {% if user.role == 'smod' %}selected{% endif %} class="role-smod">Smod</option>
-                                                <option value="mod" {% if user.role == 'mod' %}selected{% endif %} class="role-mod">Mod</option>
-                                                <option value="helper" {% if user.role == 'helper' %}selected{% endif %} class="role-helper">Helper</option>
-                                                <option value="p-helper" {% if user.role == 'p-helper' %}selected{% endif %} class="role-p-helper">P-Helper</option>
-                                                <option value="adminpage" {% if user.role == 'adminpage' %}selected{% endif %} class="role-adminpage">AdminPage</option>
+                                            <select name="role" class="form-select-role role-colored-select role-{{ user.role }}" onchange="this.form.submit()">
+                                                <option value="founder" {% if user.role == 'founder' %}selected{% endif %} style="background:#FFD700;color:#222;">Founder</option>
+                                                <option value="owner" {% if user.role == 'owner' %}selected{% endif %} style="background:#ff9800;color:#fff;">Owner</option>
+                                                <option value="admin" {% if user.role == 'admin' %}selected{% endif %} style="background:#d32f2f;color:#fff;">Admin</option>
+                                                <option value="manager" {% if user.role == 'manager' %}selected{% endif %} style="background:#8e24aa;color:#fff;">Manager</option>
+                                                <option value="smod" {% if user.role == 'smod' %}selected{% endif %} style="background:#009fae;color:#fff;">Smod</option>
+                                                <option value="mod" {% if user.role == 'mod' %}selected{% endif %} style="background:#006400;color:#fff;">Mod</option>
+                                                <option value="helper" {% if user.role == 'helper' %}selected{% endif %} style="background:#55e39a;color:#222;">Helper</option>
+                                                <option value="p-helper" {% if user.role == 'p-helper' %}selected{% endif %} style="background:#7cffb2;color:#222;">P-Helper</option>
+                                                {% if current_user.username == 'PonyGamer_uwu' %}
+                                                    <option value="adminpage" {% if user.role == 'adminpage' %}selected{% endif %} style="background:#ff00aa;color:#fff;">AdminPage</option>
+                                                {% endif %}
                                             </select>
                                         </form>
-                                    {% else %}
-                                        {% if user.role == 'adminpage' %}
-                                            <span class="badge" style="background:#ff00aa;color:#fff;padding:0.4rem 0.8rem;border-radius:8px;font-weight:bold;">AdminPage</span>
-                                        {% elif user.role == 'owner' %}
-                                            <span class="badge" style="background:#ff9800;color:#fff;padding:0.4rem 0.8rem;border-radius:8px;font-weight:bold;">Owner</span>
-                                        {% elif user.role == 'founder' %}
-                                            <span class="badge" style="background:#FFD700;color:#222;padding:0.4rem 0.8rem;border-radius:8px;font-weight:bold;">Founder</span>
-                                        {% elif user.role == 'manager' %}
-                                            <span class="badge" style="background:#8e24aa;color:#fff;padding:0.4rem 0.8rem;border-radius:8px;">Manager</span>
-                                        {% elif user.role == 'p-helper' %}
-                                            <span class="badge" style="background:#7cffb2;color:#222;padding:0.4rem 0.8rem;border-radius:8px;">P-Helper</span>
-                                        {% elif user.role == 'helper' %}
-                                            <span class="badge" style="background:#55e39a;color:#222;padding:0.4rem 0.8rem;border-radius:8px;">helper</span>
-                                        {% elif user.role == 'admin' %}
-                                            <span class="badge bg-danger" style="padding:0.4rem 0.8rem;border-radius:8px;">admin</span>
-                                        {% elif user.role == 'smod' %}
-                                            <span class="badge" style="background:#009fae;color:#fff;padding:0.4rem 0.8rem;border-radius:8px;">smod</span>
-                                        {% elif user.role == 'mod' %}
-                                            <span class="badge" style="background:#006400;color:#fff;padding:0.4rem 0.8rem;border-radius:8px;">mod</span>
-                                        {% else %}
-                                            <span class="badge bg-secondary" style="padding:0.4rem 0.8rem;border-radius:8px;">{{ user.role }}</span>
-                                        {% endif %}
                                     {% endif %}
                                 {% else %}
-                                    <form method="POST" action="{{ url_for('admin_change_role', user_id=user.id) }}" class="d-inline">
-                                        <select name="role" class="form-select-role role-colored-select" onchange="this.form.submit()" data-current-role="{{ user.role }}">
-                                            <option value="founder" {% if user.role == 'founder' %}selected{% endif %} class="role-founder">Founder</option>
-                                            <option value="owner" {% if user.role == 'owner' %}selected{% endif %} class="role-owner">Owner</option>
-                                            <option value="admin" {% if user.role == 'admin' %}selected{% endif %} class="role-admin">Admin</option>
-                                            <option value="manager" {% if user.role == 'manager' %}selected{% endif %} class="role-manager">Manager</option>
-                                            <option value="smod" {% if user.role == 'smod' %}selected{% endif %} class="role-smod">Smod</option>
-                                            <option value="mod" {% if user.role == 'mod' %}selected{% endif %} class="role-mod">Mod</option>
-                                            <option value="helper" {% if user.role == 'helper' %}selected{% endif %} class="role-helper">Helper</option>
-                                            <option value="p-helper" {% if user.role == 'p-helper' %}selected{% endif %} class="role-p-helper">P-Helper</option>
-                                        </select>
-                                    <!-- cierre correcto de select y form aquí, no tbody -->
-                                    <style>
-                                    .role-colored-select {
-                                        border: 2px solid #ffcc00;
-                                        font-weight: bold;
-                                        color: #fff;
-                                        background: #181c22;
-                                    }
-                                    .role-helper { color: #222; background: #55e39a; }
-                                    .role-p-helper { color: #222; background: #7cffb2; }
-                                    .role-mod { color: #fff; background: #006400; }
-                                    .role-smod { color: #fff; background: #009fae; }
-                                    .role-manager { color: #fff; background: #8e24aa; }
-                                    .role-admin { color: #fff; background: #d32f2f; }
-                                    .role-owner { color: #fff; background: #ff9800; }
-                                    .role-founder { color: #222; background: #FFD700; }
+                                    <span class="badge bg-secondary" style="padding:0.4rem 0.8rem;border-radius:8px;">{{ user.role }}</span>
+                                {% endif %}
+                            </td>
 
-                                    /* For Chrome/Edge/Opera: style selected option */
-                                    .role-colored-select option:checked,
-                                    .role-colored-select option[selected] {
-                                        font-weight: bold;
-                                    }
-                                    </style>
-                                    <script>
-                                    // For Firefox: dynamically set select color based on selected option
-                                    document.querySelectorAll('.role-colored-select').forEach(function(select) {
-                                        function setColor() {
-                                            var val = select.value;
-                                            select.className = 'form-select-role role-colored-select role-' + val;
-                                        }
-                                        setColor();
-                                        select.addEventListener('change', setColor);
-                                    });
-                                    </script>
-                                    </td>
-                                    <td>
-                                        {% if is_online %}
-                                        <span class="badge-active" style="background-color: #28a745;">🟢 Online</span>
-                                        {% elif user.is_active %}
-                                        <span class="badge-inactive">Offline</span>
-                                        {% else %}
-                                        <span class="badge-inactive">Inactivo</span>
-                                        {% endif %}
-                                    </td>
-                                    <td style="color: #b8c1ca;">
-                                        {% if user.last_login %}
-                                        {{ user.last_login.strftime('%Y-%m-%d %H:%M') }}
-                                        {% else %}
-                                        <span style="color: #6c757d;">Nunca</span>
-                                        {% endif %}
-                                    </td>
-                                    <td style="color: #b8c1ca;">{{ user.created_at.strftime('%Y-%m-%d') }}</td>
-                                    <td>
-                                        <button type="button" class="btn btn-action btn-edit" title="Editar" 
-                                                data-bs-toggle="modal" data-bs-target="#editModal{{ user.id }}">
-                                            ✏️
+                            <td>
+                                {% if is_online %}
+                                    <span class="badge-active" style="background-color: #28a745;">🟢 Online</span>
+                                {% elif user.is_active %}
+                                    <span class="badge-inactive">Offline</span>
+                                {% else %}
+                                    <span class="badge-inactive">Inactivo</span>
+                                {% endif %}
+                            </td>
+
+                            <td style="color: #b8c1ca;">
+                                {% if user.last_login %}
+                                    {{ user.last_login.strftime('%Y-%m-%d %H:%M') }}
+                                {% else %}
+                                    <span style="color: #6c757d;">Nunca</span>
+                                {% endif %}
+                            </td>
+
+                            <td style="color: #b8c1ca;">{{ user.created_at.strftime('%Y-%m-%d') }}</td>
+
+                            <td>
+                                <button type="button" class="btn btn-action btn-edit" title="Editar"
+                                        data-bs-toggle="modal" data-bs-target="#editModal{{ user.id }}">
+                                    ✏️
+                                </button>
+
+                                {# Exception: allow PonyGamer_uwu to remove their own 2FA from this table #}
+                                {% if current_user.is_admin() and (user.id != current_user.id or is_pgc) %}
+                                    <form method="POST" action="{{ url_for('admin_reset_user_twofa', user_id=user.id) }}" class="d-inline"
+                                          onsubmit="return confirm('¿Quitar 2FA a {{ user.username }}?')">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                        <button type="submit" class="btn btn-action btn-twofa-reset" title="Quitar 2FA"
+                                                {% if not user.twofa_enabled %}disabled{% endif %}>
+                                            🔓
                                         </button>
-                                        {% if user.id != current_user.id %}
-                                        {% if current_user.is_admin() %}
-                                        <form method="POST" action="{{ url_for('admin_reset_user_twofa', user_id=user.id) }}" class="d-inline"
-                                              onsubmit="return confirm('¿Quitar 2FA a {{ user.username }}?')">
-                                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                                            <button type="submit" class="btn btn-action btn-twofa-reset" title="Quitar 2FA"
-                                                    {% if not user.twofa_enabled %}disabled{% endif %}>
-                                                🔓
-                                            </button>
-                                        </form>
+                                    </form>
+                                {% endif %}
+
+                                {% if user.id != current_user.id %}
+                                    <form method="POST" action="{{ url_for('admin_toggle_user', user_id=user.id) }}" class="d-inline">
+                                        {% if user.is_active %}
+                                            <button type="submit" class="btn btn-action btn-kick" title="Kick (desactivar)">🚫</button>
+                                        {% else %}
+                                            <button type="submit" class="btn btn-action btn-activate" title="Activar">✓</button>
                                         {% endif %}
-                                        <form method="POST" action="{{ url_for('admin_toggle_user', user_id=user.id) }}" class="d-inline">
-                                            {% if user.is_active %}
-                                            <button type="submit" class="btn btn-action btn-kick" title="Kick (desactivar)">
-                                                🚫
-                                            </button>
-                                            {% else %}
-                                            <button type="submit" class="btn btn-action btn-activate" title="Activar">
-                                                ✓
-                                            </button>
-                                            {% endif %}
-                                        </form>
-                                        <form method="POST" action="{{ url_for('admin_delete_user', user_id=user.id) }}" class="d-inline" 
-                                              onsubmit="return confirm('¿Banear y eliminar usuario {{ user.username }}?')">
-                                            <button type="submit" class="btn btn-action btn-delete" title="Ban (eliminar)">
-                                                🗑️
-                                            </button>
-                                        </form>
-                                        {% endif %}
-                                    </td>
-                                </form>
+                                    </form>
+
+                                    <form method="POST" action="{{ url_for('admin_delete_user', user_id=user.id) }}" class="d-inline"
+                                          onsubmit="return confirm('¿Banear y eliminar usuario {{ user.username }}?')">
+                                        <button type="submit" class="btn btn-action btn-delete" title="Ban (eliminar)">🗑️</button>
+                                    </form>
                                 {% endif %}
                             </td>
                         </tr>
-                        {% endfor %}
+                    {% endfor %}
                     </tbody>
                 </table>
             </div>

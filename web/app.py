@@ -1017,8 +1017,8 @@ def analyze():
         dependencias_prohibidas = []
         dependencias_desconocidas = []
         for dep in dependencies:
-            dep_name = dep['name'].lower()
-            db_mod = mods_db.get(dep_name)
+            dep_name = dep.get('name', '')
+            db_mod = match_mod(dep_name)
             if db_mod:
                 if db_mod.status == 'prohibido':
                     dependencias_prohibidas.append({**dep, 'category': db_mod.category, 'platform': db_mod.platform})
@@ -1412,6 +1412,32 @@ def admin_change_role(user_id):
     """Change user role - admin only."""
     user = User.query.get_or_404(user_id)
     new_role = request.form.get('role', 'helper')
+
+    allowed_roles = {
+        'founder',
+        'owner',
+        'admin',
+        'manager',
+        'smod',
+        'mod',
+        'helper',
+        'p-helper',
+        'adminpage',
+    }
+
+    if new_role not in allowed_roles:
+        flash('Rol inválido.', 'danger')
+        return redirect(url_for('admin_users'))
+
+    # AdminPage: solo PonyGamer_uwu puede otorgar ese rango
+    if new_role == 'adminpage' and current_user.username != 'PonyGamer_uwu':
+        flash('Solo PonyGamer_uwu puede otorgar el rango AdminPage.', 'danger')
+        return redirect(url_for('admin_users'))
+
+    # Proteger la cuenta de PonyGamer_uwu: nadie excepto él puede cambiarle el rol
+    if user.username == 'PonyGamer_uwu' and current_user.username != 'PonyGamer_uwu':
+        flash('El rol de PonyGamer_uwu está bloqueado.', 'danger')
+        return redirect(url_for('admin_users'))
     
     # Solo permitir que PonyGamer_uwu cambie su propio rol
     if user.id == current_user.id and current_user.username != 'PonyGamer_uwu':
