@@ -1027,15 +1027,9 @@ def page():
 
 @app.route('/modsjg')
 def modsjg():
-    search = request.args.get('search', '').strip().lower()
+    """Lista pública de modos."""
     all_mods = Mod.query.order_by(Mod.name).all()
-    filtered_mods = []
-    for m in all_mods:
-        m_dict = m.to_dict()
-        name = m_dict['name'].lower() if m_dict['name'] else ''
-        aliases = ','.join(m_dict.get('alias', [])).lower() if m_dict.get('alias') else ''
-        if not search or search in name or search in aliases:
-            filtered_mods.append(m_dict)
+    filtered_mods = [m.to_dict() for m in all_mods]
     permitidos = [(idx, m) for idx, m in enumerate(filtered_mods) if m['status'] == 'permitido']
     prohibidos = [(idx, m) for idx, m in enumerate(filtered_mods) if m['status'] == 'prohibido']
     return render_template('modsjg.html', permitidos=permitidos, prohibidos=prohibidos)
@@ -1219,25 +1213,56 @@ def index():
     return render_template('index.html', prohibidos=prohibidos, permitidos=permitidos, search_term=search_term)
 
 
+@app.route('/api/search', methods=['POST'])
+@login_required
+@limiter.limit('30 per minute')
+def api_search():
+    """API endpoint para búsqueda en tiempo real (AJAX) - requiere autenticación."""
+    data = request.get_json(silent=True) or {}
+    term = (data.get('term', '') or '').lower().strip()
+    
+    if not term:
+        return jsonify({'resultado': []})
+    
+    # Search in name and aliases
+    mods = Mod.query.filter(
+        db.or_(
+            Mod.name.ilike(f'%{term}%'),
+            Mod.aliases.ilike(f'%{term}%')
+        )
+    ).limit(20).all()
+    
+    resultado = [m.to_dict() for m in mods]
+    return jsonify({'resultado': resultado})
+
+
+@app.route('/api/search-public', methods=['POST'])
+@limiter.limit('60 per minute')
+def api_search_public():
+    """API endpoint para búsqueda pública en tiempo real (AJAX) - sin autenticación."""
+    data = request.get_json(silent=True) or {}
+    term = (data.get('term', '') or '').lower().strip()
+    
+    if not term:
+        return jsonify({'resultado': []})
+    
+    # Search in name and aliases
+    mods = Mod.query.filter(
+        db.or_(
+            Mod.name.ilike(f'%{term}%'),
+            Mod.aliases.ilike(f'%{term}%')
+        )
+    ).limit(20).all()
+    
+    resultado = [m.to_dict() for m in mods]
+    return jsonify({'resultado': resultado})
+
+
 @app.route('/search', methods=['GET', 'POST'])
 @login_required
 def search():
-    """Search mods - accessible to all roles."""
-    resultado = None
-    if request.method == 'POST':
-        term = request.form.get('term', '').lower().strip()
-        
-        # Search in name and aliases
-        mods = Mod.query.filter(
-            db.or_(
-                Mod.name.ilike(f'%{term}%'),
-                Mod.aliases.ilike(f'%{term}%')
-            )
-        ).all()
-        
-        resultado = [m.to_dict() for m in mods]
-    
-    return render_template('search.html', resultado=resultado)
+    """Search mods page - accessible to all roles."""
+    return render_template('search.html')
 
 
 @app.route('/analysis', methods=['GET'])

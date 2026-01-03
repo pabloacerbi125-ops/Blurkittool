@@ -1,58 +1,107 @@
 {% extends 'base.html' %}
 {% block content %}
-<h4>Buscar mod por nombre</h4>
-<form method="post">
-  <div class="mb-2">
-    <input name="term" class="form-control" placeholder="Termino de busqueda" autofocus autocomplete="off">
-  </div>
-  <button class="btn btn-primary">Buscar</button>
-  <a href="/menu" class="btn btn-secondary">Volver</a>
-</form>
-
-{% if resultado is not none %}
-  <hr>
-  <h5>Resultados</h5>
-  {% if resultado %}
-    <div class="row">
-      {% for m in resultado %}
-      <div class="col-md-6 mb-3">
-        <div class="card" style="background:var(--panel); border:1px solid var(--card-border);">
-          <div class="card-body">
-            <div class="d-flex justify-content-between align-items-start mb-2">
-              <h5 class="mb-0" style="color: #ffffff;">{{ m.name }}</h5>
-              {% if m.status == 'prohibido' %}
-              <span class="badge bg-danger">Prohibido</span>
-              {% else %}
-              <span class="badge bg-success">Permitido</span>
-              {% endif %}
-            </div>
-            
-            <div class="mb-2">
-              <span class="badge bg-secondary">{{ m.category or 'Sin categoría' }}</span>
-              <span class="badge bg-info">{{ m.platform or 'Sin plataforma' }}</span>
-            </div>
-            
-            {% if m.alias %}
-            <div class="mb-2">
-              <strong style="color: #b8c1ca;">Alias:</strong>
-              <div style="color: #8b95a0;">{{ m.alias | join(', ') }}</div>
-            </div>
-            {% endif %}
-            
-            {% if m.description %}
-            <div class="mb-2">
-              <strong style="color: #b8c1ca;">Descripción:</strong>
-              <div style="color: #8b95a0;">{{ m.description }}</div>
-            </div>
-            {% endif %}
-          </div>
-        </div>
-      </div>
-      {% endfor %}
+<div class="tool-page">
+  <div class="tool-hero">
+    <div class="tool-hero__icon">🔍</div>
+    <div class="tool-hero__body">
+      <h3 class="tool-title">Buscar Mod</h3>
+      <p class="tool-subtitle">Busca mods por nombre o alias en tiempo real.</p>
     </div>
-  {% else %}
-    <p class="text-white">No se encontraron coincidencias.</p>
-  {% endif %}
-{% endif %}
+  </div>
+
+  <div class="search-card tool-card tool-card--elevated">
+    <div class="mb-3">
+      <label class="form-label" style="color:#fff; font-weight:700;">Término de búsqueda</label>
+      <input id="searchInput" type="text" class="form-control" placeholder="Ingresa nombre o alias..." autofocus autocomplete="off" style="color: #fff;">
+      <style>
+        #searchInput::placeholder {
+          color: #8b95a0 !important;
+          opacity: 1 !important;
+        }
+      </style>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+      <a href="/menu" class="btn btn-secondary">Volver</a>
+    </div>
+  </div>
+
+  <div id="resultados"></div>
+</div>
+
+<script>
+  const searchInput = document.getElementById('searchInput');
+  const resultadosDiv = document.getElementById('resultados');
+  let debounceTimeout;
+
+  searchInput.addEventListener('input', function() {
+    clearTimeout(debounceTimeout);
+    const term = this.value.trim();
+
+    if (!term) {
+      resultadosDiv.innerHTML = '';
+      return;
+    }
+
+    // Debounce: espera 300ms después de que el usuario deje de escribir
+    debounceTimeout = setTimeout(function() {
+      fetch('/api/search', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ term: term })
+      })
+      .then(r => r.json())
+      .then(data => {
+        if (!data.resultado) {
+          resultadosDiv.innerHTML = '<div class="search-card tool-card mt-4"><p class="text-white">Error en búsqueda.</p></div>';
+          return;
+        }
+
+        if (data.resultado.length === 0) {
+          resultadosDiv.innerHTML = '<div class="search-card tool-card mt-4"><p class="text-white">No se encontraron coincidencias para "' + term + '".</p></div>';
+          return;
+        }
+
+        let html = '<div class="search-card tool-card mt-4"><h5 style="color:#ffc107; margin-bottom: 1.5rem;">📦 Resultados (' + data.resultado.length + ')</h5><div class="row">';
+        data.resultado.forEach(m => {
+          const statusBadge = m.status === 'prohibido' 
+            ? '<span class="badge bg-danger">Prohibido</span>' 
+            : '<span class="badge bg-success">Permitido</span>';
+          const aliases = m.alias && m.alias.length > 0 
+            ? '<div class="mb-2"><strong style="color: #b8c1ca;">Alias:</strong><div style="color: #8b95a0; font-size: 0.9rem;">' + m.alias.join(', ') + '</div></div>' 
+            : '';
+          const description = m.description 
+            ? '<div class="mb-2"><strong style="color: #b8c1ca;">Descripción:</strong><div style="color: #8b95a0; font-size: 0.9rem;">' + m.description + '</div></div>' 
+            : '';
+
+          html += `
+            <div class="col-md-6 mb-3">
+              <div class="card" style="background:var(--panel); border:1px solid var(--card-border); transition: all 0.2s;">
+                <div class="card-body">
+                  <div class="d-flex justify-content-between align-items-start mb-2">
+                    <h5 class="mb-0" style="color: #ffffff;">${m.name}</h5>
+                    ${statusBadge}
+                  </div>
+                  <div class="mb-2">
+                    <span class="badge bg-secondary">${m.category || 'Sin categoría'}</span>
+                    <span class="badge bg-info">${m.platform || 'Sin plataforma'}</span>
+                  </div>
+                  ${aliases}
+                  ${description}
+                </div>
+              </div>
+            </div>
+          `;
+        });
+        html += '</div></div>';
+        resultadosDiv.innerHTML = html;
+      })
+      .catch(err => {
+        resultadosDiv.innerHTML = '<div class="search-card tool-card mt-4"><p class="text-danger">Error en búsqueda: ' + err.message + '</p></div>';
+      });
+    }, 300);
+  });
+</script>
 
 {% endblock %}

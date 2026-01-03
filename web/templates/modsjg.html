@@ -140,12 +140,11 @@
           BlurkitTool
         </div>
       </a>
-      <form method="get" action="/modsjg" class="d-flex align-items-center gap-2" style="max-width: 520px; width: 100%; min-width: 0;">
+      <form class="d-flex align-items-center gap-2" style="max-width: 520px; width: 100%; min-width: 0;">
         <div style="position: relative; flex-grow: 1; display: flex; align-items: center;">
           <span class="gamer-search-icon" style="position: absolute; left: 16px; top: 50%; transform: translateY(-50%); font-size: 1.25rem; color: #6ec6ff; pointer-events: none; filter: drop-shadow(0 0 3px #ff8c42aa); animation: gamerIconPop 2.5s infinite alternate-reverse;">🔍</span>
-          <input type="text" name="search" class="form-control gamer-input search-placeholder-small" placeholder="Buscar por nombre o alias..." value="{{ request.args.get('search', '') }}" autocomplete="off" style="padding-left: 2.5rem; background: rgba(36,38,41,0.93); border: 2px solid #ffcc00; color: #fff; border-radius: 12px 0 0 12px; font-family: 'Inter', Arial, sans-serif; font-size: 1.18rem; letter-spacing: 1px; transition: border-color 0.2s, box-shadow 0.2s; box-shadow: 0 0 8px 0 #ffcc0033; outline: none; width: 100%; min-width: 0; height: 48px;" onfocus="this.style.borderColor='#ff8c42'; this.style.boxShadow='0 0 10px 2px #ff8c42aa';" onblur="this.style.borderColor='#ffcc00'; this.style.boxShadow='0 0 8px 0 #ffcc0033';">
+          <input type="text" id="searchInputModsjg" class="form-control gamer-input search-placeholder-small" placeholder="Buscar por nombre o alias..." autocomplete="off" style="padding-left: 2.5rem; background: rgba(36,38,41,0.93); border: 2px solid #ffcc00; color: #fff; border-radius: 12px; font-family: 'Inter', Arial, sans-serif; font-size: 1.18rem; letter-spacing: 1px; transition: border-color 0.2s, box-shadow 0.2s; box-shadow: 0 0 8px 0 #ffcc0033; outline: none; width: 100%; min-width: 0; height: 48px;" onfocus="this.style.borderColor='#ff8c42'; this.style.boxShadow='0 0 10px 2px #ff8c42aa';" onblur="this.style.borderColor='#ffcc00'; this.style.boxShadow='0 0 8px 0 #ffcc0033';">
         </div>
-        <button type="submit" class="btn btn-primary gamer-btn" style="font-family: 'Inter', Arial, sans-serif; font-size: 1.18rem; padding: 0.5rem 1.7rem; border-radius: 0 12px 12px 0; box-shadow: 0 0 8px 0 #ff8c42aa; border: 2px solid #ffcc00; border-left: none; background: linear-gradient(90deg, #ff8c42 60%, #ffcc00 100%); color: #fff; letter-spacing: 1px; text-shadow: 0 0 3px #ffcc00aa; transition: background 0.2s, box-shadow 0.2s, border-color 0.2s; height: 48px;" onmouseover="this.style.background='linear-gradient(90deg, #ffcc00 0%, #ff8c42 100%)'; this.style.boxShadow='0 0 12px 2px #ffcc00aa'; this.style.borderColor='#ffcc00';" onmouseout="this.style.background='linear-gradient(90deg, #ff8c42 60%, #ffcc00 100%)'; this.style.boxShadow='0 0 8px 0 #ff8c42aa'; this.style.borderColor='#ffcc00';">Buscar</button>
       </form>
     </div>
   </nav>
@@ -243,5 +242,86 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    const searchInput = document.getElementById('searchInputModsjg');
+    const modsSection = document.querySelector('.mods-sections');
+    const originalHTML = modsSection.innerHTML;
+    let debounceTimeout;
+    let allMods = [];
+
+    // Cargar todos los mods al iniciar
+    function loadAllMods() {
+      fetch('/api/search-public', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ term: '' })
+      })
+      .then(r => r.json())
+      .then(data => {
+        allMods = data.resultado || [];
+      });
+    }
+
+    searchInput.addEventListener('input', function() {
+      clearTimeout(debounceTimeout);
+      const term = this.value.trim();
+
+      if (!term) {
+        modsSection.innerHTML = originalHTML;
+        return;
+      }
+
+      debounceTimeout = setTimeout(function() {
+        fetch('/api/search-public', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ term: term })
+        })
+        .then(r => r.json())
+        .then(data => {
+          if (!data.resultado || data.resultado.length === 0) {
+            modsSection.innerHTML = '<div class="empty-state">No se encontraron coincidencias.</div>';
+            return;
+          }
+
+          const permitidos = data.resultado.filter(m => m.status === 'permitido');
+          const prohibidos = data.resultado.filter(m => m.status === 'prohibido');
+
+          let html = '';
+
+          if (permitidos.length > 0) {
+            html += '<div class="mods-section"><div class="section-title with-chip"><span class="chip chip-good">Permitidos</span><span class="muted">' + permitidos.length + ' items</span></div><div class="mods-list">';
+            permitidos.forEach(m => {
+              html += '<div class="mod-card mod-card-good"><div class="mod-main"><div class="mod-title">' + m.name + '</div><div class="mod-meta"><span class="tag">' + (m.category || 'Sin categoría') + '</span><span class="tag">' + (m.platform || 'Sin plataforma') + '</span>';
+              if (m.aliases) html += '<span class="tag alt">Alias: ' + m.aliases + '</span>';
+              html += '</div>';
+              if (m.description) html += '<div class="mod-desc">' + m.description + '</div>';
+              html += '</div></div>';
+            });
+            html += '</div></div>';
+          }
+
+          if (prohibidos.length > 0) {
+            html += '<div class="mods-section"><div class="section-title with-chip"><span class="chip chip-bad">Prohibidos</span><span class="muted">' + prohibidos.length + ' items</span></div><div class="mods-list">';
+            prohibidos.forEach(m => {
+              html += '<div class="mod-card mod-card-bad"><div class="mod-main"><div class="mod-title">' + m.name + '</div><div class="mod-meta"><span class="tag">' + (m.category || 'Sin categoría') + '</span><span class="tag">' + (m.platform || 'Sin plataforma') + '</span>';
+              if (m.aliases) html += '<span class="tag alt">Alias: ' + m.aliases + '</span>';
+              html += '</div>';
+              if (m.description) html += '<div class="mod-desc">' + m.description + '</div>';
+              html += '</div></div>';
+            });
+            html += '</div></div>';
+          }
+
+          modsSection.innerHTML = html;
+        })
+        .catch(err => {
+          modsSection.innerHTML = '<div class="empty-state">Error en búsqueda: ' + err.message + '</div>';
+        });
+      }, 300);
+    });
+
+    loadAllMods();
+  </script>
 </body>
 </html>
