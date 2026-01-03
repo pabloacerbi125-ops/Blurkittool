@@ -380,12 +380,14 @@
                       {% set ej_parts = ejemplo_limpio.split(':', 1) %}
                       {% set ej_prefix = ej_parts[0]|trim %}
                       {% set ej_suffix = ej_parts[1]|default('', true)|trim if ej_parts|length > 1 else '' %}
-                      {% if ej_parts|length > 1 %}
                       <div class="public-ejemplo">
-                        <span class="label">{% if ej_prefix %}<span class="public-ejemplo-prefix">{{ ej_prefix }}</span>:{% else %}Ejemplo:{% endif %}</span>
-                        <span class="public-ejemplo-body">{% if ej_suffix %}{{- ej_suffix|highlight_prohibido -}}{% endif %}</span>
+                        {% if ej_parts|length > 1 %}
+                          <span class="label">{% if ej_prefix %}<span class="public-ejemplo-prefix">{{ ej_prefix }}</span>:{% else %}Ejemplo:{% endif %}</span>
+                          <span class="public-ejemplo-body">{% if ej_suffix %}{{- ej_suffix|highlight_prohibido -}}{% endif %}</span>
+                        {% else %}
+                          <span class="public-ejemplo-body">{{ ejemplo_limpio|highlight_prohibido }}</span>
+                        {% endif %}
                       </div>
-                      {% endif %}
                     {% endif %}
                   </div>
                 </div>

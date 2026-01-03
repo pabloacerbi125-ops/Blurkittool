@@ -872,20 +872,20 @@
                   {% set ej_parts = ejemplo_limpio.split(':', 1) %}
                   {% set ej_prefix = ej_parts[0]|trim %}
                   {% set ej_suffix = ej_parts[1]|default('', true)|trim if ej_parts|length > 1 else '' %}
-                  {% if ej_parts|length > 1 %}
                   <div class="regla-example-wrap" id="regla-example-wrap-{{ regla.id }}">
                     <div class="regla-example-text" id="regla-example-text-{{ regla.id }}" data-has-example="1">
-                      <span class="regla-example-label">{% if ej_prefix %}<span class="regla-example-prefix">{{ ej_prefix }}</span>:{% else %}Ejemplo:{% endif %}</span>
-                      <span class="regla-example-body">{% if ej_suffix %}{{- ej_suffix|highlight_prohibido -}}{% endif %}</span>
+                      {% if ej_parts|length > 1 %}
+                        <span class="regla-example-label">{% if ej_prefix %}<span class="regla-example-prefix">{{ ej_prefix }}</span>:{% else %}Ejemplo:{% endif %}</span>
+                        <span class="regla-example-body">{% if ej_suffix %}{{- ej_suffix|highlight_prohibido -}}{% endif %}</span>
+                      {% else %}
+                        <span class="regla-example-body">{{ ejemplo_limpio|highlight_prohibido }}</span>
+                      {% endif %}
                     </div>
                     <form method="POST" action="{{ url_for('editar_ejemplo_regla', regla_id=regla.id) }}" class="regla-example-delete-form">
                       <input type="hidden" name="nuevo_ejemplo" value="">
                       <button type="submit" class="btn-example-delete" title="Eliminar ejemplo" onclick="return confirm('¿Eliminar el ejemplo?');">🗑️</button>
                     </form>
                   </div>
-                  {% else %}
-                  <div class="regla-example-text" id="regla-example-text-{{ regla.id }}" data-has-example="0" style="display:none;"></div>
-                  {% endif %}
                 {% else %}
                   <div class="regla-example-text" id="regla-example-text-{{ regla.id }}" data-has-example="0" style="display:none;"></div>
                 {% endif %}
