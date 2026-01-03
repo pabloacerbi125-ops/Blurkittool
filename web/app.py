@@ -11,7 +11,7 @@ import re
 from pathlib import Path
 import base64
 import io
-from flask import Flask, render_template, request, redirect, url_for, flash, session
+from flask import Flask, render_template, request, redirect, url_for, flash, session, abort
 from flask_limiter import Limiter
 from markupsafe import Markup, escape
 from sqlalchemy import inspect, text
@@ -28,6 +28,10 @@ from flask_bcrypt import Bcrypt
 from datetime import datetime, timedelta
 
 from time import time
+
+# Behavioral anomaly settings (simple anti-rotation):
+BEHAVIOR_WINDOW_SECONDS = 900  # 15 minutos de ventana
+BEHAVIOR_MAX_UNIQUE_IPS = 5    # Máximo IPs distintas por usuario en la ventana
 
 # Tiempo máximo para considerar a un usuario como online (en segundos)
 ONLINE_TIMEOUT = 180  # 3 minutos
@@ -352,7 +356,7 @@ def highlight_prohibido(text):
 
 @app.route('/editar_modalidad/<int:modalidad_id>', methods=['POST'])
 @login_required
-@admin_required
+@smod_required
 def editar_modalidad(modalidad_id):
     modalidad = Modalidad.query.get_or_404(modalidad_id)
     if not _validate_csrf():
@@ -371,7 +375,7 @@ def editar_modalidad(modalidad_id):
     return redirect(url_for('reglasadm', modalidad_id=modalidad_id))
 @app.route('/editar_regla/<int:regla_id>', methods=['POST'])
 @login_required
-@admin_required
+@smod_required
 def editar_regla(regla_id):
     ensure_regla_orden_column()
     ensure_regla_ejemplo_column()
@@ -407,7 +411,7 @@ def editar_regla(regla_id):
 
 @app.route('/editar_ejemplo_regla/<int:regla_id>', methods=['POST'])
 @login_required
-@admin_required
+@smod_required
 def editar_ejemplo_regla(regla_id):
     ensure_regla_orden_column()
     ensure_regla_ejemplo_column()
@@ -462,9 +466,10 @@ def menu():
 
 # ===================== API: Análisis de logs Minecraft =====================
 @app.route('/api/analyze_log', methods=['POST'])
+@login_required
 @limiter.limit('15 per minute')
 def api_analyze_log():
-    """API endpoint para analizar logs de Minecraft. Recibe texto plano o archivo."""
+    """API endpoint para analizar logs de Minecraft. Ahora requiere login (solo staff)."""
     if request.content_length and request.content_length > MAX_LOG_UPLOAD_BYTES:
         return jsonify({'error': 'Contenido demasiado grande'}), 413
     if request.content_type and request.content_type.startswith('multipart/form-data'):
@@ -773,6 +778,22 @@ def track_user_last_active():
         if not current_user.is_authenticated:
             return
 
+        # Anti-rotación de IPs: si un usuario cambia demasiadas IP en poco tiempo, bloquear temporalmente.
+        try:
+            ip = get_real_ip()
+            now_ts = time()
+            entries = behavior_tracker.get(current_user.username, [])
+            # purgar ventana
+            entries = [(ip0, ts0) for (ip0, ts0) in entries if now_ts - ts0 <= BEHAVIOR_WINDOW_SECONDS]
+            entries.append((ip, now_ts))
+            behavior_tracker[current_user.username] = entries
+            unique_ips = len({ip0 for ip0, _ in entries})
+            if unique_ips > BEHAVIOR_MAX_UNIQUE_IPS:
+                flash('Demasiados cambios de IP recientes. Intenta más tarde.', 'danger')
+                abort(429)
+        except Exception:
+            pass
+
         ensure_users_last_active_column()
 
         now_utc = datetime.utcnow()
@@ -796,6 +817,9 @@ def track_user_last_active():
 # Rate limiting - simple in-memory storage (use Redis in production)
 login_attempts = {}
 
+# Anti-rotation in-memory tracker: {username: [(ip, ts), ...]}
+behavior_tracker = {}
+
 # In-memory history cache for session support (primary storage is in Flask sessions)
 # Structure: {username: [{'timestamp': str, 'filename': str, 'resultado': dict}, ...]}
 logs_history = {}
@@ -814,6 +838,13 @@ def auto_commit_and_push(message):
     """
     print(f"[Auto-sync disabled] {message}", flush=True)
     return False
+
+
+def _normalize_status(raw_status: str) -> str:
+    val = (raw_status or '').strip().lower()
+    if val in ('permitido', 'prohibido'):
+        return val
+    return 'prohibido'
 
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -1022,7 +1053,7 @@ def reglas():
 
 @app.route('/reglasadm', methods=['GET', 'POST'])
 @login_required
-@admin_required
+@smod_required
 def reglasadm():
     """Admin rules management - view and create modalities, and show/add rules for selected modality."""
     ensure_modalidad_orden_column()
@@ -1084,7 +1115,7 @@ def reglasadm():
 
 @app.route('/reordenar_modalidades', methods=['POST'])
 @login_required
-@admin_required
+@smod_required
 def reordenar_modalidades():
     """Persist drag-and-drop ordering for modalidades."""
     ensure_modalidad_orden_column()
@@ -1120,7 +1151,7 @@ def reordenar_modalidades():
 # Editar nota de modalidad
 @app.route('/editar_nota_modalidad/<int:modalidad_id>', methods=['POST'])
 @login_required
-@admin_required
+@smod_required
 def editar_nota_modalidad(modalidad_id):
     if not _validate_csrf():
         flash('Solicitud inválida. Recarga la página e intenta nuevamente.', 'danger')
@@ -1134,7 +1165,7 @@ def editar_nota_modalidad(modalidad_id):
 
 @app.route('/eliminar_modalidad/<int:modalidad_id>', methods=['POST'])
 @login_required
-@admin_required
+@smod_required
 def eliminar_modalidad(modalidad_id):
     if not _validate_csrf():
         flash('Solicitud inválida. Recarga la página e intenta nuevamente.', 'danger')
@@ -1148,7 +1179,7 @@ def eliminar_modalidad(modalidad_id):
 
 @app.route('/eliminar_regla/<int:regla_id>', methods=['POST'])
 @login_required
-@admin_required
+@smod_required
 def eliminar_regla(regla_id):
     if not _validate_csrf():
         flash('Solicitud inválida. Recarga la página e intenta nuevamente.', 'danger')
@@ -1373,7 +1404,7 @@ def add_mod():
     # Create new mod
     nuevo = Mod(
         name=nuevo_nombre,
-        status=request.form.get('status', 'prohibido'),
+        status=_normalize_status(request.form.get('status', 'prohibido')),
         category=request.form.get('category', '').strip(),
         platform=request.form.get('platform', '').strip(),
         description=request.form.get('description', '').strip(),
@@ -1421,7 +1452,7 @@ def edit(idx):
         
         # Update mod
         mod.name = nuevo_nombre
-        mod.status = request.form.get('status', 'prohibido')
+        mod.status = _normalize_status(request.form.get('status', 'prohibido'))
         mod.category = request.form.get('category', '').strip()
         mod.platform = request.form.get('platform', '').strip()
         mod.description = request.form.get('description', '').strip()
@@ -1557,7 +1588,7 @@ def admin_reset_user_twofa(user_id):
 
 
 @app.route('/admin/users/create', methods=['POST'])
-@admin_required
+@smod_required
 def admin_create_user():
     """Create new user - admin only."""
     username = request.form.get('username', '').strip()
@@ -1617,7 +1648,7 @@ def admin_create_user():
 
 
 @app.route('/admin/users/<int:user_id>/toggle', methods=['POST'])
-@admin_required
+@smod_required
 def admin_toggle_user(user_id):
     """Toggle user active status - admin only."""
     user = User.query.get_or_404(user_id)
@@ -1684,7 +1715,7 @@ def admin_change_role(user_id):
 
 
 @app.route('/admin/users/<int:user_id>/edit', methods=['POST'])
-@admin_required
+@smod_required
 def admin_edit_user(user_id):
     """Edit user - admin only."""
     user = User.query.get_or_404(user_id)
@@ -1739,7 +1770,7 @@ def admin_edit_user(user_id):
 
 
 @app.route('/admin/users/<int:user_id>/delete', methods=['POST'])
-@admin_required
+@smod_required
 def admin_delete_user(user_id):
     """Delete user - admin only."""
     user = User.query.get_or_404(user_id)

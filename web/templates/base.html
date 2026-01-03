@@ -61,9 +61,11 @@
             <li class="nav-item">
               <a class="nav-link" href="{{ url_for('menu') }}"> Inicio</a>
             </li>
+            {% if current_user.has_role('admin','smod','manager','owner','founder','adminpage') %}
             <li class="nav-item">
-              <a class="nav-link" href="{{ url_for('reglas') }}"> Reglas</a>
+              <a class="nav-link" href="{{ url_for('reglasadm') }}"> Reglas</a>
             </li>
+            {% endif %}
             {% endif %}
             {% if request.endpoint != 'menu' %}
             <li class="nav-item">
