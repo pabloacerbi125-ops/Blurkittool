@@ -26,7 +26,7 @@ class GlobalIPBlocker:
         self.alerts = []  # Lista de alertas para admin (máx 100)
         
         # Configuración
-        self.MAX_429_BEFORE_BLOCK = 1000  # Después de 1000 respuestas 429, bloqueo global (stress testing)
+        self.MAX_429_BEFORE_BLOCK = 400  # Después de 400 respuestas 429, bloqueo global
         self.BASE_BLOCK_MINUTES = 15  # Bloqueo base: 15 minutos
         self.SUSPICIOUS_RESET_MINUTES = 5  # Resetea contadores cada 5 min
         self.MAX_ALERTS = 100  # Máximo alertas en memoria
