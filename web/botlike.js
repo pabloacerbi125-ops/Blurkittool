@@ -16,7 +16,7 @@ export const options = {
 };
 
 const BASE = __ENV.BASE_URL;
-const paths = ["/login", "/search?q=abc", "/paste", "/"];
+const paths = ["/login", "/search?q=abc", "/paste", "/", "/modsjg", "/reglas"];
 
 export default function () {
   group("bot-burst", () => {

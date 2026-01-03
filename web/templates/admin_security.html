@@ -476,6 +476,27 @@
                 </button>
             </form>
         </div>
+        
+        <!-- Alertas Recientes -->
+        {% if alerts %}
+        <div style="background: rgba(231, 76, 60, 0.1); border-left: 4px solid #e74c3c; padding: 1rem; margin: 1rem; border-radius: 8px;">
+            <h6 style="color: #e74c3c; font-weight: 700; margin-bottom: 0.5rem;">🚨 Alertas Recientes de Bloqueos Globales</h6>
+            <div style="max-height: 200px; overflow-y: auto;">
+                {% for alert in alerts %}
+                <div style="padding: 0.5rem; margin: 0.25rem 0; background: rgba(0,0,0,0.2); border-radius: 4px; font-size: 0.9rem;">
+                    <span style="color: {% if alert.level == 'danger' %}#e74c3c{% else %}#ffc107{% endif %};">
+                        {% if alert.block_count > 1 %}🔴{% else %}⚠️{% endif %}
+                    </span>
+                    <strong>{{ alert.ip }}</strong> - 
+                    <span style="color: #ff8c42;">{{ alert.reason }}</span> 
+                    ({{ alert.duration_minutes }} min, bloqueo #{{ alert.block_count }})
+                    <span style="color: #999; font-size: 0.85rem;">- {{ alert.timestamp.strftime('%H:%M:%S') }}</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        
         <div class="ips-grid">
             {% for item in blocked_ips %}
             <div class="ip-card">
@@ -516,6 +537,12 @@
                         <span class="ip-info-label">Tiempo Restante</span>
                         <span class="ip-info-value ip-timer">{{ item.time_remaining }} min ⏱️</span>
                     </div>
+                    {% if item.block_count %}
+                    <div class="ip-info-item">
+                        <span class="ip-info-label">Nº de Bloqueos</span>
+                        <span class="ip-info-value" style="color: #e74c3c;">🔴 {{ item.block_count }}</span>
+                    </div>
+                    {% endif %}
                     {% endif %}
                 </div>
                 
@@ -544,8 +571,10 @@
         </div>
         <div class="info-card-body">
             <ul>
-                <li><strong>Límite de intentos:</strong> 5 intentos por IP</li>
-                <li><strong>Tiempo de bloqueo:</strong> 15 minutos (aumentativo x2 por bloqueo seguido)</li>
+                <li><strong>Límite de intentos:</strong> 5 intentos por IP (login)</li>
+                <li><strong>Tiempo de bloqueo LOGIN:</strong> 15 minutos (fijo)</li>
+                <li><strong>Tiempo de bloqueo GLOBAL (anti-bot):</strong> 15 min → 30 min → 45 min... (aumentativo)</li>
+                <li><strong>Bloqueo global:</strong> Después de 1000 respuestas 429 en 5 minutos, la IP se bloquea en TODAS las rutas</li>
             </ul>
             <div class="info-tip">
 

@@ -63,6 +63,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from analyze_mc_log_utils import analyze_log_lines
 from flask import jsonify
+from security_middleware import init_blocker
 
 # Flask app with proper paths
 app = Flask(__name__)
@@ -436,6 +437,11 @@ limiter = Limiter(
     storage_uri=os.environ.get('RATELIMIT_STORAGE_URI', 'memory://'),
     headers_enabled=True,
 )
+
+# Inicializa el sistema de bloqueo global anti-bot
+# Si usas Redis para limiter, pásalo aquí también: init_blocker(app, redis_client)
+blocker = init_blocker(app)
+
 _secret_key = os.environ.get('SECRET_KEY')
 if os.environ.get('FLASK_ENV') == 'production' and not _secret_key:
     raise RuntimeError('SECRET_KEY is required in production.')
@@ -1892,7 +1898,23 @@ def admin_security():
                     'time_remaining': max(0, int(time_remaining / 60))
                 })
     
-    return render_template('admin_security.html', blocked_ips=blocked_ips)
+    # Agrega IPs bloqueadas por el GlobalIPBlocker
+    global_blocked = blocker.get_blocked_ips() if blocker else []
+    for item in global_blocked:
+        if not any(b['ip'] == item['ip'] for b in blocked_ips):
+            blocked_ips.append({
+                'ip': item['ip'],
+                'username': 'Bot/Auto-bloqueado',
+                'attempts': item['block_count'],
+                'blocked': True,
+                'time_remaining': item['time_remaining'],
+                'block_count': item['block_count']
+            })
+    
+    # Obtiene alertas recientes del GlobalIPBlocker
+    alerts = blocker.get_alerts(limit=20) if blocker else []
+    
+    return render_template('admin_security.html', blocked_ips=blocked_ips, alerts=alerts)
 
 
 @app.route('/admin/security/unblock/<ip>', methods=['POST'])
@@ -1906,6 +1928,10 @@ def admin_unblock_ip(ip):
     # Remove from database
     LoginAttempt.query.filter_by(ip_address=ip).delete()
     db.session.commit()
+    
+    # Remove from GlobalIPBlocker
+    if blocker:
+        blocker.unblock_ip(ip)
     
     flash(f'IP {ip} desbloqueada exitosamente.', 'success')
     return redirect(url_for('admin_security'))
