@@ -593,43 +593,48 @@
   }
 
   .regla-example-text{
-    margin-top: 0;
-    display: flex;
-    align-items: flex-start;
-    gap: 0.45rem;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.2rem;
     width: 100%;
     box-sizing: border-box;
-    padding: 0.65rem 0.8rem;
+    padding: 0.6rem 0.75rem;
     border-radius: 10px;
     border: 1px dashed rgba(255, 204, 0, 0.28);
     background: linear-gradient(145deg, rgba(255, 204, 0, 0.08), rgba(0, 0, 0, 0.18));
     color: #e6eef3 !important;
     font-family: inherit !important;
-    white-space: pre-wrap;
+    white-space: normal;
     overflow-wrap: anywhere;
     word-break: break-word;
-    line-height: 1.35;
+    line-height: 1.3;
     font-size: 1rem !important;
     font-weight: 700 !important;
-    max-height: 220px;
-    overflow-y: auto;
     box-shadow: inset 0 1px 0 rgba(255, 204, 0, 0.12);
   }
 
   .regla-example-label{
     display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
+    align-items: baseline;
+    gap: 0.15rem;
     opacity: 0.95;
     font-size: 0.95rem;
     color: #ffd666;
     flex-shrink: 0;
-    padding-top: 0.05rem;
+    padding-top: 0;
+    margin-right: 0.1rem;
+  }
+
+  .regla-example-prefix{
+    color: #ffd666;
+    font-weight: 800;
   }
 
   .regla-example-body{
     margin-top: 0;
-    flex: 1 1 auto;
+    flex: 0 1 auto;
+    display: inline;
+    white-space: normal;
   }
 
   .regla-example-delete-form{
@@ -864,10 +869,13 @@
                 <span class="regla-text" id="regla-text-{{ regla.id }}">{{ regla.descripcion|highlight_prohibido }}</span>
 
                 {% if ejemplo_limpio %}
+                  {% set ej_parts = ejemplo_limpio.split(':', 1) %}
+                  {% set ej_prefix = ej_parts[0]|trim %}
+                  {% set ej_suffix = ej_parts[1]|default('', true)|trim if ej_parts|length > 1 else '' %}
                   <div class="regla-example-wrap" id="regla-example-wrap-{{ regla.id }}">
                     <div class="regla-example-text" id="regla-example-text-{{ regla.id }}" data-has-example="1">
-                      <span class="regla-example-label">Ejemplo:</span>
-                      <div class="regla-example-body">{{ ejemplo_limpio|highlight_prohibido }}</div>
+                      <span class="regla-example-label">{% if ej_prefix %}<span class="regla-example-prefix">{{ ej_prefix }}</span>:{% else %}Ejemplo:{% endif %}</span>
+                      <span class="regla-example-body">{% if ej_suffix %}{{- ej_suffix|highlight_prohibido -}}{% else %}{{- ejemplo_limpio|highlight_prohibido -}}{% endif %}</span>
                     </div>
                     <form method="POST" action="{{ url_for('editar_ejemplo_regla', regla_id=regla.id) }}" class="regla-example-delete-form">
                       <input type="hidden" name="nuevo_ejemplo" value="">
