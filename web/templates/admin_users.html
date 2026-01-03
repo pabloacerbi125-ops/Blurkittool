@@ -374,7 +374,7 @@
                             </td>
 
                             <td>
-                                {% if current_user.is_admin() %}
+                                {% if current_user.is_admin() or current_user.has_role('smod') %}
                                     {% if user.username == 'PonyGamer_uwu' and current_user.username != 'PonyGamer_uwu' %}
                                         <select class="form-select-role role-colored-select role-{{ user.role }}" disabled title="Rol bloqueado">
                                             <option selected>🔒 {{ user.role }}</option>

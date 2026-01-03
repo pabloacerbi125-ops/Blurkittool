@@ -788,6 +788,7 @@
           </a>
 
           <form method="POST" action="{{ url_for('editar_modalidad', modalidad_id=modalidad.id) }}" id="form-editar-inline-{{ modalidad.id }}" class="form-editar-inline" autocomplete="off">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <input type="text" name="nuevo_nombre" value="{{ modalidad.nombre }}" placeholder="Nombre de la modalidad" required maxlength="100">
             <button type="submit" class="btn-save" title="Guardar">Guardar</button>
             <button type="button" class="btn-cancel" title="Cancelar" data-modalidad-id="{{ modalidad.id }}" onclick="cancelarEditarModalidad(parseInt(this.dataset.modalidadId, 10)); return false;">Cancelar</button>
@@ -797,6 +798,7 @@
             <button type="button" class="btn-action drag-handle" title="Arrastrar para reordenar" onclick="return false;">↕</button>
             <button class="btn-action edit" id="btn-editar-modalidad-{{ modalidad.id }}" title="Editar nombre" data-modalidad-id="{{ modalidad.id }}" data-modalidad-nombre="{{ modalidad.nombre|escape }}" onclick="mostrarEditarModalidad(parseInt(this.dataset.modalidadId, 10), this.dataset.modalidadNombre); return false;">✏️</button>
             <form method="POST" action="{{ url_for('eliminar_modalidad', modalidad_id=modalidad.id) }}" style="display:inline;">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
               <button type="submit" class="btn-action delete" title="Eliminar modalidad" onclick="return confirm('¿Eliminar modalidad y todas sus reglas?');">🗑️</button>
             </form>
           </div>
@@ -805,6 +807,7 @@
       <button id="btn-nuevo-mod" class="btn-add-modalidad" onclick="mostrarFormNuevaModalidad()">+</button>
     </div>
     <form id="form-nueva-modalidad" method="POST" action="{{ url_for('reglasadm') }}" style="display:none; margin-top: 1rem;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <div style="display: flex; gap: 0.8rem; max-width: 600px;">
         <input type="text" name="nombre" class="form-control" placeholder="Nombre de la nueva modalidad" required maxlength="100" style="flex: 1; font-size: 1rem; font-weight: 600; background: rgba(0, 0, 0, 0.4); border: 2px solid #ffcc00; color: #ffcc00; border-radius: 8px; padding: 0.8rem 1rem;">
         <button type="submit" class="btn btn-warning" style="white-space: nowrap; padding: 0.7rem 1.5rem; font-weight: 600; font-size: 1rem; border-radius: 8px;">Agregar</button>
@@ -826,6 +829,7 @@
           </div>
           <div class="nota-texto" id="nota-texto">{{ modalidad_seleccionada.nota|highlight_prohibido }}</div>
           <form method="POST" action="{{ url_for('editar_nota_modalidad', modalidad_id=modalidad_seleccionada.id) }}" id="form-editar-nota" class="form-edit-nota">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <textarea name="nueva_nota" class="form-control" rows="3" maxlength="1000" style="width:100%;">{{ modalidad_seleccionada.nota }}</textarea>
             <div style="margin-top:0.8rem; display:flex; gap:0.6rem;">
               <button type="submit" class="btn btn-success" style="padding: 0.5rem 1rem; border-radius: 6px;">Guardar</button>
@@ -842,6 +846,7 @@
           </div>
           <div class="nota-texto nota-empty" id="nota-texto">No hay nota para esta modalidad</div>
           <form method="POST" action="{{ url_for('editar_nota_modalidad', modalidad_id=modalidad_seleccionada.id) }}" id="form-editar-nota" class="form-edit-nota">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <textarea name="nueva_nota" class="form-control" rows="3" maxlength="1000" style="width:100%;"></textarea>
             <div style="margin-top:0.8rem; display:flex; gap:0.6rem;">
               <button type="submit" class="btn btn-success" style="padding: 0.5rem 1rem; border-radius: 6px;">Guardar</button>
@@ -854,6 +859,7 @@
       <button class="btn-add-regla" id="btn-mostrar-form-regla">+ Agregar regla</button>
       
       <form id="form-nueva-regla" class="form-nueva-regla" method="POST" action="{{ url_for('reglasadm', modalidad_id=modalidad_seleccionada.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <div class="input-group">
           <input type="text" name="descripcion_regla" class="form-control" placeholder="Descripción de la nueva regla" required maxlength="500">
           <button type="submit" class="btn btn-warning">Agregar</button>
@@ -882,6 +888,7 @@
                       {% endif %}
                     </div>
                     <form method="POST" action="{{ url_for('editar_ejemplo_regla', regla_id=regla.id) }}" class="regla-example-delete-form">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                       <input type="hidden" name="nuevo_ejemplo" value="">
                       <button type="submit" class="btn-example-delete" title="Eliminar ejemplo" onclick="return confirm('¿Eliminar el ejemplo?');">🗑️</button>
                     </form>
@@ -891,6 +898,7 @@
                 {% endif %}
 
                 <form method="POST" action="{{ url_for('editar_regla', regla_id=regla.id) }}" class="regla-edit-form" id="regla-form-{{ regla.id }}" style="display:none;">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                   <input type="number" name="nuevo_orden" value="{{ regla.orden if regla.orden else loop.index }}" min="1" class="form-control form-control-sm regla-orden-input" style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,204,0,0.3); color: #e6eef3;" required>
                   <input type="text" name="nueva_descripcion" value="{{ regla.descripcion }}" class="form-control form-control-sm" style="flex: 1; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,204,0,0.3); color: #e6eef3;" required>
                   <button type="submit" class="btn-action" style="background: #2ecc71; color: white;" title="Guardar cambios">💾</button>
@@ -898,6 +906,7 @@
                 </form>
 
                 <form method="POST" action="{{ url_for('editar_ejemplo_regla', regla_id=regla.id) }}" class="regla-example-form" id="regla-example-form-{{ regla.id }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                   <textarea name="nuevo_ejemplo" class="form-control form-control-sm" placeholder="Escribe un ejemplo (opcional)" maxlength="1500">{{ ejemplo_limpio }}</textarea>
                   <div class="regla-example-actions">
                     <button type="submit" class="btn-action" style="background: #2ecc71; color: white;" title="Guardar ejemplo">💾</button>
@@ -910,6 +919,7 @@
                 <button type="button" class="btn-action edit" title="Editar regla" data-regla-id="{{ regla.id }}" onclick="editarRegla(parseInt(this.dataset.reglaId, 10))">✏️</button>
                 <button type="button" class="btn-action" title="Agregar/editar ejemplo" data-regla-id="{{ regla.id }}" onclick="editarEjemploRegla(parseInt(this.dataset.reglaId, 10))">💡</button>
                 <form method="POST" action="{{ url_for('eliminar_regla', regla_id=regla.id) }}" style="display:inline;">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                   <button type="submit" class="btn-action delete" title="Eliminar regla" onclick="return confirm('¿Eliminar esta regla?');">🗑️</button>
                 </form>
               </div>
@@ -998,7 +1008,8 @@ async function guardarOrdenModalidades() {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Requested-With': 'XMLHttpRequest'
+        'X-Requested-With': 'XMLHttpRequest',
+        'X-CSRF-Token': '{{ csrf_token }}'
       },
       body: JSON.stringify({ order: ids })
     });

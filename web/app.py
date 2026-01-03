@@ -355,6 +355,9 @@ def highlight_prohibido(text):
 @admin_required
 def editar_modalidad(modalidad_id):
     modalidad = Modalidad.query.get_or_404(modalidad_id)
+    if not _validate_csrf():
+        flash('Solicitud inválida. Recarga la página e intenta nuevamente.', 'danger')
+        return redirect(url_for('reglasadm', modalidad_id=modalidad_id))
     nuevo_nombre = request.form.get('nuevo_nombre', '').strip()
     if not nuevo_nombre:
         flash('El nombre no puede estar vacío.', 'danger')
@@ -367,10 +370,16 @@ def editar_modalidad(modalidad_id):
     flash('Nombre de modalidad actualizado.', 'success')
     return redirect(url_for('reglasadm', modalidad_id=modalidad_id))
 @app.route('/editar_regla/<int:regla_id>', methods=['POST'])
+@login_required
+@admin_required
 def editar_regla(regla_id):
     ensure_regla_orden_column()
     ensure_regla_ejemplo_column()
     regla = Regla.query.get_or_404(regla_id)
+
+    if not _validate_csrf():
+        flash('Solicitud inválida. Recarga la página e intenta nuevamente.', 'danger')
+        return redirect(url_for('reglasadm', modalidad_id=regla.modalidad_id))
     nueva_desc = request.form.get('nueva_descripcion', '').strip()
     nuevo_orden_raw = request.form.get('nuevo_orden', '').strip()
     if not nueva_desc:
@@ -397,10 +406,16 @@ def editar_regla(regla_id):
 
 
 @app.route('/editar_ejemplo_regla/<int:regla_id>', methods=['POST'])
+@login_required
+@admin_required
 def editar_ejemplo_regla(regla_id):
     ensure_regla_orden_column()
     ensure_regla_ejemplo_column()
     regla = Regla.query.get_or_404(regla_id)
+
+    if not _validate_csrf():
+        flash('Solicitud inválida. Recarga la página e intenta nuevamente.', 'danger')
+        return redirect(url_for('reglasadm', modalidad_id=regla.modalidad_id))
 
     nuevo_ejemplo = request.form.get('nuevo_ejemplo', '')
     # Permitir vaciar el ejemplo
@@ -619,7 +634,8 @@ def _get_csrf_token() -> str:
 
 def _validate_csrf() -> bool:
     expected = session.get('_csrf_token', '')
-    provided = request.form.get('csrf_token', '')
+    # Accept token from form body or custom header for fetch requests.
+    provided = request.form.get('csrf_token', '') or request.headers.get('X-CSRF-Token', '')
     if not expected or not provided:
         return False
     return hmac.compare_digest(expected, provided)
@@ -1005,6 +1021,8 @@ def reglas():
 
 
 @app.route('/reglasadm', methods=['GET', 'POST'])
+@login_required
+@admin_required
 def reglasadm():
     """Admin rules management - view and create modalities, and show/add rules for selected modality."""
     ensure_modalidad_orden_column()
@@ -1024,6 +1042,9 @@ def reglasadm():
             )
 
     if request.method == 'POST':
+        if not _validate_csrf():
+            flash('Solicitud inválida. Recarga la página e intenta nuevamente.', 'danger')
+            return redirect(url_for('reglasadm', modalidad_id=modalidad_id or None))
         # Agregar modalidad
         if 'nombre' in request.form:
             nombre = request.form.get('nombre', '').strip()
@@ -1062,9 +1083,14 @@ def reglasadm():
 
 
 @app.route('/reordenar_modalidades', methods=['POST'])
+@login_required
+@admin_required
 def reordenar_modalidades():
     """Persist drag-and-drop ordering for modalidades."""
     ensure_modalidad_orden_column()
+
+    if not _validate_csrf():
+        return jsonify({'ok': False, 'error': 'csrf'}), 400
 
     data = request.get_json(silent=True) or {}
     order = data.get('order')
@@ -1093,7 +1119,12 @@ def reordenar_modalidades():
 
 # Editar nota de modalidad
 @app.route('/editar_nota_modalidad/<int:modalidad_id>', methods=['POST'])
+@login_required
+@admin_required
 def editar_nota_modalidad(modalidad_id):
+    if not _validate_csrf():
+        flash('Solicitud inválida. Recarga la página e intenta nuevamente.', 'danger')
+        return redirect(url_for('reglasadm', modalidad_id=modalidad_id))
     modalidad = Modalidad.query.get_or_404(modalidad_id)
     nueva_nota = request.form.get('nueva_nota', '').strip()
     modalidad.nota = nueva_nota
@@ -1102,7 +1133,12 @@ def editar_nota_modalidad(modalidad_id):
     return redirect(url_for('reglasadm', modalidad_id=modalidad_id))
 
 @app.route('/eliminar_modalidad/<int:modalidad_id>', methods=['POST'])
+@login_required
+@admin_required
 def eliminar_modalidad(modalidad_id):
+    if not _validate_csrf():
+        flash('Solicitud inválida. Recarga la página e intenta nuevamente.', 'danger')
+        return redirect(url_for('reglasadm', modalidad_id=modalidad_id))
     modalidad = Modalidad.query.get_or_404(modalidad_id)
     db.session.delete(modalidad)
     db.session.commit()
@@ -1111,7 +1147,12 @@ def eliminar_modalidad(modalidad_id):
 
 
 @app.route('/eliminar_regla/<int:regla_id>', methods=['POST'])
+@login_required
+@admin_required
 def eliminar_regla(regla_id):
+    if not _validate_csrf():
+        flash('Solicitud inválida. Recarga la página e intenta nuevamente.', 'danger')
+        return redirect(url_for('reglasadm'))
     ensure_regla_orden_column()
     ensure_regla_ejemplo_column()
     regla = Regla.query.get_or_404(regla_id)
@@ -1577,9 +1618,9 @@ def admin_toggle_user(user_id):
 
 
 @app.route('/admin/users/<int:user_id>/role', methods=['POST'])
-@admin_required
+@smod_required
 def admin_change_role(user_id):
-    """Change user role - admin only."""
+    """Change user role - smod o admin."""
     user = User.query.get_or_404(user_id)
     new_role = request.form.get('role', 'helper')
 
@@ -2019,7 +2060,15 @@ def set_security_headers(response):
     response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
     # Content Security Policy (adjust as needed)
     if os.environ.get('FLASK_ENV') == 'production':
-        response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data:; font-src 'self' https://cdn.jsdelivr.net"
+        # CSP: allow required CDNs for Bootstrap/JS + Google Fonts used by templates.
+        response.headers['Content-Security-Policy'] = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+            "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; "
+            "img-src 'self' data:; "
+            "font-src 'self' https://cdn.jsdelivr.net https://fonts.gstatic.com; "
+            "connect-src 'self' https://cdn.jsdelivr.net"
+        )
     return response
 
 
