@@ -1483,7 +1483,26 @@ def delete(idx):
 def admin_users():
     """Manage users - smod y admin."""
     ensure_users_last_active_column()
-    users = User.query.order_by(User.created_at.desc()).all()
+    
+    # Definir orden de jerarquía
+    role_order = {
+        'founder': 0,
+        'owner': 1,
+        'admin': 2,
+        'manager': 3,
+        'smod': 4,
+        'mod': 5,
+        'helper': 6,
+        'p-helper': 7,
+        'adminpage': 8,
+    }
+    
+    # Obtener todos los usuarios
+    all_users = User.query.all()
+    
+    # Ordenar por jerarquía primero, luego por fecha de creación descendente
+    users = sorted(all_users, key=lambda u: (role_order.get(u.role, 999), -u.created_at.timestamp()))
+    
     # Marcar online si el usuario fue activo en los últimos ONLINE_TIMEOUT segundos
     now_utc = datetime.utcnow()
     users_with_status = []
