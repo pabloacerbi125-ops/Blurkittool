@@ -55,3 +55,30 @@ def smod_required(f):
 def admin_required(f):
     """Decorator to require admin o adminpage."""
     return roles_required('admin', 'adminpage')(f)
+
+
+def ss_session_required(f):
+    """Decorator to require valid SS session (Herramientas SS con 2FA temporal).
+    
+    Valida que el token no haya expirado (10 minutos máximo).
+    """
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        from flask import session
+        from models import SSSession
+        
+        ss_token = session.get('ss_token')
+
+        if not ss_token:
+            flash('Debes iniciar sesión con Herramientas SS para acceder.', 'warning')
+            return redirect(url_for('login'))
+
+        ss_sess = SSSession.query.filter_by(token=ss_token).first()
+        if not ss_sess or not ss_sess.is_valid():
+            session.pop('ss_token', None)
+            session.pop('ss_user_id', None)
+            flash('Sesión SS expirada. Inicia de nuevo con tu código 2FA.', 'warning')
+            return redirect(url_for('login'))
+
+        return f(*args, **kwargs)
+    return decorated_function

@@ -37,12 +37,21 @@
         color: #222 !important;
         border-color: #fff !important;
       }
+
+      /* Icono de rol en la navbar, junto al nombre de usuario */
+      .navbar-role-icon {
+        width: 60px;
+        height: 60px;
+        object-fit: contain;
+        margin-right: 6px;
+        filter: drop-shadow(0 0 4px #ffcc0077);
+      }
     </style>
   </head>
   <body>
     <nav class="navbar navbar-expand-lg navbar-dark" style="border-bottom: 3px solid #ff8c00; box-shadow: 0 2px 12px 0 #ff8c0044;">
       <div class="container container-main" style="display: flex; flex-wrap: nowrap; align-items: center;">
-        <a class="navbar-brand d-flex align-items-center" href="{{ url_for('home') }}">
+        <a class="navbar-brand d-flex align-items-center" href="{% if ss_mode_nav %}{{ url_for('toolss') }}{% else %}{{ url_for('home') }}{% endif %}">
           {% set neon_color = '#ff8c00' %}
           <img src="{{ url_for('static', filename='bkicono.ico') }}" alt="Logo" style="width:38px;height:38px;border-radius:6px;object-fit:cover;margin-right:10px;vertical-align:middle;">
           <div>
@@ -57,43 +66,59 @@
         </button>
         <div class="collapse navbar-collapse" id="navbarNav">
           <ul class="navbar-nav me-auto">
-            {% if request.endpoint != 'menu' %}
-            <li class="nav-item">
-              <a class="nav-link" href="{{ url_for('menu') }}"> Inicio</a>
-            </li>
-            {% if current_user.has_role('admin','smod','manager','owner','founder','adminpage') %}
-            <li class="nav-item">
-              <a class="nav-link" href="{{ url_for('reglasadm') }}"> Reglas</a>
-            </li>
-            {% endif %}
-            {% endif %}
-            {% if request.endpoint != 'menu' %}
-            <li class="nav-item">
-              <a class="nav-link" href="{{ url_for('index') }}">Lista de Mods</a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="{{ url_for('search') }}">Buscar</a>
-            </li>
-            <li class="nav-item dropdown">
-              <a class="nav-link dropdown-toggle" href="#" id="analyzeDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                Analizar Log
-              </a>
-              <ul class="dropdown-menu" aria-labelledby="analyzeDropdown">
-                <li><a class="dropdown-item" href="{{ url_for('paste_page') }}">Pegar contenido</a></li>
-                <li><a class="dropdown-item" href="{{ url_for('upload') }}">Subir archivo</a></li>
-              </ul>
-            </li>
-            {% if current_user.is_admin() %}
-            <li class="nav-item dropdown">
-              <a class="nav-link dropdown-toggle" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                Admin
-              </a>
-              <ul class="dropdown-menu" aria-labelledby="adminDropdown">
-                <li><a class="dropdown-item" href="{{ url_for('admin_users') }}">👥 Usuarios</a></li>
-                <li><a class="dropdown-item" href="{{ url_for('admin_security') }}">🔒 Seguridad</a></li>
-              </ul>
-            </li>
-            {% endif %}
+            {% if ss_mode_nav %}
+              <li class="nav-item">
+                <a class="nav-link" href="{{ url_for('herramienta_ss') }}">HerramientaSS</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="{{ url_for('leer_l') }}">Leer logs</a>
+              </li>
+            {% else %}
+              {% if request.endpoint != 'menu' %}
+              <li class="nav-item">
+                <a class="nav-link" href="{{ url_for('menu') }}"> Inicio</a>
+              </li>
+              {% if current_user.has_role('admin','smod','manager','owner','founder','adminpage') %}
+              <li class="nav-item">
+                <a class="nav-link" href="{{ url_for('reglasadm') }}"> Reglas</a>
+              </li>
+              {% endif %}
+              {% endif %}
+              {% if request.endpoint != 'menu' %}
+              <li class="nav-item">
+                <a class="nav-link" href="{{ url_for('index') }}">Lista de Mods</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="{{ url_for('search') }}">Buscar</a>
+              </li>
+
+              {% if current_user.is_authenticated and (
+                (current_user.role|default('')|lower) in ['admin', 'owner', 'founder']
+                or (current_user.username|default('')|lower) == 'ponygamer_uwu'
+                or ((current_user.role|default('')|lower) in ['p-helper', 'helper', 'mod', 'smod'] and session.get('ss_token'))
+              ) %}
+              <li class="nav-item dropdown">
+                <a class="nav-link dropdown-toggle" href="#" id="analyzeDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                  Analizar Log
+                </a>
+                <ul class="dropdown-menu" aria-labelledby="analyzeDropdown">
+                  <li><a class="dropdown-item" href="{{ url_for('paste_page') }}">Pegar contenido</a></li>
+                  <li><a class="dropdown-item" href="{{ url_for('upload') }}">Subir archivo</a></li>
+                </ul>
+              </li>
+              {% endif %}
+              {% if current_user.is_admin() %}
+              <li class="nav-item dropdown">
+                <a class="nav-link dropdown-toggle" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                  Admin
+                </a>
+                <ul class="dropdown-menu" aria-labelledby="adminDropdown">
+                  <li><a class="dropdown-item" href="{{ url_for('admin_users') }}">👥 Usuarios</a></li>
+                  <li><a class="dropdown-item" href="{{ url_for('admin_security') }}">🔒 Seguridad</a></li>
+                </ul>
+              </li>
+              {% endif %}
+              {% endif %}
             {% endif %}
           </ul>
           <div class="d-flex align-items-center ms-auto">
@@ -106,7 +131,26 @@
             </form>
             {% endif %}
             <div class="dropdown">
-              <span class="text-light me-2 dropdown-toggle" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false" style="font-weight: bold; font-size: 1.08rem; text-decoration: none; cursor:pointer;">
+              {# Icono según rol del usuario actual #}
+              {% set role_icon = None %}
+              {% if current_user.role in ['p-helper', 'helper'] %}
+                {% set role_icon = 'HELPER-_P-HELPER.png' %}
+              {% elif current_user.role in ['mod', 'smod'] %}
+                {% set role_icon = 'S-MOD-_MOD.png' %}
+              {% elif current_user.role in ['admin', 'adminpage'] %}
+                {% set role_icon = 'ADMIN.png' %}
+              {% elif current_user.role == 'manager' %}
+                {% set role_icon = 'Manager.png' %}
+              {% elif current_user.role == 'owner' %}
+                {% set role_icon = 'OWNER-_2.png' %}
+              {% elif current_user.role == 'founder' %}
+                {% set role_icon = 'FOUNDER_-1.png' %}
+              {% endif %}
+
+              <span class="text-light me-2 dropdown-toggle" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false" style="font-weight: bold; font-size: 1.08rem; text-decoration: none; cursor:pointer; display:inline-flex; align-items:center;">
+                {% if role_icon %}
+                  <img src="{{ url_for('static', filename=role_icon) }}" alt="{{ current_user.role }}" class="navbar-role-icon">
+                {% endif %}
                 {{ current_user.username }}
                 {% if current_user.role == 'adminpage' %}
                   <span class="badge" style="background:#ff00aa;color:#fff;font-weight:bold; margin-left: 0.5rem;">Adminpage</span>
@@ -142,6 +186,87 @@
         </div>
         {% endif %}
       </nav>
+
+      {# SS timer overlay: only during SS-mode and only on specific pages #}
+      {% set show_ss_timer = ss_mode_nav and (request.endpoint in ['toolss', 'herramienta_ss', 'leer_l', 'upload', 'paste_page']) %}
+      {% if show_ss_timer %}
+      <style>
+        .ss-timer-widget {
+          position: fixed;
+          bottom: 2rem;
+          right: 2rem;
+          background: rgba(36, 38, 41, 0.98);
+          border: 2px solid #ffc107;
+          border-radius: 16px;
+          padding: 1.1rem 1.3rem;
+          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 16px rgba(255, 193, 7, 0.25);
+          backdrop-filter: blur(8px);
+          text-align: center;
+          z-index: 999;
+        }
+        .ss-timer-label {
+          font-size: 0.82rem;
+          color: #b8c1ca;
+          margin-bottom: 0.35rem;
+          letter-spacing: 0.5px;
+          font-weight: 700;
+        }
+        .ss-timer-display {
+          font-size: 1.8rem;
+          font-weight: 800;
+          color: #ffc107;
+          font-family: 'Courier New', monospace;
+          text-shadow: 0 0 8px rgba(255, 193, 7, 0.55);
+          letter-spacing: 2px;
+        }
+        .ss-timer-status {
+          font-size: 0.8rem;
+          color: #ffc107;
+          margin-top: 0.45rem;
+          opacity: 0.9;
+        }
+        @media (max-width: 768px) {
+          .ss-timer-widget { bottom: 1rem; right: 1rem; padding: 0.9rem 1rem; }
+          .ss-timer-display { font-size: 1.55rem; }
+        }
+      </style>
+      <div class="ss-timer-widget" data-ss-seconds-left="{{ ss_seconds_left|default(0) }}">
+        <div class="ss-timer-label">⏱️ SESIÓN SS ACTIVA</div>
+        <div class="ss-timer-display" id="ss-timer-display">--:--</div>
+        <div class="ss-timer-status">● En línea</div>
+      </div>
+
+      <script>
+        (function(){
+          const widget = document.querySelector('.ss-timer-widget');
+          if(!widget) return;
+          const display = document.getElementById('ss-timer-display');
+          let timeRemaining = parseInt(widget.getAttribute('data-ss-seconds-left') || '0', 10);
+
+          function render(){
+            const minutes = Math.floor(timeRemaining / 60);
+            const seconds = timeRemaining % 60;
+            if(display) display.textContent = `${minutes}:${String(seconds).padStart(2, '0')}`;
+
+            if(timeRemaining <= 60){
+              widget.style.borderColor = 'rgba(255, 68, 68, 0.6)';
+              if(display) display.style.color = '#ff4444';
+            }
+
+            if(timeRemaining <= 0){
+              // Expiró: cerrar sesión para limpiar estado.
+              window.location.href = "{{ url_for('logout') }}";
+              return;
+            }
+
+            timeRemaining -= 1;
+          }
+
+          render();
+          setInterval(render, 1000);
+        })();
+      </script>
+      {% endif %}
 
     <main class="container container-main my-4">
       {% with messages = get_flashed_messages(with_categories=true) %}

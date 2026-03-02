@@ -59,6 +59,9 @@
         box-shadow: 0 0 0 0.2rem rgba(255, 204, 0, 0.15);
         color: #ffffff;
     }
+    /* Admin users search input styles */
+    #admin-user-search { color: #ffffff; }
+    #admin-user-search::placeholder { color: rgba(255,255,255,0.6); }
     .btn-create {
         background: linear-gradient(135deg, #51cf66, #2ecc71);
         border: none;
@@ -337,7 +340,17 @@
     <!-- Users Table -->
     <div class="users-table-card">
         <div class="users-table-header">
-            <h5>📋 Lista de Usuarios ({{ users|length }})</h5>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+                <h5 id="admin-users-count" style="margin:0;">📋 Lista de Usuarios ({{ users|length }})</h5>
+                <form method="GET" action="{{ url_for('admin_users') }}" class="d-flex" style="gap:8px;align-items:center;position:relative;">
+                    <input id="admin-user-search" type="search" name="q" class="form-control" placeholder="Buscar usuarios" value="{{ request.args.get('q','') }}" style="width:300px;min-width:140px;color:#ffffff;">
+                    <div id="admin-user-suggestions" style="position:absolute;top:42px;left:0;z-index:1200;display:none;min-width:300px;max-width:420px;background:var(--panel);border:1px solid rgba(255,204,0,0.08);border-radius:8px;padding:6px;box-shadow:0 8px 24px rgba(0,0,0,0.45);"></div>
+                    <button type="submit" class="btn btn-create">Buscar</button>
+                    {% if request.args.get('q') %}
+                        <a href="{{ url_for('admin_users') }}" class="btn btn-action" style="background:transparent;border:1px solid rgba(255,204,0,0.12);color:#ffc107;">Limpiar</a>
+                    {% endif %}
+                </form>
+            </div>
         </div>
         <div class="table-responsive">
             <table class="table mb-0">
@@ -365,7 +378,7 @@
 
                         {% set is_pgc = user.username == 'PonyGamer_uwu' %}
 
-                        <tr {% if not user.is_active %}style="opacity: 0.6;"{% endif %}>
+                        <tr data-user-id="{{ user.id }}" {% if not user.is_active %}style="opacity: 0.6;"{% endif %}>
                             <td>
                                 <strong style="color: #ffffff;">{{ user.username }}</strong>
                                 {% if user.id == current_user.id %}
@@ -460,6 +473,71 @@
                 </table>
             </div>
         </div>
+        <script>
+        (function() {
+            const input = document.getElementById('admin-user-search');
+            const box = document.getElementById('admin-user-suggestions');
+            if (!input || !box) return;
+
+            let timer = null;
+            function clearBox() { box.style.display = 'none'; box.innerHTML = ''; }
+
+            function renderSuggestions(list) {
+                if (!Array.isArray(list) || !list.length) { clearBox(); return; }
+                box.innerHTML = list.map(u => {
+                    const online = u.online ? '<span style="color:#2ecc71;margin-left:8px;">●</span>' : '';
+                    return `<div data-username="${u.username}" data-id="${u.id}" style="padding:8px;border-radius:6px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;">`+
+                           `<div><strong style=\"color:#fff\">${u.username}</strong> <span style=\"color:var(--muted)\">${u.role || ''}</span>${online}</div>`+
+                           `</div>`;
+                }).join('');
+                box.style.display = 'block';
+            }
+
+            async function doSearch(term) {
+                try {
+                    const res = await fetch('/api/search-users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ term }) });
+                    if (!res.ok) { clearBox(); return; }
+                    const data = await res.json().catch(() => ({}));
+                    renderSuggestions(data.resultado || data.result || []);
+                } catch (e) { clearBox(); }
+            }
+
+            input.addEventListener('input', (e) => {
+                const v = (e.target.value || '').trim();
+                if (timer) clearTimeout(timer);
+                if (!v) { clearBox(); filterTable(''); return; }
+                timer = setTimeout(() => doSearch(v), 200);
+                // also filter table rows locally
+                filterTable(v);
+            });
+
+            function filterTable(term) {
+                const q = (term || '').toLowerCase().trim();
+                const rows = document.querySelectorAll('.users-table-card table tbody tr');
+                let visible = 0;
+                rows.forEach(r => {
+                    const text = (r.textContent || '').toLowerCase();
+                    const id = (r.getAttribute('data-user-id') || '').toLowerCase();
+                    const match = q === '' || text.indexOf(q) !== -1 || id.indexOf(q) !== -1;
+                    if (match) { r.style.display = ''; visible++; } else { r.style.display = 'none'; }
+                });
+                const header = document.getElementById('admin-users-count');
+                if (header) header.textContent = `📋 Lista de Usuarios (${visible})`;
+            }
+
+            document.addEventListener('click', (e) => {
+                const item = e.target && e.target.closest ? e.target.closest('#admin-user-suggestions > div > div, #admin-user-suggestions > div') : null;
+                if (item && item.dataset && item.dataset.username) {
+                    // navigate to server-side search result for that username
+                    const username = item.dataset.username;
+                    window.location.href = `${location.pathname}?q=${encodeURIComponent(username)}`;
+                    return;
+                }
+                // if click outside, hide
+                if (!e.target.closest || !e.target.closest('#admin-user-suggestions') && e.target !== input) clearBox();
+            });
+        })();
+        </script>
     </div>
     
     <div class="mt-4 mb-3">

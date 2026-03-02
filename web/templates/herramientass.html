@@ -1,0 +1,215 @@
+{% extends 'base.html' %}
+{% block content %}
+{% set neon_color = '#ffc107' %}
+
+<div style="--neon-color: {{ neon_color }}; --neon-color-11: {{ neon_color }}11; --neon-color-33: {{ neon_color }}33; --neon-color-88: {{ neon_color }}88;">
+<style>
+  /* Se reutilizan los estilos de menu.html para los cards */
+  @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+  body { background: linear-gradient(135deg, #181c22 0%, #232526 100%) !important; }
+  .form-control { background: rgba(15,17,19,0.88); color:#fff; }
+  .menu-grid { display:flex; flex-wrap:wrap; gap:2.2rem; justify-content:center; }
+  .menu-card { border:2px solid #ffc107; background:rgba(30,32,36,0.97); padding:2rem; border-radius:14px; width:300px; color:#fff; text-align:center; text-decoration:none; }
+  .menu-card:hover { border-color:#ffc107; box-shadow:0 0 12px 4px #ffc10766; }
+  .menu-icon { font-size:2.5rem; margin-bottom:0.8rem; }
+  .menu-title { font-weight:700; margin-bottom:0.5rem; }
+  .menu-description { font-size:0.9rem; color:#b8c1ca; }
+</style>
+<div class="container" style="padding:2rem;">
+  <h2>Herramientas SS</h2>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.6rem;">
+    <p>Aquí puedes agregar enlaces/descargas directas para la sesión SS.</p>
+    {% if editable %}
+      <button id="toggle-add-btn" class="btn btn-success" title="Crear nueva herramienta" style="font-size:1.3rem;padding:0.4rem 0.7rem;border-radius:8px;">+</button>
+    {% endif %}
+  </div>
+
+  {% if editable %}
+  <!-- Modal para agregar herramienta (se muestra al pulsar '+') -->
+  <div class="modal fade" id="addSSModal" tabindex="-1" aria-labelledby="addSSModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content" style="background:rgba(15,17,19,0.98);border:1px solid #333;">
+        <div class="modal-header">
+          <h5 class="modal-title" id="addSSModalLabel">Agregar herramienta</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <div class="modal-body">
+          <form id="add-ss-form" method="POST" action="{{ url_for('herramienta_ss') }}" enctype="multipart/form-data">
+            <div class="mb-3">
+              <label class="form-label">Nombre *</label>
+              <input type="text" name="name" class="form-control" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">URL *</label>
+              <input type="url" name="url" class="form-control" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Icono (imagen)</label>
+              <input type="file" name="icon_file" class="form-control" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp">
+              <small class="text-muted">Opcional.</small>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Descripción</label>
+              <input type="text" name="description" class="form-control" placeholder="Opcional">
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" form="add-ss-form" class="btn btn-primary">Guardar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      const toggleBtn = document.getElementById('toggle-add-btn');
+      const addModalEl = document.getElementById('addSSModal');
+
+      function initModalWhenReady(){
+        if(typeof bootstrap === 'undefined'){
+          // retry shortly until bootstrap JS is loaded
+          setTimeout(initModalWhenReady, 100);
+          return;
+        }
+        try{
+          const addModal = new bootstrap.Modal(addModalEl);
+          toggleBtn.addEventListener('click', function(e){
+            e.preventDefault();
+            addModal.show();
+            setTimeout(()=>{
+              const first = addModalEl.querySelector('input[name="name"]');
+              if(first) first.focus();
+            }, 120);
+          });
+        }catch(err){
+          // if something unexpected, retry once more
+          setTimeout(initModalWhenReady, 200);
+        }
+      }
+
+      if(document.readyState === 'loading'){
+        document.addEventListener('DOMContentLoaded', initModalWhenReady);
+      } else {
+        initModalWhenReady();
+      }
+    })();
+  </script>
+  {% endif %}
+
+  {% if editable %}
+  <!-- Modal para editar herramienta -->
+  <div class="modal fade" id="editSSModal" tabindex="-1" aria-labelledby="editSSModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content" style="background:rgba(15,17,19,0.98);border:1px solid #333;">
+        <div class="modal-header">
+          <h5 class="modal-title" id="editSSModalLabel">Editar herramienta</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <div class="modal-body">
+          <form id="edit-ss-form" method="POST" action="#" enctype="multipart/form-data">
+            <div class="mb-3">
+              <label class="form-label">Nombre *</label>
+              <input type="text" name="name" class="form-control" id="edit-name" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">URL *</label>
+              <input type="url" name="url" class="form-control" id="edit-url" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Icono (imagen)</label>
+              <input type="file" name="icon_file" class="form-control" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp">
+              <small class="text-muted">Opcional. Si subes una imagen, reemplaza el icono actual.</small>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Descripción</label>
+              <input type="text" name="description" class="form-control" id="edit-description" placeholder="Opcional">
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" form="edit-ss-form" class="btn btn-primary">Guardar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      function onEditClick(btn){
+        const id = btn.getAttribute('data-id');
+        const name = btn.getAttribute('data-name') || '';
+        const url = btn.getAttribute('data-url') || '';
+        const desc = btn.getAttribute('data-description') || '';
+
+        const form = document.getElementById('edit-ss-form');
+        const nameEl = document.getElementById('edit-name');
+        const urlEl = document.getElementById('edit-url');
+        const descEl = document.getElementById('edit-description');
+
+        if(form) form.action = `/HerramientaSS/edit/${id}`;
+        if(nameEl) nameEl.value = name;
+        if(urlEl) urlEl.value = url;
+        if(descEl) descEl.value = desc;
+      }
+
+      document.addEventListener('click', function(e){
+        const btn = e.target.closest('[data-ss-edit-btn]');
+        if(!btn) return;
+        onEditClick(btn);
+      });
+    })();
+  </script>
+  {% endif %}
+
+  <div class="menu-grid">
+    {% for link in links %}
+    <div style="display:flex;flex-direction:column;align-items:center;">
+      <a href="{{ link.url }}" class="menu-card" target="_blank">
+        <div class="menu-icon" style="display:flex;align-items:center;justify-content:center;">
+          {% if link.icon and link.icon.startswith('img:') %}
+            <img src="{{ url_for('static', filename=link.icon[4:]) }}" alt="icon" style="width:46px;height:46px;object-fit:contain;filter:drop-shadow(0 0 6px #ffc10766);">
+          {% else %}
+            {{ link.icon or '🔗' }}
+          {% endif %}
+        </div>
+        <div class="menu-title">{{ link.name }}</div>
+        {% if link.description %}
+        <div class="menu-description">{{ link.description }}</div>
+        {% endif %}
+      </a>
+      {% if editable %}
+      <div style="display:flex;gap:0.6rem;margin-top:0.6rem;">
+        <button type="button" class="btn btn-outline-warning" data-ss-edit-btn
+                data-id="{{ link.id }}"
+                data-name="{{ link.name|e }}"
+                data-url="{{ link.url|e }}"
+                data-icon="{{ (link.icon or '')|e }}"
+                data-description="{{ (link.description or '')|e }}"
+                data-bs-toggle="modal" data-bs-target="#editSSModal"
+                title="Editar herramienta"
+                style="display:flex;align-items:center;gap:0.4rem;padding:0.4rem 0.6rem;border-radius:8px;">
+          <span style="font-size:1rem;">✏️</span>
+          <span style="font-size:0.9rem;">Editar</span>
+        </button>
+        <form method="POST" action="{{ url_for('herramienta_ss_delete', link_id=link.id) }}" onsubmit="return confirm('¿Eliminar esta herramienta?');" style="margin:0;">
+          <button type="submit" class="btn btn-outline-danger" title="Eliminar herramienta" style="display:flex;align-items:center;gap:0.4rem;padding:0.4rem 0.6rem;border-radius:8px;">
+            <span style="font-size:1rem;">🗑️</span>
+            <span style="font-size:0.9rem;">Eliminar</span>
+          </button>
+        </form>
+      </div>
+      {% else %}
+      <div style="height:34px;margin-top:0.6rem;display:flex;align-items:center;">
+        <small class="text-muted">Edición deshabilitada en sesión SS</small>
+      </div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+</div>
+{% endblock %}

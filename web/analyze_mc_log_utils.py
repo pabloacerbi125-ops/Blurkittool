@@ -232,7 +232,7 @@ def analyze_log_lines(log_lines: List[str]) -> Dict[str, Any]:
         player_with_version = f"MC {mc_version}"
     mods_result = extract_mods(log_lines)
 
-    # --- Enhancement: Cross-check mods with DB to ensure no permitted mod is unknown ---
+    # --- Mejora: cruzar mods con la DB para que ningún mod permitido quede como desconocido ---
 
     try:
         from web.models import Mod
@@ -289,7 +289,7 @@ def analyze_log_lines(log_lines: List[str]) -> Dict[str, Any]:
         "player": player,
         "mc_version": mc_version,
         "player_with_version": player_with_version,
-        "mods": mods_permitidos + mods_desconocidos,  # preserve all mods, but permitted first
+        "mods": mods_permitidos + mods_desconocidos,  # conservar todos, pero mostrar permitidos primero
         "dependencies": dependencies_permitidas + dependencias_desconocidas,
         "client": extract_client(log_lines),
         "errors": extract_errors(log_lines)

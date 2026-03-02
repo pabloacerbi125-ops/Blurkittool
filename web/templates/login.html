@@ -184,6 +184,95 @@
             color: #ff8c42;
             transform: translateX(-3px);
         }
+        .ss-btn-toggle {
+            background: transparent;
+            border: 2px solid rgba(255, 204, 0, 0.3);
+            color: #ffc107;
+            padding: 0.6rem 1.2rem;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-top: 1rem;
+            width: 100%;
+        }
+        .ss-btn-toggle:hover {
+            border-color: #ff8c42;
+            color: #ff8c42;
+            box-shadow: 0 0 8px rgba(255, 140, 66, 0.2);
+        }
+        .ss-mode .form-label {
+            color: #ff8c42;
+        }
+        .info-text {
+            font-size: 0.8rem;
+            color: #b8c1ca;
+            margin-top: 0.5rem;
+            font-style: italic;
+        }
+
+        /* 2FA modal */
+        .twofa-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.55);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1.25rem;
+        }
+        .twofa-dialog {
+            width: 100%;
+            max-width: 420px;
+            background: rgba(23, 24, 26, 0.98);
+            border: 1px solid rgba(255, 204, 0, 0.20);
+            border-radius: 16px;
+            box-shadow: 0 12px 38px rgba(0, 0, 0, 0.55), 0 0 18px rgba(255, 204, 0, 0.06);
+            padding: 1.6rem 1.4rem;
+        }
+        .twofa-title {
+            font-size: 1.15rem;
+            font-weight: 800;
+            color: #ffcc00;
+            margin: 0 0 0.35rem;
+            letter-spacing: 0.3px;
+        }
+        .twofa-subtitle {
+            color: #b8c1ca;
+            font-size: 0.92rem;
+            margin: 0 0 1.1rem;
+        }
+        .twofa-actions {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 0.65rem;
+            margin-top: 0.9rem;
+        }
+        .twofa-cancel {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.45rem;
+            width: 100%;
+            padding: 0.65rem;
+            border-radius: 10px;
+            border: 2px solid rgba(255, 204, 0, 0.28);
+            color: #ffc107;
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 0.95rem;
+            background: transparent;
+            transition: all 0.2s;
+        }
+        .twofa-cancel:hover {
+            border-color: #ff8c42;
+            color: #ff8c42;
+            box-shadow: 0 0 10px rgba(255, 140, 66, 0.18);
+        }
     </style>
 </head>
 <body>
@@ -206,7 +295,8 @@
                 {% endif %}
             {% endwith %}
             
-            <form method="POST" action="{{ url_for('login') }}">
+            <!-- Formulario único: acepta Usuario + (Contraseña O Código 2FA) -->
+            <form id="login-form" method="POST" action="{{ url_for('login') }}">
                 <div class="mb-3">
                     <label for="username" class="form-label">
                         <span>👤</span> Usuario
@@ -216,19 +306,27 @@
                 </div>
                 
                 <div class="mb-4">
-                    <label for="password" class="form-label">
+                    <label for="password" class="form-label" id="password-label">
                         <span>🔒</span> Contraseña
                     </label>
                     <input type="password" class="form-control" id="password" name="password" 
-                           placeholder="Ingresa tu contraseña" required>
+                           placeholder="Ingresa tu contraseña o código 2FA" required>
+                    <div class="info-text" id="password-hint">
+                        💡 Ingresa 6 dígitos para Herramientas SS, o contraseña normal
+                    </div>
                 </div>
                 
                 <div class="d-grid">
-                    <button type="submit" class="btn btn-login">
+                    <button type="submit" class="btn btn-login" id="submit-btn">
                         🚀 Ingresar
                     </button>
                 </div>
             </form>
+            
+            <!-- Botón alterno para modo Herramientas SS -->
+            <button type="button" class="ss-btn-toggle" id="ss-toggle-btn" onclick="toggleSSMode()">
+                🔐 Usar Herramientas SS
+            </button>
             
             <div class="back-link">
                 <a href="{{ url_for('home') }}">
@@ -241,7 +339,109 @@
             </div>
         </div>
     </div>
+
+    {% if show_twofa_modal %}
+    <div class="twofa-overlay" role="dialog" aria-modal="true" aria-label="Verificación 2FA">
+        <div class="twofa-dialog">
+            <div class="twofa-title">🔐 Verificación 2FA</div>
+            <div class="twofa-subtitle">
+                Ingresa el código de 6 dígitos de Google Authenticator
+                {% if twofa_username %}
+                    para <strong style="color:#fff;">{{ twofa_username }}</strong>
+                {% endif %}
+                .
+            </div>
+
+            <form method="POST" action="{{ url_for('twofa_login_verify') }}" autocomplete="one-time-code">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+                <label for="twofa-code" class="form-label" style="margin-bottom:0.55rem;">
+                    <span>🔢</span> Código 2FA
+                </label>
+                <input
+                    type="text"
+                    inputmode="numeric"
+                    pattern="[0-9]{6}"
+                    maxlength="6"
+                    class="form-control"
+                    id="twofa-code"
+                    name="code"
+                    placeholder="123456"
+                    required
+                    autofocus
+                >
+
+                <div class="twofa-actions">
+                    <button type="submit" class="btn btn-login">✅ Verificar</button>
+                    <a class="twofa-cancel" href="{{ url_for('login', cancel_twofa=1) }}">↩ Cambiar de cuenta</a>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let isSSMode = false;
+        
+        function toggleSSMode() {
+            isSSMode = !isSSMode;
+            const form = document.getElementById('login-form');
+            const btn = document.getElementById('ss-toggle-btn');
+            const label = document.getElementById('password-label');
+            const hint = document.getElementById('password-hint');
+            const input = document.getElementById('password');
+            const submitBtn = document.getElementById('submit-btn');
+            
+            if (isSSMode) {
+                form.classList.add('ss-mode');
+                label.innerHTML = '<span>🔐</span> Código 2FA';
+                input.type = 'password';
+                input.placeholder = 'Ingresa 6 dígitos (Google Authenticator)';
+                input.maxLength = '6';
+                input.pattern = '[0-9]{6}';
+                hint.textContent = '🔐 Sesión válida por 10 minutos';
+                btn.textContent = '← Volver a Contraseña';
+                submitBtn.textContent = '🔓 Herramientas SS';
+                form.action = '{{ url_for("login_ss") }}';
+                // Cambiar name para que envíe como "code_2fa"
+                input.name = 'code_2fa';
+            } else {
+                form.classList.remove('ss-mode');
+                label.innerHTML = '<span>🔒</span> Contraseña';
+                input.type = 'password';
+                input.placeholder = 'Ingresa tu contraseña o código 2FA';
+                input.maxLength = '';
+                input.pattern = '';
+                hint.textContent = '💡 Ingresa 6 dígitos para Herramientas SS, o contraseña normal';
+                btn.textContent = '🔐 Usar Herramientas SS';
+                submitBtn.textContent = '🚀 Ingresar';
+                form.action = '{{ url_for("login") }}';
+                input.name = 'password';
+            }
+            input.focus();
+        }
+        
+        // Detectar automáticamente si son 6 dígitos
+        document.getElementById('password').addEventListener('input', function() {
+            const value = this.value.trim();
+            if (!isSSMode && value.length === 6 && /^[0-9]{6}$/.test(value)) {
+                // Auto-detectar: son 6 dígitos → cambiar a SS mode automáticamente
+                if (!isSSMode) {
+                    toggleSSMode();
+                }
+            }
+        });
+
+        // Si el modal 2FA está abierto, enfocar el input
+        (function() {
+            const twofaInput = document.getElementById('twofa-code');
+            if (twofaInput) {
+                setTimeout(() => {
+                    try { twofaInput.focus(); } catch (e) {}
+                }, 50);
+            }
+        })();
+    </script>
 </body>
 </html>

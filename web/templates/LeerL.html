@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+{% block content %}
+{% set neon_color = '#ffc107' %}
+
+<div style="--neon-color: {{ neon_color }}; --neon-color-11: {{ neon_color }}11; --neon-color-33: {{ neon_color }}33; --neon-color-88: {{ neon_color }}88;">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+  body { background: linear-gradient(135deg, #181c22 0%, #232526 100%) !important; }
+  .menu-grid { display:flex; flex-wrap:wrap; gap:2.2rem; justify-content:center; margin-top:2.5rem; }
+  .menu-card { border:2px solid #ffc107; background:linear-gradient(135deg, rgba(30,32,36,0.97) 80%, #ffc10711 100%); padding:2.2rem; border-radius:14px; width:340px; color:#fff; text-align:center; text-decoration:none; }
+  .menu-card:hover { box-shadow:0 0 18px 6px #ffc107cc; transform:scale(1.03); }
+  .menu-icon { font-size:3rem; margin-bottom:1rem; }
+  .menu-title { font-weight:700; margin-bottom:0.4rem; font-size:1.15rem; }
+  .menu-description { color:#cfcfcf; }
+  .hero { text-align:center; padding:2.2rem; border-radius:14px; background:rgba(36,38,41,0.96); border:2px solid var(--neon-color); margin-bottom:1rem; }
+</style>
+
+<div class="container" style="padding:2rem;">
+  <div class="hero">
+    <h2 style="color:var(--neon-color);">📂 Leer logs</h2>
+    <p style="color:#fff; margin-top:0.6rem;">Elige cómo quieres proporcionar el log para su análisis</p>
+  </div>
+
+  <div class="menu-grid">
+    <a href="{{ url_for('upload') }}" class="menu-card">
+      <div class="menu-icon">📁</div>
+      <div class="menu-title">Subir log</div>
+      <div class="menu-description">Carga un archivo .log o .txt y obtén un informe detallado</div>
+    </a>
+
+    <a href="{{ url_for('paste_page') }}" class="menu-card">
+      <div class="menu-icon">📋</div>
+      <div class="menu-title">Pegar log</div>
+      <div class="menu-description">Pega el contenido del log directamente y analízalo al instante</div>
+    </a>
+  </div>
+</div>
+
+</div>
+{% endblock %}

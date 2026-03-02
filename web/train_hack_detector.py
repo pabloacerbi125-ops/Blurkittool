@@ -4,6 +4,7 @@ Script para entrenar un modelo de detección de mods/hacks prohibidos en logs de
 """
 import sqlite3
 import pickle
+import os
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.model_selection import train_test_split
@@ -29,8 +30,16 @@ def load_log_lines(*filepaths):
             print(f"[WARN] No se pudo leer {path}: {e}")
     return lines
 
-# Puedes agregar más archivos de logs normales aquí
-normal_logs = load_log_lines('web/logs_normales.txt', 'c:/Users/pabli/OneDrive/Documentos/latest.log')
+# Puedes agregar más archivos de logs normales aquí.
+# Se admiten rutas por variable de entorno para no hardcodear rutas locales.
+default_paths = []
+env_paths = os.environ.get('NORMAL_LOG_PATHS', '').strip()
+if env_paths:
+    default_paths.extend([p.strip() for p in env_paths.split(';') if p.strip()])
+if os.path.exists('web/logs_normales.txt'):
+    default_paths.append('web/logs_normales.txt')
+
+normal_logs = load_log_lines(*default_paths)
 
 
 # 3. Generar ejemplos de logs con hacks (simulados)
@@ -49,7 +58,9 @@ X = normal_logs + hack_logs
 y = [0] * len(normal_logs) + [1] * len(hack_logs)
 
 if len(normal_logs) == 0 or len(hack_logs) == 0:
-    raise ValueError("No hay suficientes ejemplos de logs normales o de hacks para entrenar el modelo.")
+    print("No hay suficientes ejemplos de logs normales o de hacks para entrenar el modelo.")
+    print("Setea NORMAL_LOG_PATHS con rutas separadas por ';' (ej: C:/ruta/a.log;D:/ruta/b.log).")
+    raise SystemExit(1)
 
 
 # 5. Vectorizar y entrenar modelo

@@ -1,0 +1,2481 @@
+{% extends 'base.html' %}
+{% block content %}
+{% set can_manage_modalidades = current_user.is_authenticated and (current_user.role in ['admin', 'owner', 'founder']) %}
+
+{% if can_manage_modalidades %}
+<div id="edit-fab-group" style="position:fixed;bottom:32px;right:32px;z-index:1000;display:flex;gap:16px;align-items:center;">
+  <button id="edit-all-btn" onclick="toggleEditAll()" style="background:#232526;border:2px solid #ff8c00;border-radius:50%;width:56px;height:56px;box-shadow:0 2px 12px #ff8c0044;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background 0.2s;">
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ffd700" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+  </button>
+  <button id="save-all-btn" onclick="saveAllEdits()" style="display:none;background:#ffd700;border:2px solid #ff8c00;border-radius:50%;width:56px;height:56px;box-shadow:0 2px 12px #ff8c0044;align-items:center;justify-content:center;cursor:pointer;transition:background 0.2s;">
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#232526" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+  </button>
+</div>
+{% endif %}
+
+<style>
+  /* Replica del layout de /comandosstaff adaptado a Modalidades */
+  .sanciones-page {
+    max-width: 1500px;
+    width: 100%;
+    margin: 0 auto;
+  }
+
+  .role-tabs-wrap {
+    border-radius: 14px;
+    border: 1px solid var(--card-border);
+    background: var(--panel);
+    overflow: hidden;
+    margin-bottom: 16px;
+  }
+
+  .role-tabs {
+    display: flex;
+    align-items: stretch;
+    gap: 6px;
+    padding: 10px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    white-space: nowrap;
+    border-bottom: 1px solid rgba(255, 204, 0, 0.12);
+    background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(0,0,0,0.10));
+  }
+
+  .role-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    border-radius: 12px 12px 0 0;
+    border: 1px solid rgba(255,255,255,0.06);
+    background: rgba(255,255,255,0.02);
+    color: #ffffff;
+    padding: 10px 12px;
+    cursor: pointer;
+    user-select: none;
+    flex: 0 0 auto;
+    transition: border-color 160ms ease, background 160ms ease;
+  }
+
+  .role-tab:hover {
+    border-color: rgba(255, 204, 0, 0.35);
+  }
+
+  .role-tab.active {
+    border-color: rgba(255, 204, 0, 0.65);
+    background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(0,0,0,0.12));
+  }
+
+  .role-tab__label {
+    font-weight: 900;
+    letter-spacing: 0.2px;
+    white-space: nowrap;
+  }
+
+  .role-tab__meta {
+    color: var(--muted);
+    font-size: 0.9rem;
+    margin-left: 10px;
+  }
+
+  .role-tab__danger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    background: rgba(255, 255, 255, 0.03);
+    color: rgba(255, 90, 90, 0.95);
+    font-weight: 1000;
+    cursor: pointer;
+    user-select: none;
+    line-height: 1;
+  }
+
+  .role-tab__danger:hover {
+    border-color: rgba(255, 90, 90, 0.55);
+  }
+
+  .commands-window {
+    border-radius: 14px;
+    border: 1px solid var(--card-border);
+    background: var(--panel);
+    overflow: hidden;
+  }
+
+  .commands-window__titlebar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 12px 14px;
+    border-bottom: 1px solid rgba(255, 204, 0, 0.12);
+    background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(0,0,0,0.10));
+  }
+
+  .commands-window__subbar {
+    display: none;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 12px 14px;
+    border-bottom: 1px solid rgba(255, 204, 0, 0.12);
+    background: rgba(255,255,255,0.02);
+  }
+
+  .commands-window__subbar-title {
+    font-weight: 1000;
+    color: #ffffff;
+    letter-spacing: 0.2px;
+  }
+
+  .commands-window__name {
+    font-weight: 900;
+    color: #ffffff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .commands-window__btn {
+    background: transparent;
+    border: 1px solid rgba(255, 204, 0, 0.35);
+    color: #ffcc00;
+    border-radius: 10px;
+    padding: 6px 10px;
+    font-weight: 800;
+    cursor: pointer;
+  }
+
+  .commands-window__btn:hover {
+    border-color: rgba(255, 204, 0, 0.55);
+  }
+
+  .commands-window__body {
+    padding: 14px;
+  }
+
+  .commands-window__body ul {
+    padding-left: 1.2rem;
+    margin: 0;
+    color: #b8c1ca;
+  }
+
+  .commands-window__muted {
+    color: var(--muted);
+    margin: 0;
+  }
+
+  .gs-editable[contenteditable="true"] {
+    outline: 1px dashed #ffd700;
+    border-radius: 6px;
+    padding: 0 4px;
+  }
+
+  .gs-add-btn {
+    background: transparent;
+    border: 1px solid rgba(255, 204, 0, 0.35);
+    color: #ffcc00;
+    border-radius: 10px;
+    padding: 6px 10px;
+    font-weight: 900;
+    cursor: pointer;
+    display: none;
+  }
+
+  .gs-add-btn:hover {
+    border-color: rgba(255, 204, 0, 0.55);
+  }
+
+  .gs-sanction-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    padding: 10px 10px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 12px;
+    background: rgba(255,255,255,0.02);
+    margin: 10px 0;
+  }
+
+  .gs-sanction-row.is-dragging {
+    opacity: 0.92;
+    cursor: grabbing;
+    box-shadow: 0 12px 26px rgba(0,0,0,0.35);
+  }
+
+  .gs-sanction-row.gs-sanction-row--placeholder {
+    border: 1px dashed rgba(255, 255, 255, 0.22);
+    background: rgba(255,255,255,0.03);
+  }
+
+  .gs-drag-handle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 38px;
+    padding: 0 10px;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.02);
+    color: #b8c1ca;
+    font-weight: 1000;
+    user-select: none;
+    cursor: grab;
+    line-height: 1;
+  }
+
+  .gs-drag-handle:active {
+    cursor: grabbing;
+  }
+
+  .gs-chipbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+  }
+
+  /* Barra segmentada (estilo captura) */
+  .gs-segbar {
+    display: inline-flex;
+    gap: 0;
+    align-items: stretch;
+    overflow: hidden;
+    border-radius: 12px;
+  }
+
+  .gs-segbar .gs-chip {
+    border-radius: 0;
+    border-left-width: 0;
+  }
+
+  .gs-segbar .gs-chip:first-child {
+    border-left-width: 1px;
+    border-top-left-radius: 12px;
+    border-bottom-left-radius: 12px;
+  }
+
+  .gs-segbar .gs-chip:last-child {
+    border-top-right-radius: 12px;
+    border-bottom-right-radius: 12px;
+  }
+
+  .gs-action-pills {
+    display: inline-flex;
+    gap: 0;
+    flex-wrap: wrap;
+    align-items: stretch;
+    overflow: hidden;
+    border-radius: 12px;
+  }
+
+  .gs-action-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 40px;
+    padding: 0 10px;
+    font-weight: 1000;
+    border: 1px solid rgba(255,255,255,0.12);
+    border-left-width: 0;
+    user-select: none;
+    cursor: pointer;
+    line-height: 1;
+    box-sizing: border-box;
+    align-self: stretch;
+    white-space: nowrap;
+  }
+
+  .gs-action-pill.is-dragging {
+    opacity: 0.92;
+    cursor: grabbing;
+    box-shadow: 0 10px 22px rgba(0,0,0,0.35);
+  }
+
+  .gs-action-pill.gs-action-pill--placeholder {
+    border: 1px dashed rgba(255, 255, 255, 0.22);
+    background: rgba(255,255,255,0.03);
+  }
+
+  .gs-action-pill:first-child {
+    border-left-width: 1px;
+  }
+
+  .gs-action-pill__x {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 999px;
+    border: 1px solid rgba(0,0,0,0.20);
+    background: rgba(255,255,255,0.18);
+    color: rgba(0,0,0,0.75);
+    font-weight: 1000;
+    line-height: 1;
+  }
+
+  .gs-action-pill--jail { background: #f2994a; color: #1b1b1b; border-color: rgba(242, 153, 74, 0.55); }
+  .gs-action-pill--mute { background: #6fcf97; color: #0f1113; border-color: rgba(111, 207, 151, 0.55); }
+  .gs-action-pill--ban { background: #eb5757; color: #ffffff; border-color: rgba(235, 87, 87, 0.55); }
+  .gs-action-pill--kick { background: #1e3a5f; color: #ffffff; border-color: rgba(30, 58, 95, 0.55); }
+  .gs-action-pill--warn { background: #f2c94c; color: #1b1b1b; border-color: rgba(242, 201, 76, 0.55); }
+  .gs-action-pill--aviso { background: #a78bfa; color: #ffffff; border-color: rgba(167, 139, 250, 0.55); }
+  /* Combined segments color matching */
+  .gs-action-pill--combined .combined-left.gs-action-pill--jail { background: #f2994a; color: #1b1b1b; border-color: rgba(242,153,74,0.55); }
+  .gs-action-pill--combined .combined-right.gs-action-pill--kick { background: #1e3a5f; color: #ffffff; border-color: rgba(30,58,95,0.55); }
+  /* Slight overlap around the 50% split to prevent 1px seams on some zoom levels */
+  .gs-action-pill--warnkick { background: linear-gradient(90deg, #f2c94c 0%, #f2c94c 50.2%, #1e3a5f 49.8%, #1e3a5f 100%); color: #ffffff; border-color: rgba(255,255,255,0.08); }
+  .gs-action-pill--jailkick { background: linear-gradient(90deg, #f2994a 0%, #f2994a 50.2%, #1e3a5f 49.8%, #1e3a5f 100%); color: #ffffff; border-color: rgba(255,255,255,0.08); }
+
+  /* Visual seam fix: nudge gradient and enlarge to hide 1px seam between adjacent pills */
+  .gs-action-pill--warnkick, .gs-action-pill--jailkick {
+    background-size: calc(100% + 2px) 100%;
+    background-position: -1px 0;
+    background-repeat: no-repeat;
+    background-clip: padding-box;
+  }
+
+  /* Hard split (no gradient) to avoid any perceived "desnivel" on the right half at certain zoom levels */
+  .gs-action-pill--warnkick,
+  .gs-action-pill--jailkick {
+    position: relative;
+    overflow: hidden;
+    background: transparent;
+    /* Keep the outline consistent with other pills */
+    border-color: rgba(255,255,255,0.12);
+    background-clip: padding-box;
+  }
+
+  .gs-action-pill--warnkick::before,
+  .gs-action-pill--warnkick::after,
+  .gs-action-pill--jailkick::before,
+  .gs-action-pill--jailkick::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: calc(50% + 1px);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Slight overlap (2px) around the split to avoid a seam at some zoom levels */
+  .gs-action-pill--warnkick::before { left: -1px; background: #f2c94c; }
+  .gs-action-pill--warnkick::after { right: -1px; background: #1e3a5f; }
+  .gs-action-pill--jailkick::before { left: -1px; background: #f2994a; }
+  .gs-action-pill--jailkick::after { right: -1px; background: #1e3a5f; }
+
+  .gs-action-pill--warnkick > span,
+  .gs-action-pill--jailkick > span {
+    position: relative;
+    z-index: 1;
+  }
+
+
+
+  .gs-chip {
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255,255,255,0.02);
+    color: #ffffff;
+    border-radius: 10px;
+    padding: 7px 10px;
+    font-weight: 900;
+    cursor: pointer;
+    user-select: none;
+    line-height: 1;
+  }
+
+  .gs-chip:hover {
+    border-color: rgba(255, 204, 0, 0.45);
+  }
+
+  .gs-chip.is-active {
+    border-color: rgba(255, 255, 255, 0.30);
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.10);
+  }
+
+  /* Colores por tipo (cuando está seleccionado) */
+  .gs-chip--warn.is-active { background: #f2c94c; color: #1b1b1b; text-shadow: none; }
+  .gs-chip--aviso.is-active { background: #a78bfa; color: #ffffff; }
+  .gs-chip--jail.is-active { background: #f2994a; color: #1b1b1b; text-shadow: none; }
+  .gs-chip--mute.is-active { background: #6fcf97; color: #0f1113; text-shadow: none; }
+  .gs-chip--ban.is-active { background: #eb5757; color: #ffffff; }
+  .gs-chip--kick.is-active { background: #1e3a5f; color: #ffffff; text-shadow: none; }
+
+  /* Presets con color base (para verse como bloques) */
+  .gs-chip.gs-preset[data-kind="mute"],
+  .gs-chip.gs-preset[data-kind="jail"] {
+    background: rgba(111, 207, 151, 0.35);
+    border-color: rgba(111, 207, 151, 0.55);
+    color: #0f1113;
+    text-shadow: none;
+  }
+
+  .gs-chip.gs-preset[data-kind="ban"] {
+    background: rgba(235, 87, 87, 0.35);
+    border-color: rgba(235, 87, 87, 0.55);
+    color: #ffffff;
+  }
+
+  .gs-chip.gs-preset[data-kind="kick"] {
+    background: rgba(30, 58, 95, 0.35);
+    border-color: rgba(30, 58, 95, 0.55);
+    color: #ffffff;
+  }
+
+  .gs-chip.gs-preset:hover {
+    filter: brightness(1.08);
+  }
+
+  .gs-field {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .gs-input {
+    width: 120px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 204, 0, 0.25);
+    background: rgba(255,255,255,0.03);
+    color: #ffffff;
+    outline: none;
+  }
+
+  .gs-input:focus {
+    border-color: rgba(255, 204, 0, 0.55);
+  }
+
+  .gs-select {
+    padding: 8px 10px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 204, 0, 0.25);
+    background: rgba(255,255,255,0.03);
+    color: #ffffff;
+    outline: none;
+    font-weight: 800;
+  }
+
+  .gs-sanction-view {
+    color: #b8c1ca;
+    font-weight: 800;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .gs-badges { display: inline-flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+  .gs-badge {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 10px;
+    padding: 6px 10px;
+    font-weight: 1000;
+    line-height: 1;
+    letter-spacing: 0.2px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+  }
+
+  /* Misma paleta que la leyenda/chips */
+  .gs-badge--warn { background: #f2c94c; color: #1b1b1b; border-color: rgba(242, 201, 76, 0.55); }
+  .gs-badge--aviso { background: #a78bfa; color: #ffffff; border-color: rgba(167, 139, 250, 0.55); }
+  .gs-badge--jail { background: #f2994a; color: #1b1b1b; border-color: rgba(242, 153, 74, 0.55); }
+  .gs-badge--mute { background: #6fcf97; color: #0f1113; border-color: rgba(111, 207, 151, 0.55); }
+  .gs-badge--ban { background: #eb5757; color: #ffffff; border-color: rgba(235, 87, 87, 0.55); }
+  /* Combined badge for Warn + Kick */
+  .gs-badge--combined-warn-kick {
+    background: linear-gradient(90deg, #f2c94c 0%, #f2c94c 50.2%, #1e3a5f 49.8%, #1e3a5f 100%);
+    color: #ffffff;
+    border-color: rgba(255,255,255,0.08);
+    font-weight: 900;
+  }
+  /* Combined badge for Jail + Kick */
+  .gs-badge--combined-jail-kick {
+    background: linear-gradient(90deg, #f2994a 0%, #f2994a 50.2%, #1e3a5f 49.8%, #1e3a5f 100%);
+    color: #ffffff;
+    border-color: rgba(255,255,255,0.08);
+    font-weight: 900;
+  }
+
+  /* Seam fix for combined badges (same trick as action pills) */
+  .gs-badge--combined-warn-kick,
+  .gs-badge--combined-jail-kick {
+    background-size: calc(100% + 2px) 100%;
+    background-position: -1px 0;
+    background-repeat: no-repeat;
+    background-clip: padding-box;
+  }
+  .gs-badge--kick { background: #1e3a5f; color: #ffffff; border-color: rgba(30, 58, 95, 0.55); }
+
+  .gs-motivo {
+    display: inline-flex;
+    gap: 8px;
+    align-items: baseline;
+    flex: 1 1 240px;
+    min-width: 220px;
+  }
+
+  .gs-motivo__label { color: var(--muted); font-weight: 1000; }
+  .gs-motivo__text { color: #b8c1ca; font-weight: 900; }
+
+  /* Vista en formato “barra” */
+  .gs-segview {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    width: 100%;
+  }
+
+  .gs-segview__motivo {
+    flex: 1 1 260px;
+    min-width: 220px;
+    border-radius: 0;
+    padding: 0;
+    font-weight: 1000;
+    background: transparent;
+    color: #ffffff;
+    border: none;
+  }
+
+  .gs-segview__bar {
+    flex: 0 0 auto;
+  }
+
+  /* Modal crear modalidad */
+  .gs-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(7px);
+    -webkit-backdrop-filter: blur(7px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+    padding: 16px;
+  }
+
+  .gs-modal {
+    width: min(560px, 100%);
+    border-radius: 14px;
+    border: 1px solid var(--card-border);
+    background: var(--panel);
+    overflow: hidden;
+  }
+
+  .gs-modal__titlebar {
+    padding: 12px 14px;
+    border-bottom: 1px solid rgba(255, 204, 0, 0.12);
+    background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(0,0,0,0.10));
+    font-weight: 900;
+    color: #ffffff;
+  }
+
+  .gs-modal__body {
+    padding: 14px;
+  }
+
+  .gs-modal__label {
+    display: block;
+    color: #b8c1ca;
+    font-weight: 800;
+    margin-bottom: 8px;
+  }
+
+  .gs-modal__input {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 204, 0, 0.25);
+    background: rgba(255,255,255,0.03);
+    color: #ffffff;
+    outline: none;
+  }
+
+  .gs-modal__input:focus {
+    border-color: rgba(255, 204, 0, 0.55);
+  }
+
+  .gs-modal__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 12px 14px;
+    border-top: 1px solid rgba(255, 204, 0, 0.12);
+    background: linear-gradient(180deg, rgba(0,0,0,0.06), rgba(0,0,0,0.10));
+  }
+
+  .gs-btn {
+    background: transparent;
+    border: 1px solid rgba(255, 204, 0, 0.35);
+    color: #ffcc00;
+    border-radius: 10px;
+    padding: 8px 12px;
+    font-weight: 900;
+    cursor: pointer;
+  }
+
+  .gs-btn:hover {
+    border-color: rgba(255, 204, 0, 0.55);
+  }
+
+  .gs-btn--primary {
+    background: rgba(255, 204, 0, 0.10);
+  }
+
+  .gs-intro {
+    border-radius: 14px;
+    border: 1px solid var(--card-border);
+    background: var(--panel);
+    overflow: hidden;
+    margin-bottom: 16px;
+  }
+
+  .gs-intro__title {
+    padding: 12px 14px;
+    border-bottom: 1px solid rgba(255, 204, 0, 0.12);
+    background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(0,0,0,0.10));
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .gs-intro__title h3 {
+    margin: 0;
+    color: #ffffff;
+    font-weight: 1000;
+    letter-spacing: 0.3px;
+  }
+
+  .gs-intro__title span {
+    color: var(--muted);
+    font-weight: 900;
+  }
+
+  .gs-intro__body {
+    padding: 14px;
+  }
+
+  .gs-note-box {
+    border-radius: 12px;
+    border: 2px solid rgba(60, 120, 255, 0.65);
+    background: rgba(255,255,255,0.02);
+    padding: 12px 12px;
+    color: #e6eef3;
+    font-weight: 800;
+  }
+
+  .gs-guide-text {
+    margin: 10px 0 0 0;
+    color: #b8c1ca;
+    font-weight: 900;
+  }
+
+  .gs-legend {
+    margin-top: 10px;
+    border-radius: 12px;
+    overflow: hidden;
+    display: grid;
+    grid-template-columns: repeat(6, minmax(120px, 1fr));
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .gs-legend__item {
+    padding: 10px 10px;
+    text-align: center;
+    font-weight: 1000;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #ffffff;
+    text-shadow: 0 1px 0 rgba(0,0,0,0.25);
+  }
+
+  .gs-legend__item--warning { background: #f2c94c; color: #1b1b1b; text-shadow: none; }
+  .gs-legend__item--aviso { background: #a78bfa; }
+  .gs-legend__item--jail { background: #f2994a; }
+  .gs-legend__item--mute { background: #6fcf97; color: #0f1113; text-shadow: none; }
+  .gs-legend__item--ban { background: #eb5757; }
+  .gs-legend__item--kick { background: #1e3a5f; }
+
+  @media (max-width: 900px) {
+    .gs-legend {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+
+<div class="container-main" style="margin-top: 2rem;">
+  <div class="sanciones-page">
+    <div class="gs-intro">
+      <div class="gs-intro__title">
+        <h3>SANCIONES</h3>
+      </div>
+      <div class="gs-intro__body">
+        <div class="gs-note-box">
+          Estas son las sanciones y se actualizan de forma constante.
+        </div>
+        <p class="gs-guide-text">Este es el formato:</p>
+        <div class="gs-legend" aria-label="Leyenda de sanciones">
+          <div class="gs-legend__item gs-legend__item--aviso">AVISO ESCRITO</div>
+          <div class="gs-legend__item gs-legend__item--warning">WARNING</div>
+          <div class="gs-legend__item gs-legend__item--jail">JAIL</div>
+          <div class="gs-legend__item gs-legend__item--mute">MUTE</div>
+          <div class="gs-legend__item gs-legend__item--ban">BAN</div>
+          <div class="gs-legend__item gs-legend__item--kick">KICK</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="role-tabs-wrap">
+      <div class="role-tabs" id="modalidades-tabs" role="tablist" aria-label="Modalidades">
+        {% for modalidad in (modalidades or []) %}
+        <button
+          type="button"
+          class="role-tab"
+          onclick="onModalidadClick(this)"
+          data-modalidad-id="{{ modalidad.id }}"
+          data-modalidad-nombre="{{ modalidad.nombre|escape }}"
+        >
+          <span class="role-tab__label">{{ modalidad.nombre }}</span>
+          <span class="role-tab__meta">Abrir</span>
+          {% if can_manage_modalidades %}
+          <span class="role-tab__danger" title="Eliminar" aria-label="Eliminar" onclick="openEliminarModalidadFromElem(this, event)">✕</span>
+          {% endif %}
+        </button>
+        {% endfor %}
+
+        {% if can_manage_modalidades %}
+        <button type="button" class="role-tab" onclick="openCrearModalidad()">
+          <span class="role-tab__label">+ Modalidad</span>
+          <span class="role-tab__meta">Crear</span>
+        </button>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="commands-window" id="modalidad-window">
+      <div class="commands-window__titlebar">
+        <div class="commands-window__name" id="modalidad-title">Selecciona una modalidad</div>
+      </div>
+      <div class="commands-window__subbar" id="gs-sanciones-subbar">
+        <div class="commands-window__subbar-title">Sanciones</div>
+        <div style="display:flex;gap:10px;align-items:center;">
+          <button type="button" class="gs-add-btn" id="gs-add-sanction" onclick="addSanction()">+ Sanción</button>
+          <button type="button" class="commands-window__btn" id="modalidad-clear" onclick="clearModalidadSelection()" style="display:none;">Cerrar</button>
+        </div>
+      </div>
+      <div class="commands-window__body" id="modalidad-body">
+        <p class="commands-window__muted">Elige una modalidad arriba para ver su contenido.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if can_manage_modalidades %}
+<div class="gs-modal-overlay" id="gs-create-modal" aria-hidden="true">
+  <div class="gs-modal" role="dialog" aria-modal="true" aria-label="Crear modalidad">
+    <div class="gs-modal__titlebar">Crear modalidad</div>
+    <div class="gs-modal__body">
+      <label class="gs-modal__label" for="gs-modalidad-nombre">Nombre de la modalidad</label>
+      <input id="gs-modalidad-nombre" class="gs-modal__input" type="text" autocomplete="off" placeholder="Ej: Norma general, PvP, etc.">
+    </div>
+    <div class="gs-modal__actions">
+      <button type="button" class="gs-btn" onclick="closeCrearModalidad()">Cancelar</button>
+      <button type="button" class="gs-btn gs-btn--primary" id="gs-modal-create-btn" onclick="crearModalidadDesdeModal()">Crear</button>
+    </div>
+  </div>
+</div>
+
+<div class="gs-modal-overlay" id="gs-saved-modal" aria-hidden="true">
+  <div class="gs-modal" role="dialog" aria-modal="true" aria-label="Guardado">
+    <div class="gs-modal__titlebar">Guardado</div>
+    <div class="gs-modal__body">
+      <p class="commands-window__muted" style="margin:0;">Guardado correctamente.</p>
+    </div>
+    <div class="gs-modal__actions">
+      <button type="button" class="gs-btn gs-btn--primary" id="gs-saved-ok">Aceptar</button>
+    </div>
+  </div>
+</div>
+
+<div class="gs-modal-overlay" id="gs-delete-modal" aria-hidden="true">
+  <div class="gs-modal" role="dialog" aria-modal="true" aria-label="Eliminar modalidad">
+    <div class="gs-modal__titlebar">Eliminar modalidad</div>
+    <div class="gs-modal__body">
+      <p class="commands-window__muted" style="margin:0;">
+        ¿Seguro que quieres eliminar “<span id="gs-delete-nombre" style="color:#ffffff;font-weight:900;"></span>”?
+      </p>
+    </div>
+    <div class="gs-modal__actions">
+      <button type="button" class="gs-btn" onclick="closeEliminarModalidad()">Cancelar</button>
+      <button type="button" class="gs-btn gs-btn--primary" id="gs-modal-delete-btn" onclick="confirmEliminarModalidad()">Aceptar</button>
+    </div>
+  </div>
+</div>
+
+<div class="gs-modal-overlay" id="gs-duration-modal" aria-hidden="true">
+  <div class="gs-modal" role="dialog" aria-modal="true" aria-label="Duración">
+    <div class="gs-modal__titlebar" id="gs-duration-title">Duración</div>
+    <div class="gs-modal__body">
+      <label class="gs-modal__label" for="gs-duration-amount">¿Cuánto tiempo?</label>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <input class="gs-modal__input" id="gs-duration-amount" type="number" min="1" step="1" autocomplete="off" placeholder="Tiempo" style="width:160px;">
+        <select class="gs-select" id="gs-duration-unit" style="min-width:120px;"></select>
+        <span class="commands-window__muted" id="gs-duration-hint" style="margin:0;"></span>
+      </div>
+      <div class="gs-segbar" id="gs-duration-presets" style="margin-top:12px;"></div>
+    </div>
+    <div class="gs-modal__actions">
+      <button type="button" class="gs-btn" id="gs-duration-cancel">Cancelar</button>
+      <button type="button" class="gs-btn gs-btn--primary" id="gs-duration-ok">Agregar</button>
+    </div>
+  </div>
+</div>
+
+<div class="gs-modal-overlay" id="gs-simple-combo-modal" aria-hidden="true">
+  <div class="gs-modal" role="dialog" aria-modal="true" aria-label="Confirmar sanción">
+    <div class="gs-modal__titlebar" id="gs-combo-title">Confirmar</div>
+    <div class="gs-modal__body">
+      <p id="gs-combo-message" class="commands-window__muted" style="margin:0 0 8px 0;">¿Quieres que esta sanción incluya Kick además de Warn?</p>
+    </div>
+    <div class="gs-modal__actions">
+      <button type="button" class="gs-btn" id="gs-combo-no">No</button>
+      <button type="button" class="gs-btn gs-btn--primary" id="gs-combo-yes">Sí</button>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<script>
+  const GS_CAN_EDIT = !!document.getElementById('edit-all-btn');
+  let gsEditMode = false;
+  let gsSelectedModalidadId = null;
+  let gsSancionesCache = [];
+  let gsJustReorderedUntil = 0;
+  let gsDirty = false;
+
+  function gsMarkDirty() {
+    if (!gsEditMode) return;
+    gsDirty = true;
+  }
+
+  function gsResetDirty() {
+    gsDirty = false;
+  }
+
+  function gsCloseSavedModal() {
+    const overlay = document.getElementById('gs-saved-modal');
+    if (!overlay) return;
+    overlay.style.display = 'none';
+    overlay.setAttribute('aria-hidden', 'true');
+  }
+
+  function gsOpenSavedModal() {
+    const overlay = document.getElementById('gs-saved-modal');
+    if (!overlay) return;
+    overlay.style.display = 'flex';
+    overlay.setAttribute('aria-hidden', 'false');
+    const okBtn = document.getElementById('gs-saved-ok');
+    if (okBtn) setTimeout(() => okBtn.focus(), 0);
+  }
+
+  function setActiveTab(activeBtn) {
+    document.querySelectorAll('#modalidades-tabs .role-tab').forEach((btn) => {
+      btn.classList.toggle('active', btn === activeBtn);
+    });
+  }
+
+  function renderContenidoModalidad(nombre) {
+    const title = document.getElementById('modalidad-title');
+    const body = document.getElementById('modalidad-body');
+    const clearBtn = document.getElementById('modalidad-clear');
+    const subbar = document.getElementById('gs-sanciones-subbar');
+
+    title.textContent = nombre || 'Modalidad';
+    clearBtn.style.display = 'inline-flex';
+    if (subbar) subbar.style.display = 'flex';
+    body.innerHTML = '<p class="commands-window__muted">Cargando...</p>';
+  }
+
+  function renderSancionesList(items) {
+    const body = document.getElementById('modalidad-body');
+    if (!body) return;
+
+    const sanciones = Array.isArray(items) ? items : [];
+    const html = sanciones.map((s, idx) => renderSancionItem(s, idx)).join('');
+    body.innerHTML = `<div id="gs-sanctions-list">${html}</div>`;
+
+    if (gsEditMode && sanciones.length === 0) addSanction();
+
+    // Normalize combined pill heights after insertion
+    normalizeCombinedPillHeights();
+  }
+
+  function sancionKindLabel(kind) {
+    const k = String(kind || '').toLowerCase();
+    // Mantener estilo tipográfico consistente con Jail/Mute/Ban
+    if (k === 'aviso') return 'Aviso escrito';
+    if (k === 'warn') return 'Warn';
+    if (k === 'jail') return 'Jail';
+    if (k === 'mute') return 'Mute';
+    if (k === 'ban') return 'Ban';
+    if (k === 'kick') return 'Kick';
+    return '';
+  }
+
+  function sancionKindBadgeClass(kind) {
+    const k = String(kind || '').toLowerCase();
+    if (k === 'aviso') return 'gs-badge--aviso';
+    if (k === 'warn') return 'gs-badge--warn';
+    if (k === 'jail') return 'gs-badge--jail';
+    if (k === 'mute') return 'gs-badge--mute';
+    if (k === 'ban') return 'gs-badge--ban';
+    if (k === 'kick') return 'gs-badge--kick';
+    return '';
+  }
+
+  function formatActionDuration(a) {
+    const kind = String((a && a.kind) || '').toLowerCase();
+    const amount = a && a.amount != null ? parseInt(a.amount, 10) : NaN;
+    const unit = String((a && a.unit) || '').toLowerCase();
+    if ((kind === 'mute' || kind === 'jail') && Number.isFinite(amount) && amount > 0) {
+      return `${amount}${unit === 'h' ? 'h' : 'm'}`;
+    }
+    if (kind === 'ban' && Number.isFinite(amount) && amount > 0) {
+      return `${amount}d`;
+    }
+    return '';
+  }
+
+  function renderSancionBadges(actions) {
+    const list = Array.isArray(actions) ? actions : [];
+    if (list.length === 0) return '';
+    // Preserve the stored order. Only render combined badges when {warn|jail} is immediately followed by kick.
+    const parts = [];
+    const allowed = new Set(['aviso', 'warn', 'jail', 'mute', 'ban', 'kick']);
+    for (let i = 0; i < list.length; i++) {
+      const a = list[i];
+      if (!a || a.kind == null) continue;
+      const k = String(a.kind).toLowerCase();
+      if (!allowed.has(k)) continue;
+
+      const next = (i + 1 < list.length) ? list[i + 1] : null;
+      const nextKind = next && next.kind != null ? String(next.kind).toLowerCase() : '';
+
+      if ((k === 'warn' || k === 'jail') && nextKind === 'kick') {
+        if (k === 'warn') {
+          parts.push(`<span class="gs-badge gs-badge--combined-warn-kick">Warn + Kick</span>`);
+        } else {
+          const dur = formatActionDuration(a) || '';
+          const label = sancionKindLabel('jail') || 'Jail';
+          const text = dur ? `${label} ${dur} + Kick` : `${label} + Kick`;
+          parts.push(`<span class="gs-badge gs-badge--combined-jail-kick">${escapeHtml(text)}</span>`);
+        }
+        i++; // consume kick
+        continue;
+      }
+
+      const label = sancionKindLabel(k) || 'Sanción';
+      const dur = formatActionDuration(a);
+      const text = dur ? `${label} ${dur}` : label;
+      const cls = sancionKindBadgeClass(k);
+      parts.push(`<span class="gs-badge ${cls}">${escapeHtml(text)}</span>`);
+    }
+
+    return parts.length ? `<div class="gs-badges gs-segview__bar">${parts.join('')}</div>` : '';
+  }
+
+  function formatSancionForView(s) {
+    if (s && s.data && typeof s.data === 'object') {
+      const text = String(s.data.text || '').trim();
+      const actions = Array.isArray(s.data.actions) ? s.data.actions : [];
+      const tags = [];
+      for (let i = 0; i < actions.length; i++) {
+        const a = actions[i];
+        const kind = String((a && a.kind) || '').toLowerCase();
+        const next = (i + 1 < actions.length) ? actions[i + 1] : null;
+        const nextKind = String((next && next.kind) || '').toLowerCase();
+        if ((kind === 'warn' || kind === 'jail') && nextKind === 'kick') {
+          if (kind === 'warn') tags.push('Warn + Kick');
+          else {
+            const label = sancionKindLabel('jail') || 'Jail';
+            const dur = formatActionDuration(a);
+            tags.push(dur ? `${label} ${dur} + Kick` : `${label} + Kick`);
+          }
+          i++;
+          continue;
+        }
+        const label = sancionKindLabel(kind) || 'Sanción';
+        const dur = formatActionDuration(a);
+        tags.push(dur ? `${label} ${dur}` : label);
+      }
+      const tagsClean = tags.filter(Boolean);
+      if (tagsClean.length === 0) return text;
+      return text ? `${tagsClean.join(' + ')} - ${text}` : tagsClean.join(' + ');
+    }
+    const texto = (s && typeof s.texto === 'string') ? s.texto : '';
+    return texto;
+  }
+
+  function gsGetFocusState() {
+    const active = document.activeElement;
+    if (!active) return null;
+    const row = active.closest ? active.closest('.gs-sanction-row') : null;
+    if (!row) return null;
+    const idx = row.getAttribute('data-index');
+    const cls = active.classList;
+    const field = cls && cls.contains('gs-text') ? 'text' : '';
+    if (!field) return null;
+    let selStart = null;
+    let selEnd = null;
+    try {
+      if (typeof active.selectionStart === 'number') selStart = active.selectionStart;
+      if (typeof active.selectionEnd === 'number') selEnd = active.selectionEnd;
+    } catch (_) {}
+    return { idx: String(idx || ''), field, selStart, selEnd };
+  }
+
+  function gsRestoreFocusState(state) {
+    if (!state || !state.idx || !state.field) return;
+    const row = document.querySelector(`.gs-sanction-row[data-index="${CSS.escape(state.idx)}"]`);
+    if (!row) return;
+    let el = null;
+    if (state.field === 'text') {
+      el = row.querySelector('.gs-text');
+    }
+    if (!el) return;
+    el.focus();
+    try {
+      if (typeof state.selStart === 'number' && typeof state.selEnd === 'number' && typeof el.setSelectionRange === 'function') {
+        el.setSelectionRange(state.selStart, state.selEnd);
+      }
+    } catch (_) {}
+  }
+
+  function gsRerenderPreserveFocus() {
+    const state = gsGetFocusState();
+    renderSancionesList(gsSancionesCache);
+    if (state) gsRestoreFocusState(state);
+    normalizeCombinedPillHeights();
+  }
+
+  function normalizeCombinedPillHeights() {
+    // Let flexbox handle equal heights; only clear any leftover inline sizing.
+    requestAnimationFrame(() => {
+      document.querySelectorAll('.gs-action-pills').forEach((wrap) => {
+        wrap.querySelectorAll('.gs-action-pill').forEach((p) => {
+          if (p.classList.contains('is-dragging')) return;
+          if (p.classList.contains('gs-action-pill--placeholder')) return;
+          p.style.height = '';
+          p.style.display = 'inline-flex';
+          p.style.alignItems = 'center';
+        });
+      });
+    });
+  }
+
+  function renderSancionItem(s, idx) {
+    if (!gsEditMode) {
+      const data = (s && s.data && typeof s.data === 'object') ? s.data : null;
+      const actions = data && Array.isArray(data.actions) ? data.actions : [];
+      const motivo = data ? String(data.text || '') : (s && typeof s.texto === 'string' ? s.texto : '');
+      const badges = renderSancionBadges(actions);
+      const motivoSafe = escapeHtml((motivo || '').trim());
+      return `
+        <div class="gs-sanction-row" data-index="${idx}">
+          <div class="gs-segview">
+            <div class="gs-segview__motivo">${motivoSafe || '—'}</div>
+            ${badges}
+          </div>
+        </div>
+      `;
+    }
+
+    // Edit mode: if structured (v2), populate actions; else treat as raw text without actions
+    const data = (s && s.data && typeof s.data === 'object') ? s.data : null;
+    const actions = data && Array.isArray(data.actions) ? data.actions : [];
+    const countKind = (k) => actions.filter((a) => a && String(a.kind || '').toLowerCase() === k).length;
+    const has = (k) => countKind(k) > 0;
+
+    const text = data ? String(data.text || '') : (s && typeof s.texto === 'string' ? s.texto : '');
+
+    // Orden solicitado: AVISO ESCRITO → WARNING → JAIL → MUTE → BAN → KICK
+    const actionOrder = ['aviso', 'warn', 'jail', 'mute', 'ban', 'kick'];
+    const buildActionChips = () => {
+      const chip = (k, label, cls) => {
+        const active = has(k);
+        return `<button type="button" class="gs-chip gs-kind ${cls} ${active ? 'is-active' : ''}" data-kind="${k}">${label}</button>`;
+      };
+      return [
+        chip('aviso', 'Aviso escrito', 'gs-chip--aviso'),
+        chip('warn', 'Warn', 'gs-chip--warn'),
+        chip('jail', 'Jail', 'gs-chip--jail'),
+        chip('mute', 'Mute', 'gs-chip--mute'),
+        chip('ban', 'Ban', 'gs-chip--ban'),
+        chip('kick', 'Kick', 'gs-chip--kick'),
+      ].join('');
+    };
+
+    const renderDurationPills = () => {
+      const list = Array.isArray(actions) ? actions : [];
+      const pills = [];
+      // Iterate through actions in order and render pills.
+      // If a warn is immediately followed by a kick, render a single combined pill for that pair.
+      for (let i = 0; i < list.length; i++) {
+        const a = list[i];
+        if (!a || !a.kind) continue;
+        const k = String(a.kind).toLowerCase();
+        if ((k === 'warn' || k === 'jail') && i + 1 < list.length && list[i + 1] && String(list[i + 1].kind).toLowerCase() === 'kick') {
+          const pos = i;
+          if (k === 'warn') {
+            const html = `<span class="gs-action-pill gs-action-pill--warnkick" data-action-pos="${pos}" data-action-idxs="${pos},${pos + 1}" title="Quitar">
+              <span>Warn +K</span>
+              <span class="gs-action-pill__x" aria-hidden="true">×</span>
+            </span>`;
+            pills.push({ k: 'warnkick', pos, html });
+          } else {
+            // Render Jail+Kick using the same single-span layout as warn+kick
+            // so it visually matches when editing/adding sanctions.
+            const dur = formatActionDuration(a) || '';
+            const label = sancionKindLabel('jail') || 'Jail';
+            const leftText = dur ? `${label} ${dur}` : label;
+            const html = `<span class="gs-action-pill gs-action-pill--jailkick" data-action-pos="${pos}" data-action-idxs="${pos},${pos + 1}" title="Quitar">` +
+              `<span>${escapeHtml(leftText)} +K</span>` +
+              `<span class="gs-action-pill__x" aria-hidden="true">×</span>` +
+            `</span>`;
+            pills.push({ k: 'jailkick', pos, html });
+          }
+          i++; // skip next (kick) since consumed
+          continue;
+        }
+        if (!['aviso', 'warn', 'jail', 'mute', 'ban', 'kick'].includes(k)) continue;
+        const label = sancionKindLabel(k) || 'Sanción';
+        const dur = formatActionDuration(a);
+        const text = dur ? `${label} ${dur}` : label;
+        let cls = 'gs-action-pill--ban';
+        if (k === 'jail') cls = 'gs-action-pill--jail';
+        else if (k === 'mute') cls = 'gs-action-pill--mute';
+        else if (k === 'ban') cls = 'gs-action-pill--ban';
+        else if (k === 'kick') cls = 'gs-action-pill--kick';
+        else if (k === 'warn') cls = 'gs-action-pill--warn';
+        else if (k === 'aviso') cls = 'gs-action-pill--aviso';
+
+        pills.push({ k, pos: i, html: `<span class="gs-action-pill ${cls}" data-action-pos="${i}" data-action-idxs="${i}" title="Quitar">
+            <span>${escapeHtml(text)}</span>
+            <span class="gs-action-pill__x" aria-hidden="true">×</span>
+          </span>` });
+      }
+
+      if (!pills.length) return '';
+      // preserve order already
+      return `<div style="width:100%;display:flex;justify-content:flex-end;">
+        <div class="gs-action-pills">${pills.map((p) => p.html).join('')}</div>
+      </div>`;
+    };
+
+    return `
+      <div class="gs-sanction-row" data-index="${idx}">
+        <div style="width:100%;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <div class="gs-drag-handle" title="Mantén y arrastra para reordenar" aria-label="Arrastrar">⋮⋮</div>
+            <div class="gs-segbar" aria-label="Tipo de sanción">
+              ${buildActionChips()}
+            </div>
+          </div>
+          <div class="gs-field" style="flex:1 1 320px;justify-content:flex-end;gap:10px;">
+            <input class="gs-input gs-text" style="width:min(520px, 100%);" type="text" placeholder="Nombre / motivo de la sanción..." value="${escapeHtml(text)}">
+          </div>
+        </div>
+        <div style="width:100%;margin-top:10px;">${renderDurationPills()}</div>
+      </div>
+    `;
+  }
+
+  function onModalidadClick(btn) {
+    try {
+      if (!btn) return;
+      setActiveTab(btn);
+      const nombre = btn.dataset.modalidadNombre || 'Modalidad';
+      const modalidadId = btn.dataset.modalidadId;
+      gsSelectedModalidadId = modalidadId || null;
+      renderContenidoModalidad(nombre);
+      cargarSanciones(modalidadId);
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  function clearModalidadSelection() {
+    document.querySelectorAll('#modalidades-tabs .role-tab').forEach((btn) => btn.classList.remove('active'));
+    document.getElementById('modalidad-title').textContent = 'Selecciona una modalidad';
+    document.getElementById('modalidad-body').innerHTML = '<p class="commands-window__muted">Elige una modalidad arriba para ver su contenido.</p>';
+    document.getElementById('modalidad-clear').style.display = 'none';
+    const subbar = document.getElementById('gs-sanciones-subbar');
+    if (subbar) subbar.style.display = 'none';
+    gsSelectedModalidadId = null;
+    gsSancionesCache = [];
+    updateEditUI();
+  }
+
+  async function cargarSanciones(modalidadId) {
+    try {
+      if (!modalidadId) {
+        gsSancionesCache = [];
+        renderSancionesList(gsSancionesCache);
+        return;
+      }
+      const res = await fetch(`/GuiasSanciones/modalidades/${modalidadId}/sanciones`, { method: 'GET' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data || !data.ok) {
+        gsSancionesCache = [];
+        renderSancionesList(gsSancionesCache);
+        return;
+      }
+      gsSancionesCache = Array.isArray(data.sanciones) ? data.sanciones : [];
+      renderSancionesList(gsSancionesCache);
+      updateEditUI();
+    } catch (e) {
+      console.error(e);
+      gsSancionesCache = [];
+      renderSancionesList(gsSancionesCache);
+    }
+  }
+
+  function getCsrfToken() {
+    const meta = document.querySelector('meta[name="csrf-token"]');
+    return (meta && meta.content) ? meta.content : '';
+  }
+
+  function openCrearModalidad() {
+    const overlay = document.getElementById('gs-create-modal');
+    const input = document.getElementById('gs-modalidad-nombre');
+    if (!overlay || !input) return;
+    overlay.style.display = 'flex';
+    overlay.setAttribute('aria-hidden', 'false');
+    input.value = '';
+    setTimeout(() => input.focus(), 0);
+  }
+
+  function closeCrearModalidad() {
+    const overlay = document.getElementById('gs-create-modal');
+    if (!overlay) return;
+    overlay.style.display = 'none';
+    overlay.setAttribute('aria-hidden', 'true');
+  }
+
+  async function crearModalidadDesdeModal() {
+    const input = document.getElementById('gs-modalidad-nombre');
+    const btn = document.getElementById('gs-modal-create-btn');
+    const nombre = (input ? input.value : '').trim();
+    if (!nombre) return;
+
+    const csrf = getCsrfToken();
+    if (!csrf) {
+      alert('CSRF no disponible. Recarga la página e intenta de nuevo.');
+      return;
+    }
+
+    if (btn) btn.disabled = true;
+
+    const res = await fetch('/GuiasSanciones/modalidades', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': csrf,
+      },
+      body: JSON.stringify({ nombre }),
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data || !data.ok) {
+      const err = (data && data.error) ? data.error : 'error';
+      if (err === 'ya_existe') alert('Ya existe una modalidad con ese nombre.');
+      else if (err === 'csrf') alert('Solicitud inválida. Recarga la página e intenta nuevamente.');
+      else if (err === 'nombre_requerido') alert('El nombre es obligatorio.');
+      else alert('No se pudo crear la modalidad.');
+      if (btn) btn.disabled = false;
+      return;
+    }
+
+    window.location.reload();
+  }
+
+  function updateEditUI() {
+    const saveBtn = document.getElementById('save-all-btn');
+    const addBtn = document.getElementById('gs-add-sanction');
+
+    if (saveBtn) saveBtn.style.display = gsEditMode ? 'flex' : 'none';
+    if (addBtn) addBtn.style.display = (gsEditMode && !!gsSelectedModalidadId) ? 'inline-flex' : 'none';
+
+    // Re-render sanctions to switch view/edit controls
+    if (gsSelectedModalidadId) {
+      renderSancionesList(gsSancionesCache);
+    }
+  }
+
+  function toggleEditAll() {
+    if (!GS_CAN_EDIT) return;
+    gsEditMode = !gsEditMode;
+    if (gsEditMode) gsResetDirty();
+    updateEditUI();
+  }
+
+  // Close saved modal on overlay click, Esc, and submit on Enter
+  (function wireSavedModal() {
+    const overlay = document.getElementById('gs-saved-modal');
+    const okBtn = document.getElementById('gs-saved-ok');
+    if (!overlay || !okBtn) return;
+
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) gsCloseSavedModal();
+    });
+
+    okBtn.addEventListener('click', () => gsCloseSavedModal());
+
+    document.addEventListener('keydown', (e) => {
+      const isOpen = overlay.style.display === 'flex';
+      if (!isOpen) return;
+      if (e.key === 'Escape' || e.key === 'Enter') {
+        e.preventDefault();
+        gsCloseSavedModal();
+      }
+    });
+  })();
+
+  // ===== Modal duración (para sanciones escalables: múltiples Jail/Mute/Ban) =====
+  const gsDurationState = { idx: null, kind: null };
+
+  // ===== Modal combo simple (para Warn + Kick) =====
+  const gsSimpleComboState = { idx: null, kind: null, amount: null, unit: null };
+
+  function gsCloseDurationModal() {
+    const overlay = document.getElementById('gs-duration-modal');
+    if (!overlay) return;
+    overlay.style.display = 'none';
+    overlay.setAttribute('aria-hidden', 'true');
+    gsDurationState.idx = null;
+    gsDurationState.kind = null;
+  }
+
+  function gsOpenDurationModal(idx, kind) {
+    const overlay = document.getElementById('gs-duration-modal');
+    const title = document.getElementById('gs-duration-title');
+    const amountEl = document.getElementById('gs-duration-amount');
+    const unitEl = document.getElementById('gs-duration-unit');
+    const hintEl = document.getElementById('gs-duration-hint');
+    const presets = document.getElementById('gs-duration-presets');
+    if (!overlay || !title || !amountEl || !unitEl || !hintEl || !presets) return;
+
+    const k = String(kind || '').toLowerCase();
+    gsDurationState.idx = idx;
+    gsDurationState.kind = k;
+
+    amountEl.value = '';
+
+    if (k === 'ban') {
+      title.textContent = '¿Cuánto tiempo de Ban?';
+      hintEl.textContent = 'en días';
+      unitEl.innerHTML = '<option value="d">días</option>';
+      presets.innerHTML = '<button type="button" class="gs-chip gs-preset" data-kind="ban" data-amount="1" data-unit="d">1d</button>';
+      amountEl.placeholder = 'Días';
+      unitEl.value = 'd';
+    } else {
+      const label = (k === 'jail') ? 'Jail' : 'Mute';
+      title.textContent = `¿Cuánto tiempo de ${label}?`;
+      hintEl.textContent = '';
+      unitEl.innerHTML = '<option value="m">min</option><option value="h">h</option>';
+      presets.innerHTML = [
+        `<button type="button" class="gs-chip gs-preset" data-kind="${k}" data-amount="30" data-unit="m">30m</button>`,
+        `<button type="button" class="gs-chip gs-preset" data-kind="${k}" data-amount="1" data-unit="h">1h</button>`,
+        `<button type="button" class="gs-chip gs-preset" data-kind="${k}" data-amount="2" data-unit="h">2h</button>`,
+        `<button type="button" class="gs-chip gs-preset" data-kind="${k}" data-amount="4" data-unit="h">4h</button>`,
+      ].join('');
+      amountEl.placeholder = 'Tiempo';
+      unitEl.value = 'm';
+    }
+
+    overlay.style.display = 'flex';
+    overlay.setAttribute('aria-hidden', 'false');
+    setTimeout(() => amountEl.focus(), 0);
+  }
+
+  (function wireDurationModal() {
+    const overlay = document.getElementById('gs-duration-modal');
+    const cancelBtn = document.getElementById('gs-duration-cancel');
+    const okBtn = document.getElementById('gs-duration-ok');
+    const amountEl = document.getElementById('gs-duration-amount');
+    const unitEl = document.getElementById('gs-duration-unit');
+    const presets = document.getElementById('gs-duration-presets');
+    if (!overlay || !cancelBtn || !okBtn || !amountEl || !unitEl || !presets) return;
+
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) gsCloseDurationModal();
+    });
+
+    cancelBtn.addEventListener('click', () => gsCloseDurationModal());
+
+    document.addEventListener('keydown', (e) => {
+      const isOpen = overlay.style.display === 'flex';
+      if (!isOpen) return;
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        gsCloseDurationModal();
+      }
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        okBtn.click();
+      }
+    });
+
+    presets.addEventListener('click', (e) => {
+      const btn = e.target && e.target.closest ? e.target.closest('.gs-preset') : null;
+      if (!btn) return;
+      const amount = parseInt(btn.getAttribute('data-amount') || '0', 10);
+      const unit = String(btn.getAttribute('data-unit') || '').toLowerCase();
+      if (Number.isFinite(amount) && amount > 0) amountEl.value = String(amount);
+      if (unit) unitEl.value = unit;
+    });
+
+    okBtn.addEventListener('click', () => {
+      const idx = gsDurationState.idx;
+      const kind = String(gsDurationState.kind || '').toLowerCase();
+      if (!Number.isFinite(idx) || idx == null || idx < 0 || idx >= gsSancionesCache.length) {
+        gsCloseDurationModal();
+        return;
+      }
+
+      const amount = parseInt(String(amountEl.value || '').trim() || '0', 10);
+      if (!Number.isFinite(amount) || amount <= 0) return;
+
+      const unitRaw = String(unitEl.value || '').toLowerCase();
+      const unit = (kind === 'ban') ? 'd' : (unitRaw === 'h' ? 'h' : 'm');
+
+      const cur = gsSancionesCache[idx] || {};
+      const curText = (cur && cur.data && typeof cur.data === 'object') ? String(cur.data.text || '') : (cur && typeof cur.texto === 'string' ? cur.texto : '');
+      const curActions = (cur && cur.data && typeof cur.data === 'object' && Array.isArray(cur.data.actions)) ? cur.data.actions.slice() : [];
+
+      // If the action is 'jail' ask whether to also include a Kick (use simple combo modal)
+      if (kind === 'jail') {
+        // store pending duration into the simple combo state and open confirmation
+        gsSimpleComboState.idx = idx;
+        gsSimpleComboState.kind = kind;
+        gsSimpleComboState.amount = amount;
+        gsSimpleComboState.unit = unit;
+        gsOpenSimpleComboModal(idx, 'jail');
+        // keep modal open state handled by combo modal; close duration modal now
+        gsCloseDurationModal();
+        return;
+      }
+
+      // Non-jail: append duration action immediately
+      curActions.push({ kind, amount, unit });
+      gsSancionesCache[idx] = { texto: '', data: { v: 2, actions: curActions, text: curText } };
+      gsCloseDurationModal();
+      gsMarkDirty();
+      gsRerenderPreserveFocus();
+    });
+  })();
+
+  // ===== Modal combo simple (Warn + Kick) =====
+  function gsCloseComboModal() {
+    const overlay = document.getElementById('gs-simple-combo-modal');
+    if (!overlay) return;
+    overlay.style.display = 'none';
+    overlay.setAttribute('aria-hidden', 'true');
+    gsSimpleComboState.idx = null;
+    gsSimpleComboState.kind = null;
+    gsSimpleComboState.amount = null;
+    gsSimpleComboState.unit = null;
+  }
+
+  function gsOpenSimpleComboModal(idx, kind) {
+    const overlay = document.getElementById('gs-simple-combo-modal');
+    const title = document.getElementById('gs-combo-title');
+    const msg = document.getElementById('gs-combo-message');
+    if (!overlay || !title || !msg) return;
+
+    const k = String(kind || '').toLowerCase();
+    gsSimpleComboState.idx = idx;
+    gsSimpleComboState.kind = k;
+
+    title.textContent = `Confirmar`;
+    if (k === 'warn') msg.textContent = '¿Quieres que esta sanción incluya Kick además de Warn?';
+    else if (k === 'aviso') msg.textContent = '¿Quieres que esta sanción incluya Kick además de Aviso escrito?';
+    else if (k === 'jail') msg.textContent = '¿Quieres que esta sanción incluya Kick además de Jail?';
+    else msg.textContent = '¿Agregar sanción?';
+
+    overlay.style.display = 'flex';
+    overlay.setAttribute('aria-hidden', 'false');
+  }
+
+  (function wireSimpleComboModal() {
+    const overlay = document.getElementById('gs-simple-combo-modal');
+    const yesBtn = document.getElementById('gs-combo-yes');
+    const noBtn = document.getElementById('gs-combo-no');
+    if (!overlay || !yesBtn || !noBtn) return;
+
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) gsCloseComboModal();
+    });
+
+    document.addEventListener('keydown', (e) => {
+      const isOpen = overlay.style.display === 'flex';
+      if (!isOpen) return;
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        gsCloseComboModal();
+      }
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        yesBtn.click();
+      }
+    });
+
+    yesBtn.addEventListener('click', () => {
+      const idx = gsSimpleComboState.idx;
+      const kind = String(gsSimpleComboState.kind || '').toLowerCase();
+      if (!Number.isFinite(idx) || idx == null || idx < 0 || idx >= gsSancionesCache.length) {
+        gsCloseComboModal();
+        return;
+      }
+      const textEl = document.querySelector(`.gs-sanction-row[data-index="${CSS.escape(String(idx))}"] .gs-text`);
+      const curText = (textEl && typeof textEl.value === 'string') ? textEl.value : '';
+      const cur = gsSancionesCache[idx] || {};
+      const curActions = (cur && cur.data && typeof cur.data === 'object' && Array.isArray(cur.data.actions)) ? cur.data.actions.slice() : [];
+
+      // For jail, use stored amount/unit when present; otherwise append kind then kick.
+      if (kind === 'jail' && gsSimpleComboState.amount != null) {
+        curActions.push({ kind, amount: gsSimpleComboState.amount, unit: gsSimpleComboState.unit });
+        curActions.push({ kind: 'kick' });
+      } else {
+        curActions.push({ kind });
+        curActions.push({ kind: 'kick' });
+      }
+
+      gsSancionesCache[idx] = { texto: '', data: { v: 2, actions: curActions, text: String(curText || '') } };
+      gsCloseComboModal();
+      gsMarkDirty();
+      gsRerenderPreserveFocus();
+    });
+
+    noBtn.addEventListener('click', () => {
+      const idx = gsSimpleComboState.idx;
+      const kind = String(gsSimpleComboState.kind || '').toLowerCase();
+      if (!Number.isFinite(idx) || idx == null || idx < 0 || idx >= gsSancionesCache.length) {
+        gsCloseComboModal();
+        return;
+      }
+      const textEl = document.querySelector(`.gs-sanction-row[data-index="${CSS.escape(String(idx))}"] .gs-text`);
+      const curText = (textEl && typeof textEl.value === 'string') ? textEl.value : '';
+      const cur = gsSancionesCache[idx] || {};
+      const curActions = (cur && cur.data && typeof cur.data === 'object' && Array.isArray(cur.data.actions)) ? cur.data.actions.slice() : [];
+
+      // Append a new main kind action (preserve history/sequence). For jail include duration.
+      if (kind === 'jail' && gsSimpleComboState.amount != null) {
+        curActions.push({ kind, amount: gsSimpleComboState.amount, unit: gsSimpleComboState.unit });
+      } else {
+        curActions.push({ kind });
+      }
+
+      gsSancionesCache[idx] = { texto: '', data: { v: 2, actions: curActions, text: String(curText || '') } };
+      gsCloseComboModal();
+      gsMarkDirty();
+      gsRerenderPreserveFocus();
+    });
+  })();
+
+  function addSanction() {
+    if (!gsEditMode) return;
+    if (!gsSelectedModalidadId) return;
+    gsMarkDirty();
+    gsSancionesCache = Array.isArray(gsSancionesCache) ? gsSancionesCache : [];
+    // Auto-add Warn+Kick when creating new sanction
+    gsSancionesCache.push({ texto: '', data: { v: 2, actions: [{ kind: 'warn' }, { kind: 'kick' }], text: '' } });
+    renderSancionesList(gsSancionesCache);
+    const rows = document.querySelectorAll('#gs-sanctions-list .gs-sanction-row');
+    const last = rows && rows.length ? rows[rows.length - 1] : null;
+    const input = last ? last.querySelector('.gs-text') : null;
+    if (input) {
+      input.focus();
+      input.select && input.select();
+    }
+  }
+
+  async function saveAllEdits() {
+    try {
+      if (!GS_CAN_EDIT) return;
+      if (!gsEditMode) return;
+
+      // If nothing changed, just exit edit mode silently (no network, no modal)
+      if (!gsDirty) {
+        gsEditMode = false;
+        updateEditUI();
+        return;
+      }
+
+      const csrf = getCsrfToken();
+      if (!csrf) {
+        alert('CSRF no disponible. Recarga la página e intenta de nuevo.');
+        return;
+      }
+
+      // 1) Bulk rename modalidades
+      const items = [];
+      document.querySelectorAll('#modalidades-tabs .role-tab[data-modalidad-id] .role-tab__label').forEach((label) => {
+        const tab = label.closest('.role-tab');
+        if (!tab) return;
+        const id = tab.dataset.modalidadId;
+        const nombre = (label.textContent || '').trim();
+        if (!id || !nombre) return;
+        items.push({ id: parseInt(id, 10), nombre });
+      });
+
+      const r1 = await fetch('/GuiasSanciones/modalidades/bulk_rename', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': csrf,
+        },
+        body: JSON.stringify({ items }),
+      });
+
+      const d1 = await r1.json().catch(() => ({}));
+      if (!r1.ok || !d1 || !d1.ok) {
+        const err = (d1 && d1.error) ? d1.error : 'error';
+        if (err === 'conflict') alert('Hay nombres repetidos. Revisa y vuelve a guardar.');
+        else if (err === 'forbidden') alert('No tienes permisos para guardar cambios.');
+        else alert('No se pudieron guardar los nombres.');
+        return;
+      }
+
+      // 2) Save sanctions for selected modalidad (if any)
+      if (gsSelectedModalidadId) {
+        const sanciones = [];
+        (Array.isArray(gsSancionesCache) ? gsSancionesCache : []).forEach((it) => {
+          if (!it) return;
+          if (it.data && typeof it.data === 'object') {
+            const data = it.data;
+            const actions = Array.isArray(data.actions) ? data.actions : [];
+            const textVal = String(data.text || '').trim();
+            if (!actions.length) {
+              if (textVal) sanciones.push({ texto: textVal });
+              return;
+            }
+            sanciones.push({ data: { v: 2, actions, text: textVal } });
+            return;
+          }
+          const texto = (typeof it.texto === 'string') ? it.texto.trim() : '';
+          if (texto) sanciones.push({ texto });
+        });
+
+        // Debug: log payload before sending
+        try { console.debug('[gs] payload sanciones:', JSON.parse(JSON.stringify(sanciones))); } catch (e) {}
+
+        const r2 = await fetch(`/GuiasSanciones/modalidades/${gsSelectedModalidadId}/sanciones`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': csrf,
+          },
+          body: JSON.stringify({ sanciones }),
+        });
+
+        const d2 = await r2.json().catch(() => ({}));
+        if (!r2.ok || !d2 || !d2.ok) {
+          alert('No se pudieron guardar las sanciones.');
+          return;
+        }
+      }
+
+      // Avoid full reload so the combined badges/pills render immediately on the client
+      gsEditMode = false;
+      gsResetDirty();
+      updateEditUI();
+      gsOpenSavedModal();
+    } catch (e) {
+      console.error(e);
+      alert('No se pudieron guardar los cambios.');
+    }
+  }
+
+  // Renombrar modalidad con doble click
+  document.addEventListener('dblclick', (e) => {
+    const label = e.target && e.target.classList && e.target.classList.contains('role-tab__label') ? e.target : null;
+    if (!label) return;
+    const tab = label.closest('.role-tab');
+    if (!tab || !tab.dataset.modalidadId) return;
+    if (!document.getElementById('edit-all-btn')) return;
+    label.classList.add('gs-editable');
+    label.setAttribute('contenteditable', 'true');
+    label.focus();
+  });
+
+  function escapeHtml(s) {
+    return String(s)
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#39;');
+  }
+
+  // Close modal on overlay click, Esc, and submit on Enter
+  (function wireCrearModalidadModal() {
+    const overlay = document.getElementById('gs-create-modal');
+    const input = document.getElementById('gs-modalidad-nombre');
+    if (!overlay || !input) return;
+
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) closeCrearModalidad();
+    });
+
+    document.addEventListener('keydown', (e) => {
+      const isOpen = overlay.style.display === 'flex';
+      if (!isOpen) return;
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closeCrearModalidad();
+      }
+    });
+
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        crearModalidadDesdeModal();
+      }
+    });
+  })();
+
+  // Event delegation: kind selection + scalable duration pills
+  document.addEventListener('click', (e) => {
+    if (Date.now() < gsJustReorderedUntil) return;
+    const kindBtn = e.target && e.target.closest ? e.target.closest('.gs-kind') : null;
+    if (kindBtn) {
+      const row = kindBtn.closest('.gs-sanction-row');
+      if (!row) return;
+      const kind = String(kindBtn.dataset.kind || '').toLowerCase();
+      const idxStr = row.getAttribute('data-index');
+      const idx = parseInt(idxStr || '-1', 10);
+      
+      if (!Number.isFinite(idx) || idx < 0 || idx >= gsSancionesCache.length) {
+        console.warn('Invalid index:', { idxStr, idx, cacheLen: gsSancionesCache.length });
+        return;
+      }
+
+      // Scalable duration actions: open modal to add another instance
+      if (kind === 'ban' || kind === 'mute' || kind === 'jail') {
+        gsOpenDurationModal(idx, kind);
+        return;
+      }
+
+      // Simple toggles: warn triggers confirm modal; aviso remains toggle (may add kick)
+      if (kind === 'warn') {
+        gsOpenSimpleComboModal(idx, 'warn');
+        return;
+      }
+
+      if (kind === 'aviso') {
+        const textEl = row.querySelector('.gs-text');
+        const curText = (textEl && typeof textEl.value === 'string') ? textEl.value : '';
+        const cur = gsSancionesCache[idx] || {};
+        const curActions = (cur && cur.data && typeof cur.data === 'object' && Array.isArray(cur.data.actions)) ? cur.data.actions.slice() : [];
+
+        // Check if aviso already exists
+        const hasAviso = curActions.some((a) => a && String(a.kind || '').toLowerCase() === 'aviso');
+        if (hasAviso) {
+          // Remove both aviso AND kick
+          const nextActions = curActions.filter((a) => !(a && String(a.kind || '').toLowerCase() === 'aviso') && !(a && String(a.kind || '').toLowerCase() === 'kick'));
+          if (!nextActions.length) {
+            gsSancionesCache[idx] = { texto: String(curText || ''), data: null };
+          } else {
+            gsSancionesCache[idx] = { texto: '', data: { v: 2, actions: nextActions, text: String(curText || '') } };
+          }
+        } else {
+          // Add aviso AND kick
+          curActions.push({ kind: 'aviso' });
+          if (!curActions.some((a) => a && String(a.kind || '').toLowerCase() === 'kick')) {
+            curActions.push({ kind: 'kick' });
+          }
+          gsSancionesCache[idx] = { texto: '', data: { v: 2, actions: curActions, text: String(curText || '') } };
+        }
+
+        gsMarkDirty();
+        gsRerenderPreserveFocus();
+        return;
+      }
+
+      // Other simple toggles: kick (standalone)
+      const textEl = row.querySelector('.gs-text');
+      const curText = (textEl && typeof textEl.value === 'string') ? textEl.value : '';
+      const cur = gsSancionesCache[idx] || {};
+      const curActions = (cur && cur.data && typeof cur.data === 'object' && Array.isArray(cur.data.actions)) ? cur.data.actions.slice() : [];
+
+      const exists = curActions.some((a) => a && String(a.kind || '').toLowerCase() === kind);
+      let nextActions = curActions;
+      if (exists) nextActions = curActions.filter((a) => !(a && String(a.kind || '').toLowerCase() === kind));
+      else nextActions = curActions.concat([{ kind }]);
+
+      if (!nextActions.length) {
+        gsSancionesCache[idx] = { texto: String(curText || ''), data: null };
+      } else {
+        gsSancionesCache[idx] = { texto: '', data: { v: 2, actions: nextActions, text: String(curText || '') } };
+      }
+
+      gsMarkDirty();
+      gsRerenderPreserveFocus();
+      return;
+    }
+
+    const pill = e.target && e.target.closest ? e.target.closest('.gs-action-pill') : null;
+    if (pill) {
+      const row = pill.closest('.gs-sanction-row');
+      if (!row) return;
+      const idx = parseInt(row.getAttribute('data-index') || '-1', 10);
+      const pos = parseInt(pill.getAttribute('data-action-pos') || '-1', 10);
+      if (!Number.isFinite(idx) || idx < 0 || idx >= gsSancionesCache.length) return;
+      const cur = gsSancionesCache[idx] || {};
+      const textEl = row.querySelector('.gs-text');
+      const curText = (textEl && typeof textEl.value === 'string') ? textEl.value : '';
+      let curActions = (cur && cur.data && typeof cur.data === 'object' && Array.isArray(cur.data.actions)) ? cur.data.actions.slice() : [];
+      const isCombined = pill.classList && pill.classList.contains && (
+        pill.classList.contains('gs-action-pill--warnkick') || pill.classList.contains('gs-action-pill--jailkick')
+      );
+      if (isCombined) {
+        // Remove the {warn|jail}+kick pair at the given position (first at pos, kick at pos+1)
+        if (!Number.isFinite(pos) || pos < 0 || pos >= curActions.length) return;
+        // Remove warn at pos and kick at pos+1 if present
+        const nextPos = pos + 1;
+        // Remove higher index first to avoid reindexing issues
+        if (nextPos < curActions.length && String((curActions[nextPos] && curActions[nextPos].kind) || '').toLowerCase() === 'kick') {
+          curActions.splice(nextPos, 1);
+        }
+        // Remove the first element at pos (warn for warnkick, jail for jailkick)
+        const expectedFirst = pill.classList.contains('gs-action-pill--jailkick') ? 'jail' : 'warn';
+        if (pos < curActions.length && String((curActions[pos] && curActions[pos].kind) || '').toLowerCase() === expectedFirst) {
+          curActions.splice(pos, 1);
+        }
+      } else {
+        if (!Number.isFinite(pos) || pos < 0 || pos >= curActions.length) return;
+        curActions.splice(pos, 1);
+      }
+      if (!curActions.length) {
+        gsSancionesCache[idx] = { texto: String(curText || ''), data: null };
+      } else {
+        gsSancionesCache[idx] = { texto: '', data: { v: 2, actions: curActions, text: String(curText || '') } };
+      }
+      gsMarkDirty();
+      gsRerenderPreserveFocus();
+      return;
+    }
+  });
+
+  // Keep cache updated for motive text edits
+  document.addEventListener('input', (e) => {
+    // Modalidad rename (contenteditable label)
+    if (gsEditMode && e.target && e.target.classList && e.target.classList.contains('role-tab__label') && e.target.getAttribute('contenteditable') === 'true') {
+      gsMarkDirty();
+      return;
+    }
+
+    const row = e.target && e.target.closest ? e.target.closest('.gs-sanction-row') : null;
+    if (!row) return;
+    const idx = parseInt(row.getAttribute('data-index') || '-1', 10);
+    if (!Number.isFinite(idx) || idx < 0 || idx >= gsSancionesCache.length) return;
+
+    if (!gsEditMode) return;
+
+    const textEl = row.querySelector('.gs-text');
+    if (!textEl) return;
+    const textVal = (typeof textEl.value === 'string') ? textEl.value : '';
+
+    const cur = gsSancionesCache[idx] || {};
+    if (cur.data && typeof cur.data === 'object') {
+      const actions = Array.isArray(cur.data.actions) ? cur.data.actions : [];
+      gsSancionesCache[idx] = { texto: '', data: { v: 2, actions, text: String(textVal || '') } };
+      gsMarkDirty();
+      return;
+    }
+    gsSancionesCache[idx] = { texto: String(textVal || ''), data: null };
+    gsMarkDirty();
+  });
+
+  async function eliminarModalidad(modalidadId, evt) {
+    try {
+      if (evt) evt.stopPropagation();
+      const csrf = getCsrfToken();
+      if (!csrf) {
+        alert('CSRF no disponible. Recarga la página e intenta de nuevo.');
+        return;
+      }
+
+      const res = await fetch(`/GuiasSanciones/modalidades/${modalidadId}`, {
+        method: 'POST',
+        headers: {
+          'X-CSRF-Token': csrf,
+        },
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data || !data.ok) {
+        const err = (data && data.error) ? data.error : 'error';
+        if (err === 'forbidden') alert('No tienes permisos para eliminar modalidades.');
+        else if (err === 'not_found') alert('No se encontró la modalidad.');
+        else if (err === 'csrf') alert('Solicitud inválida. Recarga la página e intenta nuevamente.');
+        else alert('No se pudo eliminar la modalidad.');
+        return;
+      }
+
+      window.location.reload();
+    } catch (e) {
+      console.error(e);
+      alert('No se pudo eliminar la modalidad.');
+    }
+  }
+
+  let gsPendingDeleteId = null;
+
+  function openEliminarModalidadFromElem(elem, evt) {
+    if (evt) evt.stopPropagation();
+    const tab = elem && elem.closest ? elem.closest('.role-tab') : null;
+    if (!tab) return;
+    const modalidadId = tab.dataset.modalidadId;
+    const modalidadNombre = tab.dataset.modalidadNombre;
+    openEliminarModalidad(String(modalidadId || ''), String(modalidadNombre || ''));
+  }
+
+  function openEliminarModalidad(modalidadId, modalidadNombre) {
+    const overlay = document.getElementById('gs-delete-modal');
+    const nameSpan = document.getElementById('gs-delete-nombre');
+    if (!overlay || !nameSpan) return;
+
+    gsPendingDeleteId = modalidadId;
+    nameSpan.textContent = String(modalidadNombre || '');
+    overlay.style.display = 'flex';
+    overlay.setAttribute('aria-hidden', 'false');
+    const btn = document.getElementById('gs-modal-delete-btn');
+    if (btn) setTimeout(() => btn.focus(), 0);
+  }
+
+  function closeEliminarModalidad() {
+    const overlay = document.getElementById('gs-delete-modal');
+    if (!overlay) return;
+    overlay.style.display = 'none';
+    overlay.setAttribute('aria-hidden', 'true');
+    gsPendingDeleteId = null;
+  }
+
+  async function confirmEliminarModalidad() {
+    const modalidadId = gsPendingDeleteId;
+    if (!modalidadId) return;
+
+    const btn = document.getElementById('gs-modal-delete-btn');
+    if (btn) btn.disabled = true;
+
+    try {
+      await eliminarModalidad(modalidadId);
+    } finally {
+      if (btn) btn.disabled = false;
+      closeEliminarModalidad();
+    }
+  }
+
+  // Close delete modal on overlay click, Esc, and submit on Enter
+  (function wireEliminarModalidadModal() {
+    const overlay = document.getElementById('gs-delete-modal');
+    if (!overlay) return;
+
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) closeEliminarModalidad();
+    });
+
+    document.addEventListener('keydown', (e) => {
+      const isOpen = overlay.style.display === 'flex';
+      if (!isOpen) return;
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closeEliminarModalidad();
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        confirmEliminarModalidad();
+      }
+    });
+  })();
+
+  // ===== Reorder sanctions by long-press drag (edit mode) =====
+  let gsReorderWired = false;
+  let gsDrag = null;
+
+  // ===== Reorder action pills inside a sanction (edit mode) =====
+  let gsPillReorderWired = false;
+  let gsPillDrag = null;
+
+  function gsWirePillReorderOnce() {
+    if (gsPillReorderWired) return;
+    gsPillReorderWired = true;
+
+    const HOLD_MS = 160;
+    const MOVE_START_PX = 8;
+
+    const cleanup = () => {
+      if (!gsPillDrag) return;
+      try {
+        document.body.style.userSelect = '';
+        document.body.style.cursor = '';
+      } catch (_) {}
+
+      if (gsPillDrag.raf) cancelAnimationFrame(gsPillDrag.raf);
+      if (gsPillDrag.holdTimer) clearTimeout(gsPillDrag.holdTimer);
+
+      document.removeEventListener('pointermove', onMove, true);
+      document.removeEventListener('pointerup', onUp, true);
+      document.removeEventListener('pointercancel', onUp, true);
+
+      if (gsPillDrag.placeholder && gsPillDrag.pill) {
+        gsPillDrag.pill.classList.remove('is-dragging');
+        gsPillDrag.pill.style.position = '';
+        gsPillDrag.pill.style.left = '';
+        gsPillDrag.pill.style.top = '';
+        gsPillDrag.pill.style.width = '';
+        gsPillDrag.pill.style.zIndex = '';
+        gsPillDrag.pill.style.pointerEvents = '';
+        gsPillDrag.pill.style.margin = '';
+
+        if (gsPillDrag.placeholder.parentNode) {
+          gsPillDrag.placeholder.parentNode.replaceChild(gsPillDrag.pill, gsPillDrag.placeholder);
+        }
+      }
+
+      gsPillDrag = null;
+    };
+
+    const commitPillOrderFromDom = (container) => {
+      if (!container) return;
+      const row = container.closest('.gs-sanction-row');
+      if (!row) return;
+      const idx = parseInt(row.getAttribute('data-index') || '-1', 10);
+      if (!Number.isFinite(idx) || idx < 0 || idx >= gsSancionesCache.length) return;
+
+      const cur = gsSancionesCache[idx] || {};
+      const textEl = row.querySelector('.gs-text');
+      const curText = (textEl && typeof textEl.value === 'string') ? textEl.value : '';
+      const originalActions = (cur && cur.data && typeof cur.data === 'object' && Array.isArray(cur.data.actions)) ? cur.data.actions.slice() : [];
+      if (!originalActions.length) return;
+
+      const pillEls = Array.from(container.querySelectorAll('.gs-action-pill')).filter((el) => !el.classList.contains('gs-action-pill--placeholder'));
+      const nextActions = [];
+      for (const el of pillEls) {
+        const idxsRaw = String(el.getAttribute('data-action-idxs') || '').trim();
+        if (!idxsRaw) continue;
+        const idxs = idxsRaw.split(',').map((x) => parseInt(x.trim(), 10)).filter((n) => Number.isFinite(n) && n >= 0 && n < originalActions.length);
+        for (const ai of idxs) {
+          nextActions.push(originalActions[ai]);
+        }
+      }
+
+      if (!nextActions.length) {
+        gsSancionesCache[idx] = { texto: String(curText || ''), data: null };
+      } else {
+        gsSancionesCache[idx] = { texto: '', data: { v: 2, actions: nextActions, text: String(curText || '') } };
+      }
+
+      gsMarkDirty();
+      gsRerenderPreserveFocus();
+    };
+
+    const startDrag = (pill, evLike) => {
+      if (!pill) return;
+      const container = pill.closest('.gs-action-pills');
+      if (!container) return;
+      const rect = pill.getBoundingClientRect();
+
+      const ph = document.createElement('span');
+      ph.className = 'gs-action-pill gs-action-pill--placeholder';
+      ph.style.width = Math.max(40, rect.width) + 'px';
+      ph.style.height = Math.max(28, rect.height) + 'px';
+      ph.style.margin = getComputedStyle(pill).margin;
+
+      container.insertBefore(ph, pill.nextSibling);
+      pill.classList.add('is-dragging');
+      pill.style.position = 'fixed';
+      pill.style.left = rect.left + 'px';
+      pill.style.top = rect.top + 'px';
+      pill.style.width = rect.width + 'px';
+      pill.style.zIndex = '9999';
+      pill.style.pointerEvents = 'none';
+      pill.style.margin = '0';
+
+      document.body.appendChild(pill);
+
+      gsPillDrag.started = true;
+      gsPillDrag.pill = pill;
+      gsPillDrag.placeholder = ph;
+      gsPillDrag.container = container;
+      const clientX = (evLike && typeof evLike.clientX === 'number') ? evLike.clientX : rect.left;
+      const clientY = (evLike && typeof evLike.clientY === 'number') ? evLike.clientY : rect.top;
+      gsPillDrag.offsetX = clientX - rect.left;
+      gsPillDrag.offsetY = clientY - rect.top;
+      gsPillDrag.lastClientX = clientX;
+      gsPillDrag.lastClientY = clientY;
+      try {
+        document.body.style.userSelect = 'none';
+        document.body.style.cursor = 'grabbing';
+      } catch (_) {}
+    };
+
+    const updateDragPosition = () => {
+      if (!gsPillDrag || !gsPillDrag.started || !gsPillDrag.pill) return;
+      const pill = gsPillDrag.pill;
+      const x = gsPillDrag.lastClientX - gsPillDrag.offsetX;
+      const y = gsPillDrag.lastClientY - gsPillDrag.offsetY;
+      pill.style.left = x + 'px';
+      pill.style.top = y + 'px';
+
+      const container = gsPillDrag.container;
+      if (!container || !gsPillDrag.placeholder) return;
+
+      const el = document.elementFromPoint(gsPillDrag.lastClientX, gsPillDrag.lastClientY);
+      const overPill = el && el.closest ? el.closest('.gs-action-pill') : null;
+      if (overPill && overPill !== gsPillDrag.placeholder && overPill !== pill && overPill.closest('.gs-action-pills') === container) {
+        const rr = overPill.getBoundingClientRect();
+        const before = gsPillDrag.lastClientX < (rr.left + rr.width / 2);
+        container.insertBefore(gsPillDrag.placeholder, before ? overPill : overPill.nextSibling);
+      } else {
+        const cr = container.getBoundingClientRect();
+        const inside = gsPillDrag.lastClientX >= cr.left && gsPillDrag.lastClientX <= cr.right && gsPillDrag.lastClientY >= cr.top && gsPillDrag.lastClientY <= cr.bottom;
+        if (inside) container.appendChild(gsPillDrag.placeholder);
+      }
+    };
+
+    function onMove(ev) {
+      if (!gsPillDrag) return;
+      if (!gsPillDrag.started) {
+        gsPillDrag.lastClientX = ev.clientX;
+        gsPillDrag.lastClientY = ev.clientY;
+        const dx = ev.clientX - gsPillDrag.downX;
+        const dy = ev.clientY - gsPillDrag.downY;
+        if (Math.hypot(dx, dy) >= MOVE_START_PX) {
+          if (gsPillDrag.holdTimer) {
+            clearTimeout(gsPillDrag.holdTimer);
+            gsPillDrag.holdTimer = null;
+          }
+          startDrag(gsPillDrag.pill, { clientX: gsPillDrag.lastClientX, clientY: gsPillDrag.lastClientY });
+        }
+        return;
+      }
+      ev.preventDefault();
+      gsPillDrag.lastClientX = ev.clientX;
+      gsPillDrag.lastClientY = ev.clientY;
+      if (!gsPillDrag.raf) {
+        gsPillDrag.raf = requestAnimationFrame(() => {
+          gsPillDrag.raf = null;
+          updateDragPosition();
+        });
+      }
+    }
+
+    function onUp(ev) {
+      if (!gsPillDrag) return;
+      if (gsPillDrag.holdTimer) {
+        clearTimeout(gsPillDrag.holdTimer);
+        gsPillDrag.holdTimer = null;
+      }
+
+      if (gsPillDrag.started) {
+        ev.preventDefault();
+        gsJustReorderedUntil = Date.now() + 350;
+        const container = gsPillDrag.container;
+        if (gsPillDrag.placeholder && gsPillDrag.pill && container) {
+          gsPillDrag.pill.classList.remove('is-dragging');
+          gsPillDrag.pill.style.position = '';
+          gsPillDrag.pill.style.left = '';
+          gsPillDrag.pill.style.top = '';
+          gsPillDrag.pill.style.width = '';
+          gsPillDrag.pill.style.zIndex = '';
+          gsPillDrag.pill.style.pointerEvents = '';
+          gsPillDrag.pill.style.margin = '';
+          if (gsPillDrag.placeholder.parentNode) {
+            gsPillDrag.placeholder.parentNode.replaceChild(gsPillDrag.pill, gsPillDrag.placeholder);
+          }
+          commitPillOrderFromDom(container);
+        }
+      }
+      cleanup();
+    }
+
+    document.addEventListener('pointerdown', (ev) => {
+      if (!gsEditMode) return;
+      if (!ev) return;
+      if (ev.button != null && ev.button !== 0) return;
+      // Only drag from a pill, but never from its X button
+      if (ev.target && ev.target.closest && ev.target.closest('.gs-action-pill__x')) return;
+      const pill = ev.target && ev.target.closest ? ev.target.closest('.gs-action-pill') : null;
+      if (!pill) return;
+      const container = pill.closest('.gs-action-pills');
+      if (!container) return;
+      if (!pill.closest('.gs-sanction-row')) return;
+
+      gsPillDrag = {
+        started: false,
+        pill,
+        placeholder: null,
+        container,
+        downX: ev.clientX,
+        downY: ev.clientY,
+        lastClientX: ev.clientX,
+        lastClientY: ev.clientY,
+        offsetX: 0,
+        offsetY: 0,
+        holdTimer: null,
+        raf: null,
+      };
+
+      document.addEventListener('pointermove', onMove, true);
+      document.addEventListener('pointerup', onUp, true);
+      document.addEventListener('pointercancel', onUp, true);
+
+      gsPillDrag.holdTimer = setTimeout(() => {
+        if (!gsPillDrag) return;
+        if (!gsEditMode) {
+          cleanup();
+          return;
+        }
+        startDrag(pill, { clientX: gsPillDrag.lastClientX, clientY: gsPillDrag.lastClientY });
+      }, HOLD_MS);
+    }, true);
+  }
+
+  function gsWireReorderOnce() {
+    if (gsReorderWired) return;
+    gsReorderWired = true;
+
+    const HOLD_MS = 160;
+    const MOVE_CANCEL_PX = 10;
+
+    const isIgnoredTarget = (t) => {
+      if (!t || !t.closest) return false;
+      // Don't start dragging from interactive elements
+      return !!t.closest('input, textarea, button, a, select, option, .gs-chip, .gs-action-pill, .gs-action-pill__x, .gs-btn, .role-tab');
+    };
+
+    const cleanup = () => {
+      if (!gsDrag) return;
+      try {
+        document.body.style.userSelect = '';
+        document.body.style.cursor = '';
+      } catch (_) {}
+
+      if (gsDrag.raf) cancelAnimationFrame(gsDrag.raf);
+      if (gsDrag.holdTimer) clearTimeout(gsDrag.holdTimer);
+
+      document.removeEventListener('pointermove', onMove, true);
+      document.removeEventListener('pointerup', onUp, true);
+      document.removeEventListener('pointercancel', onUp, true);
+
+      // Restore row in DOM
+      if (gsDrag.placeholder && gsDrag.row) {
+        gsDrag.row.classList.remove('is-dragging');
+        gsDrag.row.style.position = '';
+        gsDrag.row.style.left = '';
+        gsDrag.row.style.top = '';
+        gsDrag.row.style.width = '';
+        gsDrag.row.style.zIndex = '';
+        gsDrag.row.style.pointerEvents = '';
+        gsDrag.row.style.transform = '';
+        gsDrag.row.style.margin = '';
+
+        if (gsDrag.placeholder.parentNode) {
+          gsDrag.placeholder.parentNode.replaceChild(gsDrag.row, gsDrag.placeholder);
+        }
+      }
+
+      gsDrag = null;
+    };
+
+    const commitOrderFromDom = () => {
+      const list = document.getElementById('gs-sanctions-list');
+      if (!list) return;
+      const rows = Array.from(list.querySelectorAll('.gs-sanction-row'));
+      const order = rows
+        .map((r) => parseInt(r.getAttribute('data-index') || '-1', 10))
+        .filter((n) => Number.isFinite(n) && n >= 0);
+      if (!order.length) return;
+
+      const prev = Array.isArray(gsSancionesCache) ? gsSancionesCache : [];
+      const next = order.map((i) => prev[i]).filter(Boolean);
+      gsSancionesCache = next;
+
+      gsMarkDirty();
+
+      // Rerender to refresh data-index values and keep everything consistent
+      const body = document.getElementById('modalidad-body');
+      const prevScroll = body ? body.scrollTop : 0;
+      renderSancionesList(gsSancionesCache);
+      if (body) body.scrollTop = prevScroll;
+    };
+
+    const startDrag = (row, evLike) => {
+      if (!row) return;
+      const list = row.closest('#gs-sanctions-list');
+      if (!list) return;
+
+      const rect = row.getBoundingClientRect();
+      const ph = document.createElement('div');
+      ph.className = 'gs-sanction-row gs-sanction-row--placeholder';
+      ph.style.height = Math.max(44, rect.height) + 'px';
+      ph.style.margin = getComputedStyle(row).margin;
+
+      // Insert placeholder and lift the row into fixed positioning
+      list.insertBefore(ph, row.nextSibling);
+      row.classList.add('is-dragging');
+      row.style.position = 'fixed';
+      row.style.left = rect.left + 'px';
+      row.style.top = rect.top + 'px';
+      row.style.width = rect.width + 'px';
+      row.style.zIndex = '9999';
+      row.style.pointerEvents = 'none';
+      row.style.margin = '0';
+
+      document.body.appendChild(row);
+
+      gsDrag.started = true;
+      gsDrag.row = row;
+      gsDrag.placeholder = ph;
+      gsDrag.list = list;
+      const clientY = (evLike && typeof evLike.clientY === 'number') ? evLike.clientY : rect.top;
+      gsDrag.offsetY = clientY - rect.top;
+      gsDrag.lastClientY = clientY;
+      try {
+        document.body.style.userSelect = 'none';
+        document.body.style.cursor = 'grabbing';
+      } catch (_) {}
+    };
+
+    const updateDragPosition = () => {
+      if (!gsDrag || !gsDrag.started || !gsDrag.row) return;
+      const row = gsDrag.row;
+      const y = gsDrag.lastClientY - gsDrag.offsetY;
+      row.style.top = y + 'px';
+
+      // Reposition placeholder based on pointer Y
+      const list = gsDrag.list;
+      if (!list) return;
+      const pointerY = gsDrag.lastClientY;
+      const rows = Array.from(list.querySelectorAll('.gs-sanction-row')).filter((el) => el !== gsDrag.placeholder);
+      let inserted = false;
+      for (const r of rows) {
+        const rr = r.getBoundingClientRect();
+        const mid = rr.top + rr.height / 2;
+        if (pointerY < mid) {
+          list.insertBefore(gsDrag.placeholder, r);
+          inserted = true;
+          break;
+        }
+      }
+      if (!inserted) list.appendChild(gsDrag.placeholder);
+    };
+
+    function onMove(ev) {
+      if (!gsDrag) return;
+      if (!gsDrag.started) {
+        // Track latest pointer position while waiting for hold
+        gsDrag.lastClientY = ev.clientY;
+        gsDrag.lastClientX = ev.clientX;
+        // Don't cancel the hold; allow small movements before the hold triggers.
+        // If user moved a lot, we still keep the hold, but the drag will start at the latest position.
+        return;
+      }
+      ev.preventDefault();
+      gsDrag.lastClientY = ev.clientY;
+      gsDrag.lastClientX = ev.clientX;
+      if (!gsDrag.raf) {
+        gsDrag.raf = requestAnimationFrame(() => {
+          gsDrag.raf = null;
+          updateDragPosition();
+        });
+      }
+    }
+
+    function onUp(ev) {
+      if (!gsDrag) return;
+      if (gsDrag.holdTimer) {
+        clearTimeout(gsDrag.holdTimer);
+        gsDrag.holdTimer = null;
+      }
+
+      if (gsDrag.started) {
+        ev.preventDefault();
+        gsJustReorderedUntil = Date.now() + 350;
+        // Put row back into list at placeholder position
+        if (gsDrag.placeholder && gsDrag.row) {
+          gsDrag.row.classList.remove('is-dragging');
+          gsDrag.row.style.position = '';
+          gsDrag.row.style.left = '';
+          gsDrag.row.style.top = '';
+          gsDrag.row.style.width = '';
+          gsDrag.row.style.zIndex = '';
+          gsDrag.row.style.pointerEvents = '';
+          gsDrag.row.style.transform = '';
+          gsDrag.row.style.margin = '';
+          if (gsDrag.placeholder.parentNode) {
+            gsDrag.placeholder.parentNode.replaceChild(gsDrag.row, gsDrag.placeholder);
+          }
+          // Commit order into cache and rerender
+          commitOrderFromDom();
+        }
+      }
+      cleanup();
+    }
+
+    document.addEventListener('pointerdown', (ev) => {
+      if (!gsEditMode) return;
+      if (!ev) return;
+      if (ev.button != null && ev.button !== 0) return;
+      if (isIgnoredTarget(ev.target)) return;
+      const row = ev.target && ev.target.closest ? ev.target.closest('.gs-sanction-row') : null;
+      if (!row) return;
+      if (!row.closest('#gs-sanctions-list')) return;
+
+      gsDrag = {
+        started: false,
+        row,
+        placeholder: null,
+        list: null,
+        downX: ev.clientX,
+        downY: ev.clientY,
+        lastClientY: ev.clientY,
+        lastClientX: ev.clientX,
+        offsetY: 0,
+        holdTimer: null,
+        raf: null,
+      };
+
+      document.addEventListener('pointermove', onMove, true);
+      document.addEventListener('pointerup', onUp, true);
+      document.addEventListener('pointercancel', onUp, true);
+
+      gsDrag.holdTimer = setTimeout(() => {
+        if (!gsDrag) return;
+        if (!gsEditMode) {
+          cleanup();
+          return;
+        }
+        startDrag(row, { clientY: gsDrag.lastClientY, clientX: gsDrag.lastClientX });
+      }, HOLD_MS);
+    }, true);
+  }
+
+  // Wire once at load; only active when gsEditMode is true
+  gsWireReorderOnce();
+  gsWirePillReorderOnce();
+
+</script>
+{% endblock %}

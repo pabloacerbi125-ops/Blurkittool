@@ -1,20 +1,21 @@
 # Editar nombre de modalidad
-"""Flask web application for BlurkitModsTool with authentication.
+"""Aplicación web Flask para BlurkitModsTool con autenticación.
 
-Multi-user system with role-based permissions and SQLite database.
+Sistema multiusuario con permisos por rol y base de datos SQLite.
 """
 
 import sys
 import os
 import subprocess
 import re
+import json
 from pathlib import Path
 import base64
 import io
 from flask import Flask, render_template, request, redirect, url_for, flash, session, abort
 from flask_limiter import Limiter
 from markupsafe import Markup, escape
-from sqlalchemy import inspect, text
+from sqlalchemy import inspect, text, or_
 from werkzeug.utils import secure_filename
 from werkzeug.middleware.proxy_fix import ProxyFix
 
@@ -40,13 +41,13 @@ ONLINE_TIMEOUT = 180  # 3 minutos
 LAST_ACTIVE_MIN_UPDATE_SECONDS = 30
 
 # ============================================================================
-# AUTO GIT PULL ON STARTUP (legacy)
+# AUTO GIT PULL AL INICIAR (legacy)
 # ============================================================================
 
-# NOTE: This project previously synced a SQLite database via git pulls.
-# Now we use a real database (Render Postgres). Do not auto-git-pull on startup.
+# NOTA: Este proyecto antes sincronizaba una base de datos SQLite mediante git pulls.
+# Ahora usamos una base de datos real (Render Postgres). No hacer auto-git-pull al iniciar.
 
-# Helper to locate resources when packaged with PyInstaller
+# Helper para ubicar recursos cuando se empaqueta con PyInstaller
 def resource_path(relative_path):
     if getattr(sys, "frozen", False):
         base = Path(sys._MEIPASS)
@@ -54,16 +55,161 @@ def resource_path(relative_path):
         base = Path(__file__).resolve().parent
     return base / relative_path
 
-# Make sure web module can import core
+# Asegurar que el módulo web pueda importar core
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from models import db, User, Mod, Modalidad, Regla
-from auth import login_required, roles_required, mod_required, smod_required, admin_required
+from models import db, User, Mod, Modalidad, Regla, GuiaSancionesModalidad, GuiaSancion, Comando, SSSession, SSLink
+from auth import login_required, roles_required, mod_required, smod_required, admin_required, ss_session_required
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from analyze_mc_log_utils import analyze_log_lines
 from flask import jsonify
 from security_middleware import init_blocker
+
+
+def _gs_parse_sancion(texto: str):
+    """Parsea una sanción estructurada guardada como JSON en GuiaSancion.texto.
+
+    Formatos soportados:
+    - v1: {"v":1, "kind":"warn|aviso|jail|mute|ban", "amount": int?, "unit":"m|h|d"?, "text": str?}
+    - v2: {"v":2, "actions":[{"kind":"...", "amount":int?, "unit":"m|h|d"?}, ...], "text": str?}
+
+    Devuelve siempre un dict normalizado v2 o None.
+    """
+    if not isinstance(texto, str):
+        return None
+    t = texto.strip()
+    if not t or not t.startswith('{'):
+        return None
+    try:
+        data = json.loads(t)
+    except Exception:
+        return None
+    if not isinstance(data, dict):
+        return None
+
+    allowed_kinds = ('warn', 'aviso', 'jail', 'mute', 'ban', 'kick')
+
+    v = data.get('v')
+    # v2: acciones múltiples
+    if v == 2:
+        actions_raw = data.get('actions')
+        if not isinstance(actions_raw, list):
+            return None
+        actions = []
+        for a in actions_raw:
+            if not isinstance(a, dict):
+                continue
+            kind = (a.get('kind') or '').strip().lower()
+            if kind not in allowed_kinds:
+                continue
+            amount = a.get('amount')
+            try:
+                amount = int(amount) if amount is not None and amount != '' else None
+            except Exception:
+                amount = None
+            unit = (a.get('unit') or '').strip().lower() or None
+
+            # Normalizar restricciones de duración
+            if kind in ('mute', 'jail'):
+                if not isinstance(amount, int) or amount <= 0:
+                    amount = None
+                if unit not in ('m', 'h'):
+                    unit = 'm' if amount is not None else None
+            elif kind == 'ban':
+                if not isinstance(amount, int) or amount <= 0:
+                    amount = None
+                unit = 'd' if amount is not None else None
+            else:
+                amount = None
+                unit = None
+
+            actions.append({'kind': kind, 'amount': amount, 'unit': unit})
+
+        text_val = data.get('text')
+        if text_val is None:
+            text_val = ''
+        text_val = str(text_val)
+
+        return {'v': 2, 'actions': actions, 'text': text_val}
+
+    # v1: una sola acción -> normalizamos a v2
+    if v == 1:
+        kind = (data.get('kind') or '').strip().lower()
+        if kind not in allowed_kinds:
+            return None
+        amount = data.get('amount')
+        try:
+            amount = int(amount) if amount is not None and amount != '' else None
+        except Exception:
+            amount = None
+        unit = (data.get('unit') or '').strip().lower() or None
+        text_val = data.get('text')
+        if text_val is None:
+            text_val = ''
+        text_val = str(text_val)
+
+        # Normalize duration constraints
+        if kind in ('mute', 'jail'):
+            if not isinstance(amount, int) or amount <= 0:
+                amount = None
+            if unit not in ('m', 'h'):
+                unit = 'm' if amount is not None else None
+        elif kind == 'ban':
+            if not isinstance(amount, int) or amount <= 0:
+                amount = None
+            unit = 'd' if amount is not None else None
+        else:
+            amount = None
+            unit = None
+
+        return {'v': 2, 'actions': [{'kind': kind, 'amount': amount, 'unit': unit}], 'text': text_val}
+
+    return None
+
+
+def _gs_format_sancion_text(data: dict, fallback: str = '') -> str:
+    """Genera un texto legible para la UI a partir de una sanción estructurada."""
+    if not isinstance(data, dict):
+        return fallback or ''
+    label_map = {
+        'aviso': 'AVISO ESCRITO',
+        'warn': 'WARNING',
+        'jail': 'Jail',
+        'mute': 'Mute',
+        'ban': 'Ban',
+        'kick': 'Kick',
+    }
+
+    actions = data.get('actions')
+    if not isinstance(actions, list) or len(actions) == 0:
+        # Fallback for unexpected payloads
+        return (data.get('text') or fallback or '').strip()
+
+    tags = []
+    for a in actions:
+        if not isinstance(a, dict):
+            continue
+        kind = (a.get('kind') or '').strip().lower()
+        label = label_map.get(kind, kind or 'Sanción')
+        amount = a.get('amount')
+        unit = (a.get('unit') or '').strip().lower()
+
+        dur = ''
+        if kind in ('mute', 'jail') and isinstance(amount, int) and amount > 0:
+            dur = f"{amount}{'h' if unit == 'h' else 'm'}"
+        elif kind == 'ban' and isinstance(amount, int) and amount > 0:
+            dur = f"{amount}d"
+
+        tag = label
+        if dur:
+            tag = f"{tag} {dur}"
+        tags.append(tag)
+
+    text_val = (data.get('text') or '').strip()
+    if text_val:
+        return f"{' + '.join(tags)} - {text_val}"
+    return ' + '.join(tags)
 
 # Flask app with proper paths
 app = Flask(__name__)
@@ -82,19 +228,16 @@ _users_last_active_ready = False
 
 
 def _twofa_role_allowed(user) -> bool:
-    """Only allow 2FA for higher ranks.
-
-    Allowed (per rank UI): Founder/Owner/Admin/Manager/Smod.
-    In code terms this maps to the role groups: admin + smod.
-    """
     try:
-        return bool(user) and bool(getattr(user, 'has_role', None)) and user.has_role('admin', 'smod')
+        role = (getattr(user, 'role', '') or '').strip().lower()
+        username = (getattr(user, 'username', '') or '').strip().lower()
+        return (role in ('p-helper', 'helper', 'mod', 'smod', 'admin', 'owner', 'founder')) or (username == 'ponygamer_uwu')
     except Exception:
         return False
 
 
 def _twofa_disable_for_user(user) -> None:
-    """Best-effort: turn off 2FA for a user (used when role is not allowed)."""
+    """Intento de desactivar 2FA para un usuario (usado cuando el rol no lo permite)."""
     try:
         if not user:
             return
@@ -105,7 +248,7 @@ def _twofa_disable_for_user(user) -> None:
         user.twofa_confirmed_at = None
         db.session.commit()
     except Exception as exc:
-        print(f"[2FA] Warning: could not auto-disable 2FA: {exc}")
+        print(f"[2FA] Aviso: no se pudo desactivar 2FA automáticamente: {exc}")
         try:
             db.session.rollback()
         except Exception:
@@ -113,7 +256,7 @@ def _twofa_disable_for_user(user) -> None:
 
 
 def ensure_users_2fa_columns():
-    """Idempotent runtime migration for 2FA columns on users table."""
+    """Migración idempotente en tiempo de ejecución para columnas 2FA en la tabla de usuarios."""
     global _users_2fa_ready
     if _users_2fa_ready:
         return
@@ -142,10 +285,10 @@ def ensure_users_2fa_columns():
 
 
 def ensure_users_last_active_column():
-    """Idempotent runtime migration for 'last_active' column on users table.
+    """Migración idempotente en tiempo de ejecución para la columna 'last_active' en la tabla de usuarios.
 
-    IMPORTANT: must run before any request touches current_user/load_user when
-    the model contains the column, otherwise SELECTs can fail on older DBs.
+    IMPORTANTE: debe ejecutarse antes de que cualquier petición toque current_user/load_user cuando
+    el modelo contiene la columna, de lo contrario los SELECT pueden fallar en bases de datos antiguas.
     """
     global _users_last_active_ready
     if _users_last_active_ready:
@@ -177,7 +320,7 @@ def _twofa_issuer_name() -> str:
 
 
 def _twofa_qr_data_uri(otpauth_url: str) -> str:
-    """Generate PNG QR as data URI to embed in HTML."""
+    """Genera un QR PNG como data URI para incrustar en HTML."""
     import qrcode
 
     img = qrcode.make(otpauth_url)
@@ -188,10 +331,10 @@ def _twofa_qr_data_uri(otpauth_url: str) -> str:
 
 
 def ensure_modalidad_orden_column():
-    """Ensure the 'orden' column exists on 'modalidades' table.
+    """Asegura que la columna 'orden' exista en la tabla 'modalidades'.
 
-    This project doesn't use Alembic; so we run a small, idempotent migration at
-    runtime to support drag-and-drop ordering.
+    Este proyecto no usa Alembic; así que ejecutamos una pequeña migración idempotente
+    en tiempo de ejecución para soportar el orden por arrastrar y soltar.
     """
     global _modalidad_orden_ready
     if _modalidad_orden_ready:
@@ -215,15 +358,15 @@ def ensure_modalidad_orden_column():
 
         _modalidad_orden_ready = True
     except Exception as exc:
-        print(f"[Modalidad orden] Warning: could not ensure column: {exc}", flush=True)
+        print(f"[Modalidad orden] Aviso: no se pudo asegurar la columna: {exc}", flush=True)
         _modalidad_orden_ready = True
 
 
 def ensure_regla_orden_column():
-    """Ensure the 'orden' column exists on 'reglas' table.
+    """Asegura que la columna 'orden' exista en la tabla 'reglas'.
 
-    Like Modalidad ordering, this project doesn't use Alembic; so we run an
-    idempotent migration at runtime.
+    Al igual que el orden de Modalidad, este proyecto no usa Alembic; así que ejecutamos
+    una migración idempotente en tiempo de ejecución.
     """
     global _regla_orden_ready
     if _regla_orden_ready:
@@ -254,14 +397,14 @@ def ensure_regla_orden_column():
 
         _regla_orden_ready = True
     except Exception as exc:
-        print(f"[Regla orden] Warning: could not ensure column: {exc}", flush=True)
+        print(f"[Regla orden] Aviso: no se pudo asegurar la columna: {exc}", flush=True)
         _regla_orden_ready = True
 
 
 def ensure_regla_ejemplo_column():
-    """Ensure the optional 'ejemplo' column exists on 'reglas' table.
+    """Asegura que la columna opcional 'ejemplo' exista en la tabla 'reglas'.
 
-    This project doesn't use Alembic; so we run an idempotent migration at runtime.
+    Este proyecto no usa Alembic; así que ejecutamos una migración idempotente en tiempo de ejecución.
     """
     global _regla_ejemplo_ready
     if _regla_ejemplo_ready:
@@ -280,18 +423,18 @@ def ensure_regla_ejemplo_column():
 
         _regla_ejemplo_ready = True
     except Exception as exc:
-        print(f"[Regla ejemplo] Warning: could not ensure column: {exc}", flush=True)
+        print(f"[Regla ejemplo] Aviso: no se pudo asegurar la columna: {exc}", flush=True)
         _regla_ejemplo_ready = True
 
 
 def ensure_login_attempts_columns():
-    """Ensure incremental-lockout columns exist on 'login_attempts'.
+    """Asegura que existan las columnas de bloqueo incremental en 'login_attempts'.
 
-    Adds:
+    Agrega:
     - block_count (int)
     - blocked_until (datetime)
 
-    This project doesn't use Alembic; so we run an idempotent migration at runtime.
+    Este proyecto no usa Alembic; así que ejecutamos una migración idempotente en tiempo de ejecución.
     """
     global _login_attempts_ready
     if _login_attempts_ready:
@@ -321,13 +464,13 @@ def ensure_login_attempts_columns():
 
         _login_attempts_ready = True
     except Exception as exc:
-        print(f"[LoginAttempt] Warning: could not ensure columns: {exc}", flush=True)
+        print(f"[LoginAttempt] Aviso: no se pudieron asegurar las columnas: {exc}", flush=True)
         _login_attempts_ready = True
 
 
 @app.template_filter('highlight_prohibido')
 def highlight_prohibido(text):
-    """Highlight the word 'PROHIBIDO' in rendered text.
+    """Resalta la palabra 'PROHIBIDO' en el texto renderizado.
 
     Escapes input first to prevent XSS, then wraps case-insensitive whole-word
     matches in a span so CSS can style it.
@@ -456,6 +599,8 @@ app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 @login_required
 @limiter.limit('30 per minute')
 def menu():
+    if _ss_session_active():
+        return redirect(url_for('toolss'))
     try:
         total_mods = Mod.query.count()
         prohibidos_count = Mod.query.filter_by(status='prohibido').count()
@@ -476,6 +621,8 @@ def menu():
 @limiter.limit('15 per minute')
 def api_analyze_log():
     """API endpoint para analizar logs de Minecraft. Ahora requiere login (solo staff)."""
+    if not _log_tools_allowed(current_user):
+        return jsonify({'error': 'forbidden'}), 403
     if request.content_length and request.content_length > MAX_LOG_UPLOAD_BYTES:
         return jsonify({'error': 'Contenido demasiado grande'}), 413
     if request.content_type and request.content_type.startswith('multipart/form-data'):
@@ -506,25 +653,25 @@ import secrets
 app.config['PERMANENT_SESSION_LIFETIME'] = 600  # 10 minutos
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 
-# Hard limits for log payloads (upload + paste). Keep these reasonably low to
-# prevent memory/CPU spikes and oversized cookie sessions.
+# Límites duros para payloads de logs (upload + paste). Mantenerlos razonablemente bajos
+# para evitar picos de memoria/CPU.
 MAX_LOG_UPLOAD_BYTES = int(os.environ.get('MAX_LOG_UPLOAD_BYTES', str(2 * 1024 * 1024)))  # 2MB
 MAX_LOG_PASTE_CHARS = int(os.environ.get('MAX_LOG_PASTE_CHARS', str(200_000)))  # 200k chars
 
 
 def _normalize_analysis_result(resultado: dict, log_lines: list[str]) -> dict:
-    """Normalize analysis result to the structure expected by analysis.html.
+    """Normaliza el resultado del análisis a la estructura esperada por analysis.html.
 
-    Target structure:
+    Estructura objetivo:
       mods_permitidos, mods_prohibidos, mods_desconocidos, dependencias,
-      total, total_mods, plus optional player/mc_version.
+      total, total_mods, y opcionalmente player/mc_version.
 
-    If resultado already matches, we keep it and only compute totals.
+    Si `resultado` ya coincide con la estructura final, se mantiene y solo se calculan totales.
     """
     if not isinstance(resultado, dict):
         return {'error': 'resultado_invalid'}
 
-    # If the analyzer already returns the final structure, just compute totals.
+    # Si el analizador ya devuelve la estructura final, solo calcular totales.
     if all(k in resultado for k in ['mods_permitidos', 'mods_prohibidos', 'mods_desconocidos', 'dependencias']):
         resultado['total'] = (
             len(resultado.get('mods_permitidos') or [])
@@ -539,7 +686,7 @@ def _normalize_analysis_result(resultado: dict, log_lines: list[str]) -> dict:
         )
         return resultado
 
-    # Otherwise, convert from legacy structure: {mods: [...], dependencies: [...]}
+    # Si no, convertir desde la estructura legacy: {mods: [...], dependencies: [...]}.
     mods = resultado.get('mods') or []
     dependencies = resultado.get('dependencies') or []
 
@@ -605,7 +752,7 @@ def _normalize_analysis_result(resultado: dict, log_lines: list[str]) -> dict:
 
 
 def _analyze_log_text_unified(log_text: str) -> dict:
-    """Unified analyzer used by both /upload and /analyze."""
+    """Analizador unificado usado por /upload y /analyze."""
     from core import analyze_log_with_gpt
     from analyze_mc_log_utils import extract_player
     openai_api_key = os.environ.get('OPENAI_API_KEY')
@@ -616,18 +763,23 @@ def _analyze_log_text_unified(log_text: str) -> dict:
     else:
         resultado = analyze_log_lines(log_text.splitlines())
 
-    # Ensure player is present
+    # Asegurar que el jugador esté presente
     if isinstance(resultado, dict) and not resultado.get('player'):
         resultado['player'] = extract_player(log_text.splitlines())
 
-    # Normalize structure
+    # Normalizar estructura
     resultado = _normalize_analysis_result(resultado or {}, log_text.splitlines())
 
-    # Optional debug dump
+    # Dump de depuración opcional (no ensuciar el root del repo)
     if os.environ.get('DEBUG_IA_RAW') == '1':
         import logging
         logging.basicConfig(level=logging.INFO)
-        with open('ia_raw_result.json', 'w', encoding='utf-8') as f:
+        try:
+            Path(app.instance_path).mkdir(parents=True, exist_ok=True)
+        except Exception:
+            pass
+        debug_path = Path(app.instance_path) / 'ia_raw_result.json'
+        with open(debug_path, 'w', encoding='utf-8') as f:
             import json as _json
             f.write(_json.dumps(resultado, ensure_ascii=False, indent=2))
 
@@ -645,11 +797,106 @@ def _get_csrf_token() -> str:
 
 def _validate_csrf() -> bool:
     expected = session.get('_csrf_token', '')
-    # Accept token from form body or custom header for fetch requests.
+    # Acepta token desde el body del formulario o un header custom (para fetch).
     provided = request.form.get('csrf_token', '') or request.headers.get('X-CSRF-Token', '')
     if not expected or not provided:
         return False
     return hmac.compare_digest(expected, provided)
+
+
+def _log_tools_allowed(user) -> bool:
+    """Permisos exactos para herramientas de análisis de logs.
+
+    Solo: admin/owner/founder y el usuario PonyGamer_uwu.
+    (No incluye adminpage.)
+    """
+    try:
+        role = (getattr(user, 'role', '') or '').strip().lower()
+        username = (getattr(user, 'username', '') or '').strip().lower()
+
+        # Acceso normal (sin necesidad de SS)
+        if (role in ('admin', 'owner', 'founder')) or (username == 'ponygamer_uwu'):
+            return True
+
+        # Acceso por sesión SS (login-ss con código 2FA)
+        if role in ('p-helper', 'helper', 'mod', 'smod'):
+            ss_token = session.get('ss_token')
+            if not ss_token:
+                return False
+            try:
+                from models import SSSession
+                ss_sess = SSSession.query.filter_by(token=ss_token).first()
+                return bool(ss_sess and ss_sess.is_valid())
+            except Exception:
+                return False
+
+        return False
+    except Exception:
+        return False
+
+
+def _ss_session_active() -> bool:
+    """True si hay una sesión SS válida en la sesión Flask."""
+    try:
+        ss_token = session.get('ss_token')
+        if not ss_token:
+            return False
+        ss_sess = SSSession.query.filter_by(token=ss_token).first()
+        if not ss_sess or not ss_sess.is_valid():
+            session.pop('ss_token', None)
+            session.pop('ss_user_id', None)
+            return False
+        return True
+    except Exception:
+        return False
+
+
+def _ss_session_seconds_left() -> int:
+    """Segundos restantes de la sesión SS (0 si no existe/no es válida)."""
+    try:
+        ss_token = session.get('ss_token')
+        if not ss_token:
+            return 0
+        ss_sess = SSSession.query.filter_by(token=ss_token).first()
+        if not ss_sess or not ss_sess.is_valid():
+            session.pop('ss_token', None)
+            session.pop('ss_user_id', None)
+            return 0
+
+        expires_at = getattr(ss_sess, 'expires_at', None)
+        if not expires_at:
+            return 0
+        # En este proyecto, expires_at se guarda en UTC (naive).
+        remaining = int((expires_at - datetime.utcnow()).total_seconds())
+        return max(0, remaining)
+    except Exception:
+        return 0
+
+
+def _save_ss_icon_image(file_storage) -> str | None:
+    """Guarda una imagen de icono para SSLink y devuelve el valor a persistir en SSLink.icon.
+
+    Devuelve un string con prefijo 'img:' para que el template lo renderice como <img>.
+    """
+    try:
+        if not file_storage or not getattr(file_storage, 'filename', ''):
+            return None
+
+        original = secure_filename(file_storage.filename or '')
+        ext = Path(original).suffix.lower()
+        if ext not in ('.png', '.jpg', '.jpeg', '.webp'):
+            raise ValueError('invalid_icon_ext')
+
+        icons_dir = Path(app.static_folder) / 'ss_icons'
+        icons_dir.mkdir(parents=True, exist_ok=True)
+
+        fname = f"{secrets.token_urlsafe(16)}{ext}"
+        abs_path = icons_dir / fname
+        file_storage.save(abs_path)
+        # Persist a marker so templates know it's an image.
+        return f"img:ss_icons/{fname}"
+    except Exception:
+        return None
 
 
 def _read_text_filestorage_limited(file_storage, max_bytes: int) -> str:
@@ -723,8 +970,18 @@ login_manager.login_message_category = 'info'
 
 @app.context_processor
 def inject_csrf_token():
-    # Make csrf_token available in all templates (base.html heartbeat, etc.)
+    # Hacer csrf_token disponible en todos los templates (heartbeat de base.html, etc.)
     return {'csrf_token': _get_csrf_token()}
+
+
+@app.context_processor
+def inject_ss_mode_nav():
+    # Cuando el usuario está en modo SS (login-ss), la navbar debe ser mínima.
+    seconds_left = _ss_session_seconds_left()
+    return {
+        'ss_mode_nav': seconds_left > 0,
+        'ss_seconds_left': seconds_left,
+    }
 
 
 
@@ -739,17 +996,17 @@ def load_user(user_id):
 
 @app.before_request
 def ensure_runtime_schema_before_auth():
-    """Ensure required columns exist before anything touches current_user.
+    """Asegura columnas requeridas antes de que algo toque current_user.
 
-    This MUST run before other before_request handlers that access current_user,
-    otherwise load_user() may run a SELECT for missing columns.
+    Esto DEBE ejecutarse antes de otros before_request que acceden a current_user;
+    si no, load_user() puede hacer un SELECT pidiendo columnas que aún no existen.
     """
     ensure_users_last_active_column()
 
 
 @app.before_request
 def restore_session_history():
-    """Restore history from session to memory before each request."""
+    """Restaura historial desde la sesión a memoria antes de cada request."""
     if current_user.is_authenticated:
         user_key = current_user.username
         # Si hay historial en sesión y no en memoria, restaurarlo
@@ -776,9 +1033,9 @@ def force_logout_on_render():
 
 @app.before_request
 def track_user_last_active():
-    """Persist last activity in DB (multi-worker safe).
+    """Persiste la última actividad en DB (seguro en multi-worker).
 
-    Throttles updates to avoid committing on every request.
+    Aplica throttling para evitar commits en cada request.
     """
     try:
         if not current_user.is_authenticated:
@@ -813,12 +1070,655 @@ def track_user_last_active():
             db.session.rollback()
         except Exception:
             pass
-        print(f"[PRESENCE] Warning: could not update last_active: {exc}")
+        print(f"[PRESENCE] Aviso: no se pudo actualizar last_active: {exc}")
 
 
 # ============================================================================
-# PUBLIC ROUTES (No login required)
+# PUBLIC / LIMITED-ACCESS ROUTES
 # ============================================================================
+
+@app.route('/comandosstaff')
+@login_required
+@roles_required('p-helper', 'helper', 'mod', 'smod', 'admin', 'adminpage', 'manager', 'owner', 'founder')
+def comandos_staff():
+    """Página de comandos útiles para el staff.
+
+    Requiere estar logueado y tener rango de staff (desde p-helper en adelante).
+    La visibilidad de los comandos dentro de la página se controla en la plantilla
+    según el rol del usuario, de forma que:
+    - p-helper solo ve p-helper.
+    - helper ve p-helper y helper.
+    - mod ve p-helper, helper y mod (no ve smod/admin).
+    - smod ve rangos hasta smod.
+    - admin/adminpage ven todos los rangos.
+    """
+    return render_template('comandosstaff.html')
+
+
+@app.route('/api/comandosstaff/save', methods=['POST'])
+@login_required
+def api_save_comandosstaff():
+    """Guardar los comandos enviados desde la UI en la base de datos.
+
+    Payload esperado: { commands_map: { rango: [ {name, short, long}, ... ], ... } }
+    """
+    data = request.get_json(silent=True) or {}
+    commands_map = data.get('commands_map') or {}
+    if not isinstance(commands_map, dict):
+        return jsonify({'ok': False, 'error': 'invalid payload'}), 400
+
+    username = (getattr(current_user, 'username', '') or '').strip().lower()
+    role = (getattr(current_user, 'role', '') or '').strip().lower()
+    allowed = (role in ('admin', 'owner', 'founder')) or (username == 'ponygamer_uwu')
+    if not allowed:
+        return jsonify({'ok': False, 'error': 'forbidden'}), 403
+
+    try:
+        # Para simplicidad, reemplazamos por completo los comandos de cada rango
+        for rango, cmds in commands_map.items():
+            if not isinstance(cmds, list):
+                continue
+            # borrar existentes
+            Comando.query.filter_by(rango=rango).delete()
+            db.session.flush()
+            for idx, c in enumerate(cmds):
+                if isinstance(c, dict):
+                    name = (c.get('name') or '')[:200]
+                    short = c.get('short') or ''
+                    long = c.get('long') or ''
+                else:
+                    name = str(c)[:200]
+                    short = ''
+                    long = ''
+                cmd = Comando(rango=rango, nombre=name, descripcion=short, informacion=long, orden=idx,
+                              created_by=(current_user.id if hasattr(current_user, 'id') else None))
+                db.session.add(cmd)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+    return jsonify({'ok': True})
+
+@app.route('/GuiasSanciones')
+@login_required
+def guia_sanciones():
+    """Página de la Guía de sanciones."""
+    username = (getattr(current_user, 'username', '') or '').strip().lower()
+    role = (getattr(current_user, 'role', '') or '').strip().lower()
+    allowed = (role in ('p-helper', 'helper', 'mod', 'smod', 'admin', 'owner', 'founder')) or (username == 'ponygamer_uwu')
+    if not allowed:
+        flash('No tienes permiso para acceder a Guías.', 'danger')
+        return redirect(url_for('menu'))
+
+    modalidades = GuiaSancionesModalidad.query.order_by(
+        GuiaSancionesModalidad.orden.asc(),
+        GuiaSancionesModalidad.nombre.asc(),
+        GuiaSancionesModalidad.id.asc(),
+    ).all()
+
+    return render_template('guia_sanciones.html', modalidades=modalidades)
+
+
+@app.route('/GuiasSanciones/modalidades', methods=['POST'])
+@login_required
+def guias_sanciones_crear_modalidad():
+    """Crear una modalidad desde /GuiasSanciones (smod+)."""
+    username = (getattr(current_user, 'username', '') or '').strip().lower()
+    role = (getattr(current_user, 'role', '') or '').strip().lower()
+    allowed = (role in ('admin', 'owner', 'founder'))
+    if not allowed:
+        return jsonify({'ok': False, 'error': 'forbidden'}), 403
+
+    if not _validate_csrf():
+        return jsonify({'ok': False, 'error': 'csrf'}), 400
+
+    payload = request.get_json(silent=True) or {}
+    nombre = (payload.get('nombre') or request.form.get('nombre') or '').strip()
+    if not nombre:
+        return jsonify({'ok': False, 'error': 'nombre_requerido'}), 400
+
+    if GuiaSancionesModalidad.query.filter_by(nombre=nombre).first():
+        return jsonify({'ok': False, 'error': 'ya_existe'}), 409
+
+    max_orden = db.session.query(db.func.max(GuiaSancionesModalidad.orden)).scalar() or 0
+    nueva = GuiaSancionesModalidad(nombre=nombre, orden=int(max_orden) + 1)
+    db.session.add(nueva)
+    db.session.commit()
+
+    return jsonify({'ok': True, 'modalidad': {'id': nueva.id, 'nombre': nueva.nombre}})
+
+
+@app.route('/GuiasSanciones/modalidades/<int:modalidad_id>', methods=['POST'])
+@login_required
+def guias_sanciones_eliminar_modalidad(modalidad_id: int):
+    """Eliminar una modalidad desde /GuiasSanciones.
+
+    Mantiene la misma lógica de permisos que la creación.
+    """
+    username = (getattr(current_user, 'username', '') or '').strip().lower()
+    role = (getattr(current_user, 'role', '') or '').strip().lower()
+    allowed = (role in ('admin', 'owner', 'founder'))
+    if not allowed:
+        return jsonify({'ok': False, 'error': 'forbidden'}), 403
+
+    if not _validate_csrf():
+        return jsonify({'ok': False, 'error': 'csrf'}), 400
+
+    modalidad = db.session.get(GuiaSancionesModalidad, modalidad_id)
+    if not modalidad:
+        return jsonify({'ok': False, 'error': 'not_found'}), 404
+
+    db.session.delete(modalidad)
+    db.session.commit()
+    return jsonify({'ok': True})
+
+
+@app.route('/GuiasSanciones/modalidades/<int:modalidad_id>/sanciones', methods=['GET'])
+@login_required
+def guias_sanciones_listar_sanciones(modalidad_id: int):
+    """Listar sanciones de una modalidad (lectura pública)."""
+    username = (getattr(current_user, 'username', '') or '').strip().lower()
+    role = (getattr(current_user, 'role', '') or '').strip().lower()
+    allowed = (role in ('p-helper', 'helper', 'mod', 'smod', 'admin', 'owner', 'founder')) or (username == 'ponygamer_uwu')
+    if not allowed:
+        return jsonify({'ok': False, 'error': 'forbidden'}), 403
+
+    sanciones = (
+        GuiaSancion.query.filter_by(modalidad_id=modalidad_id)
+        .order_by(GuiaSancion.orden.asc(), GuiaSancion.id.asc())
+        .all()
+    )
+    return jsonify({
+        'ok': True,
+        'sanciones': [
+            {
+                'id': s.id,
+                'texto': _gs_format_sancion_text(_gs_parse_sancion(s.texto) or {}, fallback=s.texto),
+                'orden': s.orden,
+                'data': _gs_parse_sancion(s.texto),
+            }
+            for s in sanciones
+        ],
+    })
+
+
+@app.route('/GuiasSanciones/modalidades/<int:modalidad_id>/sanciones', methods=['POST'])
+@login_required
+def guias_sanciones_guardar_sanciones(modalidad_id: int):
+    """Guardar sanciones (reemplazo completo) para una modalidad."""
+    username = (getattr(current_user, 'username', '') or '').strip().lower()
+    role = (getattr(current_user, 'role', '') or '').strip().lower()
+    allowed = (role in ('admin', 'owner', 'founder'))
+    if not allowed:
+        return jsonify({'ok': False, 'error': 'forbidden'}), 403
+
+    if not _validate_csrf():
+        return jsonify({'ok': False, 'error': 'csrf'}), 400
+
+    modalidad = db.session.get(GuiaSancionesModalidad, modalidad_id)
+    if not modalidad:
+        return jsonify({'ok': False, 'error': 'not_found'}), 404
+
+    payload = request.get_json(silent=True) or {}
+    sanciones_raw = payload.get('sanciones')
+    if not isinstance(sanciones_raw, list):
+        return jsonify({'ok': False, 'error': 'formato'}), 400
+
+    # Replace full list
+    GuiaSancion.query.filter_by(modalidad_id=modalidad_id).delete(synchronize_session=False)
+    to_insert = []
+    orden = 1
+    for item in sanciones_raw:
+        if isinstance(item, dict) and isinstance(item.get('data'), dict):
+            data = item.get('data') or {}
+
+            allowed_kinds = ('warn', 'aviso', 'jail', 'mute', 'ban', 'kick')
+            actions = []
+
+            # v2 preferred: actions[]
+            if isinstance(data.get('actions'), list):
+                for a in data.get('actions') or []:
+                    if not isinstance(a, dict):
+                        continue
+                    kind = (a.get('kind') or '').strip().lower()
+                    if kind not in allowed_kinds:
+                        continue
+                    amount = a.get('amount')
+                    try:
+                        amount = int(amount) if amount is not None and amount != '' else None
+                    except Exception:
+                        amount = None
+                    unit = (a.get('unit') or '').strip().lower()
+
+                    if kind in ('mute', 'jail'):
+                        if not isinstance(amount, int) or amount <= 0:
+                            # if duration action is selected, it must be valid
+                            continue
+                        if unit not in ('m', 'h'):
+                            unit = 'm'
+                    elif kind == 'ban':
+                        if not isinstance(amount, int) or amount <= 0:
+                            continue
+                        unit = 'd'
+                    else:
+                        amount = None
+                        unit = None
+
+                    actions.append({'kind': kind, 'amount': amount, 'unit': unit})
+
+            # Back-compat: single kind
+            elif (data.get('kind') or '').strip().lower() in allowed_kinds:
+                kind = (data.get('kind') or '').strip().lower()
+                amount = data.get('amount')
+                try:
+                    amount = int(amount) if amount is not None and amount != '' else None
+                except Exception:
+                    amount = None
+                unit = (data.get('unit') or '').strip().lower()
+
+                if kind in ('mute', 'jail'):
+                    if not isinstance(amount, int) or amount <= 0:
+                        continue
+                    if unit not in ('m', 'h'):
+                        unit = 'm'
+                elif kind == 'ban':
+                    if not isinstance(amount, int) or amount <= 0:
+                        continue
+                    unit = 'd'
+                else:
+                    amount = None
+                    unit = None
+
+                actions = [{'kind': kind, 'amount': amount, 'unit': unit}]
+
+            text_val = str(data.get('text') or '')
+
+            if not actions and not text_val.strip():
+                # Nothing to save
+                continue
+
+            payload_data = {
+                'v': 2,
+                'actions': actions,
+                'text': text_val,
+            }
+            texto_json = json.dumps(payload_data, ensure_ascii=False, separators=(',', ':'))
+            to_insert.append(GuiaSancion(modalidad_id=modalidad_id, texto=texto_json, orden=orden))
+            orden += 1
+            continue
+
+        texto = (str(item) if not isinstance(item, dict) else str(item.get('texto', ''))).strip()
+        if not texto:
+            continue
+        to_insert.append(GuiaSancion(modalidad_id=modalidad_id, texto=texto, orden=orden))
+        orden += 1
+
+    if to_insert:
+        db.session.add_all(to_insert)
+    db.session.commit()
+    return jsonify({'ok': True, 'count': len(to_insert)})
+
+
+@app.route('/GuiasSanciones/modalidades/bulk_rename', methods=['POST'])
+@login_required
+def guias_sanciones_bulk_rename_modalidades():
+    """Renombrar modalidades de la guía (bulk)."""
+    username = (getattr(current_user, 'username', '') or '').strip().lower()
+    role = (getattr(current_user, 'role', '') or '').strip().lower()
+    allowed = (role in ('admin', 'owner', 'founder'))
+    if not allowed:
+        return jsonify({'ok': False, 'error': 'forbidden'}), 403
+
+    if not _validate_csrf():
+        return jsonify({'ok': False, 'error': 'csrf'}), 400
+
+    payload = request.get_json(silent=True) or {}
+    items = payload.get('items')
+    if not isinstance(items, list):
+        return jsonify({'ok': False, 'error': 'formato'}), 400
+
+    # Validate & apply
+    touched = 0
+    for it in items:
+        if not isinstance(it, dict):
+            continue
+        try:
+            mid = int(it.get('id'))
+        except Exception:
+            continue
+        nombre = (it.get('nombre') or '').strip()
+        if not nombre:
+            continue
+
+        modalidad = db.session.get(GuiaSancionesModalidad, mid)
+        if not modalidad:
+            continue
+        modalidad.nombre = nombre
+        touched += 1
+
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        # Likely unique constraint collision
+        return jsonify({'ok': False, 'error': 'conflict'}), 409
+
+    return jsonify({'ok': True, 'touched': touched})
+
+
+@app.route('/GuiasSS')
+@login_required
+def guia_ss():
+    """Página de la Guía de SS cargada desde Google Docs.
+
+    Descarga el documento público como HTML y lo incrusta dentro del
+    layout de la página para usar la misma fuente/estilos del sitio.
+    """
+    export_url = (
+        "https://docs.google.com/document/d/"
+        "1Ia64TamkUb39m8Ir55umtq56OAH_IJrmW40lv4zygPk/export?format=html"
+    )
+
+    username = (getattr(current_user, 'username', '') or '').strip().lower()
+    role = (getattr(current_user, 'role', '') or '').strip().lower()
+    allowed = (role in ('p-helper', 'helper', 'mod', 'smod', 'admin', 'owner', 'founder')) or (username == 'ponygamer_uwu')
+    if not allowed:
+        flash('No tienes permiso para acceder a Guías.', 'danger')
+        return redirect(url_for('menu'))
+
+    doc_html = ""
+    doc_css = ""
+    error_msg = None
+    try:
+        import urllib.request
+        import re
+
+        def _extract_brace_block(text: str, open_brace_idx: int):
+            depth = 1
+            i = open_brace_idx + 1
+            start = i
+            in_str = None
+            escaped = False
+            while i < len(text):
+                ch = text[i]
+                if in_str:
+                    if escaped:
+                        escaped = False
+                    elif ch == '\\':
+                        escaped = True
+                    elif ch == in_str:
+                        in_str = None
+                else:
+                    if ch in ('\"', "'"):
+                        in_str = ch
+                    elif ch == '{':
+                        depth += 1
+                    elif ch == '}':
+                        depth -= 1
+                        if depth == 0:
+                            return text[start:i], i
+                i += 1
+            return text[start:], len(text) - 1
+
+        def _scope_css(css_text: str, scope_selector: str = '#core-doc') -> str:
+            if not css_text:
+                return ""
+            def process_block(block_text: str) -> str:
+                out = []
+                i = 0
+                n = len(block_text)
+                while i < n:
+                    ch = block_text[i]
+                    if ch.isspace():
+                        out.append(ch)
+                        i += 1
+                        continue
+                    if block_text.startswith('@media', i) or block_text.startswith('@supports', i) or block_text.startswith('@document', i):
+                        j = block_text.find('{', i)
+                        if j == -1:
+                            out.append(block_text[i:])
+                            break
+                        header = block_text[i:j + 1]
+                        inner, close_idx = _extract_brace_block(block_text, j)
+                        out.append(header)
+                        out.append(process_block(inner))
+                        out.append('}')
+                        i = close_idx + 1
+                        continue
+                    if block_text.startswith('@keyframes', i) or block_text.startswith('@-webkit-keyframes', i) or block_text.startswith('@-moz-keyframes', i):
+                        j = block_text.find('{', i)
+                        if j == -1:
+                            out.append(block_text[i:])
+                            break
+                        inner, close_idx = _extract_brace_block(block_text, j)
+                        out.append(block_text[i:close_idx + 1])
+                        i = close_idx + 1
+                        continue
+                    if ch == '@':
+                        j = block_text.find(';', i)
+                        if j == -1:
+                            out.append(block_text[i:])
+                            break
+                        out.append(block_text[i:j + 1])
+                        i = j + 1
+                        continue
+                    j = block_text.find('{', i)
+                    if j == -1:
+                        out.append(block_text[i:])
+                        break
+                    selector = block_text[i:j].strip()
+                    inner, close_idx = _extract_brace_block(block_text, j)
+                    selectors = [s.strip() for s in selector.split(',') if s.strip()]
+                    prefixed = []
+                    for sel in selectors:
+                        for root_sel in ('body', 'html', ':root'):
+                            if sel == root_sel:
+                                sel = scope_selector
+                                break
+                            if sel.startswith(root_sel):
+                                remainder = sel[len(root_sel):]
+                                sel = f"{scope_selector}{remainder}"
+                                break
+                        if sel.startswith(scope_selector):
+                            prefixed.append(sel)
+                        else:
+                            prefixed.append(f"{scope_selector} {sel}")
+                    out.append(', '.join(prefixed))
+                    out.append(' {')
+                    out.append(inner)
+                    out.append('}')
+                    i = close_idx + 1
+                return ''.join(out)
+            return process_block(css_text)
+
+        with urllib.request.urlopen(export_url, timeout=10) as resp:
+            raw_html = resp.read().decode('utf-8', errors='ignore')
+        styles = re.findall(r'<style[^>]*>(.*?)</style>', raw_html, re.IGNORECASE | re.DOTALL)
+        doc_css = _scope_css("\n".join(styles), scope_selector='#core-doc') if styles else ""
+        m = re.search(r'<body[^>]*>(.*?)</body>', raw_html, re.IGNORECASE | re.DOTALL)
+        doc_html = m.group(1) if m else raw_html
+    except Exception as exc:
+        print(f"[GuiasSS] Error fetching Google Doc: {exc}", flush=True)
+        error_msg = "No se pudo cargar la guía desde Google Docs en este momento."
+
+    return render_template('guia_core.html', doc_html=doc_html, doc_css=doc_css, error_msg=error_msg)
+
+@app.route('/Guiaco')
+@login_required
+def guia_core():
+    """Página de la Guía del core cargada desde Google Docs.
+
+    Descarga el documento público como HTML y lo incrusta dentro del
+    layout de la página para usar la misma fuente/estilos del sitio.
+    """
+    export_url = (
+        "https://docs.google.com/document/d/"
+        "1BAdjZg5QOMY1Y8jCgUOWvau2eCt4LvPYyRW3Xrr-SUg/export?format=html"
+    )
+
+    username = (getattr(current_user, 'username', '') or '').strip().lower()
+    role = (getattr(current_user, 'role', '') or '').strip().lower()
+    allowed = (role in ('p-helper', 'helper', 'mod', 'smod', 'admin', 'owner', 'founder')) or (username == 'ponygamer_uwu')
+    if not allowed:
+        flash('No tienes permiso para acceder a Guías.', 'danger')
+        return redirect(url_for('menu'))
+
+    doc_html = ""
+    doc_css = ""
+    error_msg = None
+    try:
+        import urllib.request
+        import re
+
+        def _extract_brace_block(text: str, open_brace_idx: int):
+            """Devuelve (texto_interno, idx_cierre) para el bloque que inicia en '{'."""
+            depth = 1
+            i = open_brace_idx + 1
+            start = i
+            in_str = None
+            escaped = False
+            while i < len(text):
+                ch = text[i]
+                if in_str:
+                    if escaped:
+                        escaped = False
+                    elif ch == '\\':
+                        escaped = True
+                    elif ch == in_str:
+                        in_str = None
+                else:
+                    if ch in ('"', "'"):
+                        in_str = ch
+                    elif ch == '{':
+                        depth += 1
+                    elif ch == '}':
+                        depth -= 1
+                        if depth == 0:
+                            return text[start:i], i
+                i += 1
+            return text[start:], len(text) - 1
+
+        def _scope_css(css_text: str, scope_selector: str = '#core-doc') -> str:
+            """Prefija selectores CSS para que los estilos de Google Docs solo afecten el contenedor."""
+            if not css_text:
+                return ""
+
+            def process_block(block_text: str) -> str:
+                out = []
+                i = 0
+                n = len(block_text)
+                while i < n:
+                    ch = block_text[i]
+
+                    if ch.isspace():
+                        out.append(ch)
+                        i += 1
+                        continue
+
+                    if block_text.startswith('@media', i) or block_text.startswith('@supports', i) or block_text.startswith('@document', i):
+                        j = block_text.find('{', i)
+                        if j == -1:
+                            out.append(block_text[i:])
+                            break
+                        header = block_text[i:j + 1]
+                        inner, close_idx = _extract_brace_block(block_text, j)
+                        out.append(header)
+                        out.append(process_block(inner))
+                        out.append('}')
+                        i = close_idx + 1
+                        continue
+
+                    if block_text.startswith('@keyframes', i) or block_text.startswith('@-webkit-keyframes', i) or block_text.startswith('@-moz-keyframes', i):
+                        j = block_text.find('{', i)
+                        if j == -1:
+                            out.append(block_text[i:])
+                            break
+                        inner, close_idx = _extract_brace_block(block_text, j)
+                        out.append(block_text[i:close_idx + 1])
+                        i = close_idx + 1
+                        continue
+
+                    if ch == '@':
+                        j = block_text.find(';', i)
+                        if j == -1:
+                            out.append(block_text[i:])
+                            break
+                        out.append(block_text[i:j + 1])
+                        i = j + 1
+                        continue
+
+                    j = block_text.find('{', i)
+                    if j == -1:
+                        out.append(block_text[i:])
+                        break
+
+                    selector = block_text[i:j].strip()
+                    inner, close_idx = _extract_brace_block(block_text, j)
+
+                    selectors = [s.strip() for s in selector.split(',') if s.strip()]
+                    prefixed = []
+                    for sel in selectors:
+                        # body/html/:root no existen dentro del contenedor; mapearlos al scope.
+                        # También cubrir selectores que EMPIEZAN con body/html/:root.
+                        for root_sel in ('body', 'html', ':root'):
+                            if sel == root_sel:
+                                sel = scope_selector
+                                break
+                            if sel.startswith(root_sel):
+                                # Ej: 'body .c1' -> '#core-doc .c1'
+                                #     'body.c2'  -> '#core-doc.c2'
+                                remainder = sel[len(root_sel):]
+                                sel = f"{scope_selector}{remainder}"
+                                break
+
+                        # Evitar duplicar prefijo si ya está scopeado
+                        if sel.startswith(scope_selector):
+                            prefixed.append(sel)
+                        else:
+                            prefixed.append(f"{scope_selector} {sel}")
+
+                    out.append(', '.join(prefixed))
+                    out.append(' {')
+                    out.append(inner)
+                    out.append('}')
+                    i = close_idx + 1
+
+                return ''.join(out)
+
+            return process_block(css_text)
+
+        with urllib.request.urlopen(export_url, timeout=10) as resp:
+            raw_html = resp.read().decode('utf-8', errors='ignore')
+
+        # Extraer estilos y body del export HTML.
+        # Nota: Google Docs usa clases (.cX) definidas en <style> para alinear/posicionar imágenes.
+        # Si quitamos esos estilos, se pierde la alineación original.
+        styles = re.findall(r'<style[^>]*>(.*?)</style>', raw_html, re.IGNORECASE | re.DOTALL)
+        doc_css = _scope_css("\n".join(styles), scope_selector='#core-doc') if styles else ""
+
+        # Extraer solo el contenido del <body> para incrustarlo en nuestro layout.
+        m = re.search(r'<body[^>]*>(.*?)</body>', raw_html, re.IGNORECASE | re.DOTALL)
+        doc_html = m.group(1) if m else raw_html
+    except Exception as exc:
+        print(f"[Guiaco] Error fetching Google Doc: {exc}", flush=True)
+        error_msg = "No se pudo cargar la guía desde Google Docs en este momento."
+
+    return render_template('guia_core.html', doc_html=doc_html, doc_css=doc_css, error_msg=error_msg)
+
+@app.route('/guias')
+@login_required
+def guias():
+    """Página pública de guías y tutoriales."""
+    username = (getattr(current_user, 'username', '') or '').strip().lower()
+    role = (getattr(current_user, 'role', '') or '').strip().lower()
+    allowed = (role in ('p-helper', 'helper', 'mod', 'smod', 'admin', 'owner', 'founder')) or (username == 'ponygamer_uwu')
+    if not allowed:
+        flash('No tienes permiso para acceder a Guías.', 'danger')
+        return redirect(url_for('menu'))
+
+    can_edit = role in ('admin', 'owner', 'founder')
+    return render_template('guias.html', can_edit=can_edit)
 
 # Rate limiting - simple in-memory storage (use Redis in production)
 login_attempts = {}
@@ -838,7 +1738,7 @@ MAX_HISTORY_ITEMS = 20
 def auto_commit_and_push(message):
     """Legacy: git-based DB syncing.
 
-    This project used to sync a local SQLite DB via GitHub commits.
+    Este proyecto antes sincronizaba una DB SQLite local vía commits en GitHub.
     Now the app uses Render Postgres (DATABASE_URL), so we intentionally
     disable any git commits/pushes of database state.
     """
@@ -858,6 +1758,28 @@ def login():
     """Login page with rate limiting."""
     if current_user.is_authenticated:
         return redirect(url_for('menu'))
+
+    # Permitir cancelar el paso 2FA pendiente (por ejemplo, cambiar de cuenta)
+    if request.method == 'GET' and request.args.get('cancel_twofa'):
+        session.pop('twofa_pending_user_id', None)
+        session.modified = True
+
+    # Si hay un 2FA pendiente en sesión, mostrar el modal en el login (sin redirigir)
+    if request.method == 'GET':
+        pending_user_id = session.get('twofa_pending_user_id')
+        if pending_user_id:
+            ensure_users_2fa_columns()
+            user = db.session.get(User, int(pending_user_id))
+            if user and user.is_active and _twofa_role_allowed(user) and getattr(user, 'twofa_enabled', False) and getattr(user, 'twofa_secret', None):
+                return render_template(
+                    'login.html',
+                    show_twofa_modal=True,
+                    twofa_username=user.username,
+                    csrf_token=_get_csrf_token(),
+                )
+            # Limpieza defensiva si la sesión quedó colgada
+            session.pop('twofa_pending_user_id', None)
+            session.modified = True
     
     if request.method == 'POST':
         ensure_login_attempts_columns()
@@ -890,7 +1812,7 @@ def login():
             if attempt.blocked_until and now < attempt.blocked_until:
                 remaining_minutes = max(1, int((attempt.blocked_until - now).total_seconds() / 60))
                 flash(f'Demasiados intentos. Bloqueado por {remaining_minutes} min.', 'danger')
-                return render_template('login.html'), 429
+                return render_template('login.html', csrf_token=_get_csrf_token()), 429
 
             # Legacy fallback: older rows may have is_blocked/attempts>=5 without blocked_until.
             if (attempt.is_blocked or attempt.attempts >= 5) and not attempt.blocked_until:
@@ -902,7 +1824,7 @@ def login():
                     db.session.commit()
                     remaining_minutes = max(1, int((legacy_until - now).total_seconds() / 60))
                     flash(f'Demasiados intentos. Bloqueado por {remaining_minutes} min.', 'danger')
-                    return render_template('login.html'), 429
+                    return render_template('login.html', csrf_token=_get_csrf_token()), 429
                 else:
                     attempt.is_blocked = False
                     attempt.attempts = 0
@@ -933,7 +1855,12 @@ def login():
                 session['twofa_pending_user_id'] = user.id
                 session.permanent = True
                 session.modified = True
-                return redirect(url_for('twofa_login_verify'))
+                return render_template(
+                    'login.html',
+                    show_twofa_modal=True,
+                    twofa_username=user.username,
+                    csrf_token=_get_csrf_token(),
+                )
 
             # Update last login (store as UTC so UI can localize per viewer)
             user.last_login = datetime.utcnow()
@@ -945,6 +1872,13 @@ def login():
             db.session.commit()
 
             login_user(user, remember=True)
+            # If there was a lingering SS session token from a previous login-ss,
+            # remove it when the user logs in normally with password.
+            session.pop('ss_token', None)
+            session.pop('ss_user_id', None)
+            session.pop('ss_timer_active', None)
+            session.pop('twofa_pending_user_id', None)
+
             flash(f'¡Bienvenido, {user.username}!', 'success')
 
             # Validate next parameter to prevent open redirect
@@ -999,7 +1933,7 @@ def login():
             except Exception as e:
                 print(f"[SECURITY] Error registrando intento fallido: {e}")
 
-    return render_template('login.html')
+    return render_template('login.html', csrf_token=_get_csrf_token())
 
 
 @app.route('/logout', methods=['GET', 'POST'])
@@ -1007,8 +1941,252 @@ def login():
 def logout():
     """Logout current user."""
     logout_user()
+    # Clear any SS session flags on logout as well
+    session.pop('ss_token', None)
+    session.pop('ss_user_id', None)
+    session.pop('ss_timer_active', None)
+    session.pop('twofa_pending_user_id', None)
     flash('Has cerrado sesión exitosamente.', 'info')
     return redirect(url_for('login'))
+
+
+@app.route('/login-ss', methods=['POST'])
+def login_ss():
+    """Login para Herramientas SS: Usuario + Código 2FA (sin contraseña).
+    
+    Crea sesión temporal válida por 10 minutos exactos.
+    """
+    import pyotp
+    import secrets
+    
+    username = request.form.get('username', '').strip()
+    code_2fa = (request.form.get('code_2fa', '') or '').strip().replace(' ', '')
+    
+    if not username or not code_2fa:
+        flash('Usuario y código 2FA son requeridos.', 'danger')
+        return redirect(url_for('login'))
+    
+    user = User.query.filter_by(username=username).first()
+    
+    # Validar usuario existe, está activo y tiene 2FA habilitado
+    if not user or not user.is_active:
+        flash('Usuario no encontrado o inactivo.', 'danger')
+        return redirect(url_for('login'))
+    
+    if not user.twofa_enabled or not user.twofa_secret:
+        flash('Este usuario no tiene 2FA activado.', 'danger')
+        return redirect(url_for('login'))
+
+    # Solo permitir iniciar sesión SS a rangos autorizados (mismo set que 2FA)
+    if not _twofa_role_allowed(user):
+        flash('Tu rango no tiene acceso a Herramientas SS.', 'danger')
+        return redirect(url_for('login'))
+    
+    # Validar código 2FA (con tolerancia de ventana de tiempo para TOTP)
+    totp = pyotp.TOTP(user.twofa_secret)
+    if not totp.verify(code_2fa, valid_window=1):
+        flash('Código 2FA inválido.', 'danger')
+        return redirect(url_for('login'))
+    
+    # Crear sesión SS temporal (10 minutos exactos)
+    try:
+        token = secrets.token_urlsafe(32)
+        expires_at = datetime.utcnow() + timedelta(minutes=10)
+        
+        ss_session = SSSession(user_id=user.id, token=token, expires_at=expires_at)
+        db.session.add(ss_session)
+        db.session.commit()
+        
+        # Autenticar usuario con Flask-Login
+        login_user(user, remember=False)
+        
+        # Guardar token y bandera en sesión Flask
+        session['ss_token'] = token
+        session['ss_user_id'] = user.id
+        session['ss_timer_active'] = True  # activar contador en frontend
+        
+        flash(f'Sesión Herramientas SS iniciada. Válida por 10 minutos.', 'success')
+        return redirect(url_for('toolss'))
+    except Exception as e:
+        db.session.rollback()
+        print(f"[ERROR] Creando sesión SS: {e}")
+        flash('Error al crear sesión SS.', 'danger')
+        return redirect(url_for('login'))
+
+
+@app.route('/toolss')
+@login_required
+def toolss():
+    """Dashboard temporal para Herramientas SS (sesión de 10 minutos con 2FA)."""
+    # En modo SS (login-ss), se requiere token válido.
+    # En login normal, permitir entrar solo a admin/owner/founder y PonyGamer_uwu.
+    if not _ss_session_active():
+        role = (getattr(current_user, 'role', '') or '').strip().lower()
+        username = (getattr(current_user, 'username', '') or '').strip().lower()
+        if not ((role in ('admin', 'owner', 'founder')) or (username == 'ponygamer_uwu')):
+            flash('Debes iniciar sesión con Herramientas SS para acceder.', 'warning')
+            return redirect(url_for('login'))
+
+    # solo activar el temporizador la primera vez tras login-ss
+    timer_active = session.pop('ss_timer_active', False)
+    links = SSLink.query.order_by(SSLink.created_at.desc()).all()
+    return render_template('toolss.html', timer_active=timer_active, SSLinks=links)
+
+
+@app.route('/LeerL')
+@login_required
+def leer_l():
+    """Página para elegir cómo suministrar logs: subir o pegar."""
+    if not _log_tools_allowed(current_user):
+        flash('No tienes permiso para acceder al analizador de logs.', 'danger')
+        return redirect(url_for('menu'))
+    return render_template('LeerL.html')
+
+
+@app.route('/HerramientaSS', methods=['GET', 'POST'])
+@login_required
+def herramienta_ss():
+    """Página para gestionar enlaces/descargas de herramientas SS."""
+    role = (getattr(current_user, 'role', '') or '').strip().lower()
+    is_admin_manage = role in ('admin', 'adminpage')
+
+    # En modo SS se permite ver (solo lectura) aunque no sea admin.
+    is_ss_session = _ss_session_active()
+
+    if not is_admin_manage and not is_ss_session:
+        flash('No tienes permiso para acceder a Herramientas SS.', 'danger')
+        return redirect(url_for('menu'))
+
+    editable = not is_ss_session
+
+    if request.method == 'POST':
+        # Evitar crear/editar si la sesión actual es una sesión SS
+        if is_ss_session or not is_admin_manage:
+            flash('No puedes modificar herramientas durante una sesión SS (2FA). Inicia sesión normal para editar.', 'warning')
+            return redirect(url_for('herramienta_ss'))
+
+        name = request.form.get('name', '').strip()
+        url_val = request.form.get('url', '').strip()
+        icon_img = _save_ss_icon_image(request.files.get('icon_file'))
+        icon = icon_img
+        desc = request.form.get('description', '').strip() or None
+        if not name or not url_val:
+            flash('Nombre y URL son obligatorios.', 'danger')
+            return redirect(url_for('herramienta_ss'))
+        try:
+            link = SSLink(name=name, url=url_val, icon=icon, description=desc)
+            db.session.add(link)
+            db.session.commit()
+            flash('Herramienta agregada correctamente.', 'success')
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error guardando herramienta: {e}', 'danger')
+        return redirect(url_for('herramienta_ss'))
+
+    links = SSLink.query.order_by(SSLink.created_at.desc()).all()
+    return render_template('herramientass.html', links=links, editable=editable)
+
+
+@app.route('/HerramientaSS/edit/<int:link_id>', methods=['POST'])
+@login_required
+def herramienta_ss_edit(link_id):
+    """Editar una herramienta SS (solo admin/adminpage; no en sesión SS)."""
+    role = (getattr(current_user, 'role', '') or '').strip().lower()
+    is_admin_manage = role in ('admin', 'adminpage')
+    if not is_admin_manage:
+        flash('No tienes permiso para editar herramientas SS.', 'danger')
+        return redirect(url_for('menu'))
+
+    if _ss_session_active():
+        flash('No puedes modificar herramientas durante una sesión SS (2FA). Inicia sesión normal para editar.', 'warning')
+        return redirect(url_for('herramienta_ss'))
+
+    link = SSLink.query.get(link_id)
+    if not link:
+        flash('Herramienta no encontrada.', 'danger')
+        return redirect(url_for('herramienta_ss'))
+
+    name = request.form.get('name', '').strip()
+    url_val = request.form.get('url', '').strip()
+    desc = request.form.get('description', '').strip() or None
+
+    if not name or not url_val:
+        flash('Nombre y URL son obligatorios.', 'danger')
+        return redirect(url_for('herramienta_ss'))
+
+    icon_img = _save_ss_icon_image(request.files.get('icon_file'))
+
+    try:
+        link.name = name
+        link.url = url_val
+        link.description = desc
+
+        # Update icon only if user provided a new value.
+        if icon_img:
+            # If previous icon was an uploaded image, try to delete it.
+            try:
+                old_icon = (getattr(link, 'icon', None) or '')
+                if isinstance(old_icon, str) and old_icon.startswith('img:ss_icons/'):
+                    old_rel = old_icon.replace('img:', '', 1)
+                    old_abs = Path(app.static_folder) / old_rel
+                    if old_abs.exists():
+                        old_abs.unlink(missing_ok=True)
+            except Exception:
+                pass
+            link.icon = icon_img
+        # If no image uploaded, keep existing icon as-is.
+
+        db.session.commit()
+        flash('Herramienta actualizada correctamente.', 'success')
+    except Exception as e:
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+        flash(f'Error actualizando herramienta: {e}', 'danger')
+
+    return redirect(url_for('herramienta_ss'))
+
+
+@app.route('/HerramientaSS/delete/<int:link_id>', methods=['POST'])
+@login_required
+def herramienta_ss_delete(link_id):
+    """Eliminar una herramienta SS por id (solo admin)."""
+    role = (getattr(current_user, 'role', '') or '').strip().lower()
+    is_admin_manage = role in ('admin', 'adminpage')
+
+    # Si la sesión actual es una sesión SS, no permitir eliminar
+    if _ss_session_active() or not is_admin_manage:
+        flash('No puedes eliminar herramientas durante una sesión SS (2FA). Inicia sesión normal para modificar.', 'warning')
+        return redirect(url_for('herramienta_ss'))
+
+    try:
+        link = SSLink.query.get(link_id)
+        if not link:
+            flash('Herramienta no encontrada.', 'danger')
+            return redirect(url_for('herramienta_ss'))
+
+        # If icon is an uploaded image, try to delete the file too.
+        try:
+            old_icon = (getattr(link, 'icon', None) or '')
+            if isinstance(old_icon, str) and old_icon.startswith('img:ss_icons/'):
+                old_rel = old_icon.replace('img:', '', 1)
+                old_abs = Path(app.static_folder) / old_rel
+                if old_abs.exists():
+                    old_abs.unlink(missing_ok=True)
+        except Exception:
+            pass
+
+        db.session.delete(link)
+        db.session.commit()
+        flash('Herramienta eliminada correctamente.', 'success')
+    except Exception as e:
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+        flash(f'Error eliminando herramienta: {e}', 'danger')
+    return redirect(url_for('herramienta_ss'))
 
 
 # ============================================================================
@@ -1055,7 +2233,7 @@ def reglas():
 @login_required
 @smod_required
 def reglasadm():
-    """Admin rules management - view and create modalities, and show/add rules for selected modality."""
+    """Administración de reglas: ver/crear modalidades y ver/agregar reglas de la modalidad seleccionada."""
     ensure_modalidad_orden_column()
     ensure_regla_orden_column()
     ensure_regla_ejemplo_column()
@@ -1117,7 +2295,7 @@ def reglasadm():
 @login_required
 @smod_required
 def reordenar_modalidades():
-    """Persist drag-and-drop ordering for modalidades."""
+    """Persiste el orden (drag-and-drop) de modalidades."""
     ensure_modalidad_orden_column()
 
     if not _validate_csrf():
@@ -1264,6 +2442,34 @@ def api_search_public():
     return jsonify({'resultado': resultado})
 
 
+@app.route('/api/search-users', methods=['POST'])
+@login_required
+@limiter.limit('60 per minute')
+def api_search_users():
+    """API endpoint para búsqueda de usuarios (autocomplete)"""
+    data = request.get_json(silent=True) or {}
+    term = (data.get('term', '') or '').strip()
+    if not term:
+        return jsonify({'resultado': []})
+
+    q = f"%{term}%"
+    users = User.query.filter(
+        or_(
+            User.username.ilike(q),
+            (User.email.ilike(q) if hasattr(User, 'email') else text("false"))
+        )
+    ).limit(20).all()
+
+    resultado = []
+    now_utc = datetime.utcnow()
+    for u in users:
+        last_active = getattr(u, 'last_active', None)
+        is_online = bool(last_active) and (now_utc - last_active).total_seconds() < ONLINE_TIMEOUT
+        resultado.append({'id': u.id, 'username': u.username, 'role': u.role, 'online': bool(is_online)})
+
+    return jsonify({'resultado': resultado})
+
+
 @app.route('/search', methods=['GET', 'POST'])
 @login_required
 def search():
@@ -1276,6 +2482,9 @@ def search():
 @limiter.limit('20 per minute')
 def analysis_page():
     """View analysis history - accessible to all roles."""
+    if not _log_tools_allowed(current_user):
+        flash('No tienes permiso para acceder al analizador de logs.', 'danger')
+        return redirect(url_for('menu'))
     # Load history from session if available
     user_key = current_user.username
     history = session.get('logs_history', logs_history.get(user_key, []))
@@ -1291,6 +2500,9 @@ def analysis_page():
 @limiter.limit('10 per minute')
 def clear_history():
     """Clear analysis history for current user."""
+    if not _log_tools_allowed(current_user):
+        flash('No tienes permiso para acceder al analizador de logs.', 'danger')
+        return redirect(url_for('menu'))
     user_key = current_user.username
     # Limpiar de memoria
     if user_key in logs_history:
@@ -1307,6 +2519,9 @@ def clear_history():
 @limiter.limit('10 per minute')
 def analyze():
     """Analyze log - accessible to all roles."""
+    if not _log_tools_allowed(current_user):
+        flash('No tienes permiso para acceder al analizador de logs.', 'danger')
+        return redirect(url_for('menu'))
     if not _validate_csrf():
         flash('Solicitud inválida. Recarga la página e intenta nuevamente.', 'danger')
         return redirect(url_for('paste_page'))
@@ -1353,6 +2568,9 @@ def analyze():
 @limiter.limit('20 per minute')
 def paste_page():
     """Paste log page - accessible to all roles."""
+    if not _log_tools_allowed(current_user):
+        flash('No tienes permiso para acceder al analizador de logs.', 'danger')
+        return redirect(url_for('menu'))
     user_key = current_user.username
     history = session.get('logs_history', logs_history.get(user_key, []))
     return render_template('paste.html', logs_history=history, csrf_token=_get_csrf_token())
@@ -1363,6 +2581,9 @@ def paste_page():
 @limiter.limit('20 per minute')
 def upload():
     """Upload log file - accessible to all roles."""
+    if not _log_tools_allowed(current_user):
+        flash('No tienes permiso para acceder al analizador de logs.', 'danger')
+        return redirect(url_for('menu'))
     if request.method == 'GET':
         user_key = current_user.username
         history = session.get('logs_history', logs_history.get(user_key, []))
@@ -1559,11 +2780,28 @@ def admin_users():
         'adminpage': 8,
     }
     
-    # Obtener todos los usuarios
-    all_users = User.query.all()
-    
-    # Ordenar por jerarquía primero, luego por fecha de creación descendente
-    users = sorted(all_users, key=lambda u: (role_order.get(u.role, 999), -u.created_at.timestamp()))
+    # Soporte de búsqueda por query ?q=
+    q = (request.args.get('q') or '').strip()
+    if q:
+        try:
+            q_id = int(q)
+        except Exception:
+            q_id = None
+        filters = []
+        if q_id is not None:
+            filters.append(User.id == q_id)
+        # Buscar por username o email (case-insensitive)
+        filters.append(User.username.ilike(f"%{q}%"))
+        # email may not exist for older users but included if present
+        if hasattr(User, 'email'):
+            filters.append(User.email.ilike(f"%{q}%"))
+        queried = User.query.filter(or_(*filters)).all()
+        users = sorted(queried, key=lambda u: (role_order.get(u.role, 999), -u.created_at.timestamp()))
+    else:
+        # Obtener todos los usuarios
+        all_users = User.query.all()
+        # Ordenar por jerarquía primero, luego por fecha de creación descendente
+        users = sorted(all_users, key=lambda u: (role_order.get(u.role, 999), -u.created_at.timestamp()))
     
     # Marcar online si el usuario fue activo en los últimos ONLINE_TIMEOUT segundos
     now_utc = datetime.utcnow()
@@ -1993,7 +3231,7 @@ def twofa_page():
         _twofa_disable_for_user(current_user)
         session.pop('twofa_setup_secret', None)
         session.modified = True
-        flash('2FA solo está disponible para rangos: Founder/Owner/Admin/Manager/Smod.', 'danger')
+        flash('2FA solo está disponible para rangos: Helper/Mod/Smod/Admin/Owner/Founder.', 'danger')
         return redirect(url_for('menu'))
     # If user is not enabled, create/keep a setup secret in session until verified.
     setup_secret = session.get('twofa_setup_secret')
@@ -2030,7 +3268,7 @@ def twofa_enable():
         _twofa_disable_for_user(current_user)
         session.pop('twofa_setup_secret', None)
         session.modified = True
-        flash('2FA solo está disponible para rangos: Founder/Owner/Admin/Manager/Smod.', 'danger')
+        flash('2FA solo está disponible para rangos: Helper/Mod/Smod/Admin/Owner/Founder.', 'danger')
         return redirect(url_for('menu'))
     if not _validate_csrf():
         flash('Solicitud inválida. Recarga la página e intenta nuevamente.', 'danger')
@@ -2072,7 +3310,7 @@ def twofa_disable():
         _twofa_disable_for_user(current_user)
         session.pop('twofa_setup_secret', None)
         session.modified = True
-        flash('2FA solo está disponible para rangos: Founder/Owner/Admin/Manager/Smod.', 'danger')
+        flash('2FA solo está disponible para rangos: Helper/Mod/Smod/Admin/Owner/Founder.', 'danger')
         return redirect(url_for('menu'))
     if not _validate_csrf():
         flash('Solicitud inválida. Recarga la página e intenta nuevamente.', 'danger')
@@ -2124,18 +3362,33 @@ def twofa_login_verify():
         return redirect(url_for('login'))
 
     if request.method == 'GET':
-        return render_template('twofa_login.html', csrf_token=_get_csrf_token(), username=user.username)
+        return render_template(
+            'login.html',
+            show_twofa_modal=True,
+            twofa_username=user.username,
+            csrf_token=_get_csrf_token(),
+        )
 
     if not _validate_csrf():
         flash('Solicitud inválida. Recarga la página e intenta nuevamente.', 'danger')
-        return redirect(url_for('twofa_login_verify'))
+        return render_template(
+            'login.html',
+            show_twofa_modal=True,
+            twofa_username=user.username,
+            csrf_token=_get_csrf_token(),
+        )
 
     code = (request.form.get('code') or '').strip().replace(' ', '')
     import pyotp
     totp = pyotp.TOTP(user.twofa_secret or '')
     if not totp.verify(code, valid_window=1):
         flash('Código 2FA inválido.', 'danger')
-        return redirect(url_for('twofa_login_verify'))
+        return render_template(
+            'login.html',
+            show_twofa_modal=True,
+            twofa_username=user.username,
+            csrf_token=_get_csrf_token(),
+        )
 
     session.pop('twofa_pending_user_id', None)
     session.modified = True

@@ -1,0 +1,1039 @@
+{% extends 'base.html' %}
+{% block content %}
+{% set user_role = current_user.role if current_user.is_authenticated else '' %}
+{% set can_edit_comandosstaff = current_user.is_authenticated and ((current_user.role in ['admin', 'owner', 'founder']) or (current_user.username|lower == 'ponygamer_uwu')) %}
+
+{% if can_edit_comandosstaff %}
+<div id="edit-fab-group" style="position:fixed;bottom:32px;right:32px;z-index:1000;display:flex;gap:16px;align-items:center;">
+  <button id="edit-all-btn" onclick="toggleEditAll()" style="background:#232526;border:2px solid #ff8c00;border-radius:50%;width:56px;height:56px;box-shadow:0 2px 12px #ff8c0044;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background 0.2s;">
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ffd700" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+  </button>
+  <button id="save-all-btn" onclick="saveAllEdits()" style="display:none;background:#ffd700;border:2px solid #ff8c00;border-radius:50%;width:56px;height:56px;box-shadow:0 2px 12px #ff8c0044;align-items:center;justify-content:center;cursor:pointer;transition:background 0.2s;">
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#232526" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+  </button>
+</div>
+{% endif %}
+
+<style>
+  /* Página /comandosstaff: estilo tipo “ventana” (explorador) usando el tema existente */
+  .staff-commands-page {
+    max-width: 1500px;
+    width: 100%;
+    margin: 0 auto;
+  }
+
+  /* Barra de pestañas (tipo Explorador) */
+  .role-tabs-wrap {
+    border-radius: 14px;
+    border: 1px solid var(--card-border);
+    background: var(--panel);
+    overflow: hidden;
+    margin-bottom: 16px;
+  }
+
+  .role-tabs {
+    display: flex;
+    align-items: stretch;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    white-space: nowrap;
+    border-bottom: 1px solid rgba(255, 204, 0, 0.12);
+    background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(0,0,0,0.10));
+  }
+
+  .role-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    border-radius: 12px 12px 0 0;
+    border: 1px solid rgba(255,255,255,0.06);
+    background: rgba(255,255,255,0.02);
+    color: #ffffff;
+    padding: 10px 12px;
+    cursor: pointer;
+    user-select: none;
+    flex: 0 0 auto;
+    transition: border-color 160ms ease, background 160ms ease;
+  }
+
+  .role-tab:hover {
+    border-color: rgba(255, 204, 0, 0.35);
+  }
+
+  .role-tab.active {
+    border-color: rgba(255, 204, 0, 0.65);
+    background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(0,0,0,0.12));
+  }
+
+  .role-tab--locked {
+    opacity: 0.68;
+    cursor: not-allowed;
+  }
+
+  .role-tab__icon {
+    width: 28px;
+    height: 28px;
+    object-fit: contain;
+    filter: drop-shadow(0 0 4px rgba(255, 204, 0, 0.18));
+    flex: 0 0 auto;
+  }
+
+  .role-tab__label {
+    font-weight: 900;
+    letter-spacing: 0.2px;
+    white-space: nowrap;
+  }
+
+  .role-tab__meta {
+    color: var(--muted);
+    font-size: 0.9rem;
+    margin-left: 10px;
+  }
+
+  .role-commands {
+    display: none;
+    padding: 10px 14px;
+    color: #b8c1ca;
+  }
+
+  /* Store oculta: mantiene comandos por rango para leer/escribir desde JS */
+  .roles-editor {
+    display: none;
+  }
+
+  /* Editor dentro de la ventana inferior */
+  .cmd-edit-list {
+    padding-left: 1.2rem;
+    margin: 0;
+    color: #b8c1ca;
+  }
+
+  .cmd-edit-span[contenteditable="true"] {
+    outline: 1px dashed #ffd700;
+    border-radius: 6px;
+    padding: 0 4px;
+  }
+
+  /* “Ventana” inferior donde aparecen los comandos del rango clickeado */
+  .commands-window {
+    border-radius: 14px;
+    border: 1px solid var(--card-border);
+    background: var(--panel);
+    overflow: hidden;
+  }
+
+  .commands-window__titlebar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 12px 14px;
+    border-bottom: 1px solid rgba(255, 204, 0, 0.12);
+    background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(0,0,0,0.10));
+  }
+
+  .commands-window__title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .commands-window__icon {
+    width: 40px;
+    height: 40px;
+    object-fit: contain;
+    filter: drop-shadow(0 0 4px rgba(255, 204, 0, 0.20));
+  }
+
+  .commands-window__name {
+    font-weight: 900;
+    color: #ffffff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .commands-window__btn {
+    background: transparent;
+    border: 1px solid rgba(255, 204, 0, 0.35);
+    color: #ffcc00;
+    border-radius: 10px;
+    padding: 6px 10px;
+    font-weight: 800;
+    cursor: pointer;
+  }
+
+  .commands-window__btn:hover {
+    border-color: rgba(255, 204, 0, 0.55);
+  }
+
+  .commands-window__body {
+    padding: 14px;
+  }
+
+  .commands-window__body ul {
+    padding-left: 1.2rem;
+    margin: 0;
+    color: #b8c1ca;
+  }
+
+  .commands-window__muted {
+    color: var(--muted);
+    margin: 0;
+  }
+
+  /* Tooltip para descripción corta */
+  .cmd-tooltip {
+    position: relative;
+    display: inline-block;
+  }
+
+  .cmd-tooltip__text {
+    visibility: hidden;
+    background-color: rgba(35, 37, 38, 0.95);
+    color: #ffd700;
+    text-align: center;
+    border-radius: 8px;
+    padding: 8px 12px;
+    border: 1px solid rgba(255, 204, 0, 0.35);
+    position: absolute;
+    z-index: 1;
+    bottom: 125%;
+    left: 50%;
+    margin-left: -80px;
+    width: 160px;
+    opacity: 0;
+    transition: opacity 0.3s;
+    font-size: 0.85rem;
+    font-weight: 800;
+    white-space: normal;
+    pointer-events: none;
+  }
+
+  .cmd-tooltip:hover .cmd-tooltip__text {
+    visibility: visible;
+    opacity: 1;
+  }
+
+  /* Modal para descripción detallada */
+  .cmd-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.60);
+    backdrop-filter: blur(5px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+    padding: 16px;
+  }
+
+  .cmd-modal {
+    width: min(600px, 100%);
+    border-radius: 14px;
+    border: 1px solid var(--card-border);
+    background: var(--panel);
+    overflow: hidden;
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+
+  .cmd-modal__titlebar {
+    padding: 14px 16px;
+    border-bottom: 1px solid rgba(255, 204, 0, 0.12);
+    background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(0,0,0,0.10));
+    font-weight: 900;
+    color: #ffffff;
+    font-size: 1.1rem;
+  }
+
+  .cmd-modal__body {
+    padding: 16px;
+  }
+
+  .cmd-modal__desc {
+    color: #b8c1ca;
+    font-weight: 800;
+    line-height: 1.6;
+    margin: 0;
+  }
+
+  .cmd-modal__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 12px 14px;
+    border-top: 1px solid rgba(255, 204, 0, 0.12);
+    background: linear-gradient(180deg, rgba(0,0,0,0.06), rgba(0,0,0,0.10));
+  }
+
+  .cmd-modal__btn {
+    background: transparent;
+    border: 1px solid rgba(255, 204, 0, 0.35);
+    color: #ffcc00;
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-weight: 900;
+    cursor: pointer;
+    transition: border-color 0.2s;
+  }
+
+  .cmd-modal__btn:hover {
+    border-color: rgba(255, 204, 0, 0.65);
+  }
+
+  .cmd-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px;
+    list-style: none;
+    cursor: pointer;
+  }
+
+  .cmd-item:hover {
+    background: rgba(255, 204, 0, 0.06);
+    border-radius: 6px;
+  }
+
+  .cmd-item__name {
+    font-weight: 1000;
+    color: #ffd700;
+    min-width: 100px;
+  }
+
+  .cmd-item__short {
+    color: #b8c1ca;
+    font-weight: 900;
+    flex: 1;
+  }
+
+  .cmd-item__right {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .cmd-item__edit-btn {
+    background: transparent;
+    border: 1px solid rgba(255, 204, 0, 0.35);
+    color: #ffd700;
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 0.85rem;
+    font-weight: 800;
+    cursor: pointer;
+    display: none;
+  }
+
+  .cmd-item__edit-btn:hover {
+    border-color: rgba(255, 204, 0, 0.65);
+  }
+
+  .edit-mode .cmd-item__edit-btn {
+    display: inline-block;
+  }
+
+  .cmd-item__delete-btn {
+    background: transparent;
+    border: 1px solid rgba(255, 100, 100, 0.35);
+    color: #ff6464;
+    border-radius: 6px;
+    padding: 4px 6px;
+    font-weight: 800;
+    cursor: pointer;
+    display: none;
+    line-height: 1;
+  }
+
+  .cmd-item__delete-btn:hover {
+    border-color: rgba(255, 100, 100, 0.65);
+  }
+
+  .edit-mode .cmd-item__delete-btn {
+    display: inline-block;
+  }
+
+  /* modo edición global: no se muestra el store */
+</style>
+<div class="container-main" style="margin-top: 2rem;">
+  <div class="staff-commands-page">
+    <h2 style="color: #ff8c00; text-align:center; margin-bottom:1.2rem; width:100%; display:flex; justify-content:center;">Comandos del staff</h2>
+    <p class="tool-subtitle" style="text-align:center;"></p>
+
+    <div class="role-tabs-wrap">
+      <div class="role-tabs" id="roles-tabs" role="tablist" aria-label="Rangos">
+    {# Definición de roles con su icono desde static/ #}
+    {% set roles = [
+      {'name': 'helper', 'label': 'Helper', 'icon': 'HELPER-_P-HELPER.png'},
+      {'name': 'mod', 'label': 'Mod', 'icon': 'S-MOD-_MOD.png'},
+      {'name': 'smod', 'label': 'S-MOD', 'icon': 'S-MOD-_MOD.png'},
+      {'name': 'admin', 'label': 'Admin', 'icon': 'ADMIN.png'}
+    ] %}
+    {% set commands = {
+      'helper': [
+        {'name': '!ayuda', 'short': 'Muestra ayuda general', 'long': 'Comando para obtener ayuda general del servidor y de otros comandos disponibles.'},
+        {'name': '!info', 'short': 'Ver información del servidor', 'long': 'Obtén información detallada del servidor, jugadores conectados y estadísticas.'},
+        {'name': '!mute', 'short': 'Silencia a un jugador', 'long': 'Silencia a un jugador especificado durante el tiempo indicado. El jugador no podrá escribir en el chat.'},
+        {'name': '!unmute', 'short': 'Dessilencia a un jugador', 'long': 'Remueve el silencio de un jugador, permitiéndole escribir en el chat nuevamente.'}
+      ],
+      'mod': [
+        {'name': '!ban', 'short': 'Banea a un jugador', 'long': 'Banea a un jugador del servidor de forma permanente o temporal. Se registra en la base de datos de bans.'},
+        {'name': '!unban', 'short': 'Desbanea a un jugador', 'long': 'Remueve el ban de un jugador, permitiéndole conectarse nuevamente al servidor.'}
+      ],
+      'smod': [
+        {'name': '!kick', 'short': 'Expulsa a un jugador', 'long': 'Expulsa a un jugador del servidor. El jugador puede volver a conectarse inmediatamente.'},
+        {'name': '!warn', 'short': 'Advierte a un jugador', 'long': 'Envía una advertencia a un jugador por incumplimiento de reglas. Después de 3 advertencias, puede resultar en ban.'}
+      ],
+      'admin': [
+        {'name': '!shutdown', 'short': 'Reinicia el servidor', 'long': 'Reinicia el servidor de forma segura, desconectando a todos los jugadores con aviso previo.'},
+        {'name': '!config', 'short': 'Edita configuración', 'long': 'Abre el panel de configuración del servidor para ajustar parámetros, dificultad, y más opciones.'}
+      ]
+    } %}
+    {% set role_order = ['helper','mod','smod','admin'] %}
+    {% set user_role = current_user.role if current_user.is_authenticated else '' %}
+
+    {# Determinar el rango "efectivo" del usuario dentro de role_order #}
+    {% set user_effective_role = '' %}
+    {% if user_role == 'p-helper' %}
+      {% set user_effective_role = 'helper' %}
+    {% elif user_role in role_order %}
+      {% set user_effective_role = user_role %}
+    {% elif user_role in ['adminpage', 'owner', 'founder'] %}
+      {% set user_effective_role = 'admin' %}
+    {% elif user_role == 'manager' %}
+      {% set user_effective_role = 'smod' %}
+    {% endif %}
+
+    {# Índice numérico del rango del usuario en la jerarquía #}
+    {% set user_idx = -1 %}
+    {% if user_effective_role in role_order %}
+      {% set user_idx = role_order.index(user_effective_role) %}
+    {% endif %}
+
+    {# Solo mostramos los roles a los que el usuario tiene acceso #}
+    {% set show_roles = [] %}
+    {% if user_idx != -1 %}
+      {% for r in role_order %}
+        {% if role_order.index(r) <= user_idx %}
+          {% set _ = show_roles.append(r) %}
+        {% endif %}
+      {% endfor %}
+    {% endif %}
+
+    {% for r in show_roles %}
+      {% set role = (roles | selectattr('name', 'equalto', r) | list)[0] %}
+      <button
+        type="button"
+        class="role-tab"
+        role="tab"
+        aria-selected="false"
+        onclick="onRoleClick(this)"
+        data-rango="{{ r }}"
+        data-allowed="1"
+      >
+        <img src="{{ url_for('static', filename=role.icon) }}" alt="" class="role-tab__icon">
+        <span class="role-tab__label {% if can_edit_comandosstaff %} editable-rango {% endif %}" data-rango="{{ r }}" ondblclick="event.stopPropagation(); if(this.classList.contains('editable-rango')) makeEditable(this)">{{ role.label }}</span>
+        <span class="role-tab__meta">Abrir</span>
+      </button>
+    {% endfor %}
+      </div>
+
+      <div id="roles-editor" class="roles-editor">
+        {% for r in show_roles %}
+          <div class="role-commands" data-rango="{{ r }}" data-commands='{{ commands[r] | tojson }}'>
+            <ul>
+              {% for cmd in commands[r] %}
+                <li><span class="editable-cmd" data-rango="{{ r }}">{{ cmd.name if cmd is mapping else cmd }}</span></li>
+              {% endfor %}
+            </ul>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div id="commands-window" class="commands-window" aria-live="polite">
+      <div class="commands-window__titlebar">
+        <div class="commands-window__title">
+          <img id="commands-window-icon" class="commands-window__icon" alt="" style="display:none;">
+          <span id="commands-window-name" class="commands-window__name">Selecciona un rango</span>
+        </div>
+        <button class="commands-window__btn" type="button" onclick="clearCommandsWindow()">Limpiar</button>
+      </div>
+      <div id="commands-window-body" class="commands-window__body">
+        <p class="commands-window__muted">Haz click en un rango arriba para ver sus comandos aquí.</p>
+      </div>
+    </div>
+
+    <!-- Modal para VER descripción detallada de comandos -->
+    <div class="cmd-modal-overlay" id="cmd-detail-modal" onclick="if(event.target === this) closeCommandModal()">
+      <div class="cmd-modal" role="dialog" aria-modal="true" aria-label="Detalles del comando">
+        <div class="cmd-modal__titlebar" id="cmd-detail-title">Comando</div>
+        <div class="cmd-modal__body">
+          <p class="cmd-modal__desc" id="cmd-detail-desc">Descripción detallada del comando...</p>
+        </div>
+        <div class="cmd-modal__actions">
+          <button class="cmd-modal__btn" type="button" onclick="closeCommandModal()">Cerrar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal para EDITAR descripción larga -->
+    <div class="cmd-modal-overlay" id="cmd-edit-modal" onclick="if(event.target === this) closeEditCommandModal()">
+      <div class="cmd-modal" role="dialog" aria-modal="true" aria-label="Editar descripción del comando">
+        <div class="cmd-modal__titlebar">Descripción detallada del comando:</div>
+        <div class="cmd-modal__body" style="padding: 16px;">
+          <p style="color:#b8c1ca;font-size:0.85em;margin-bottom:8px;">(déjalo vacío para usar solo la descripción corta)</p>
+          <textarea id="cmd-edit-textarea" style="width:100%;height:150px;padding:8px;border-radius:6px;border:1px solid rgba(255,204,0,0.3);background:rgba(255,255,255,0.05);color:#fff;font-family:monospace;font-size:0.9em;resize:vertical;" placeholder="Escribe la descripción detallada aquí..."></textarea>
+        </div>
+        <div class="cmd-modal__actions">
+          <button class="cmd-modal__btn" type="button" onclick="acceptEditCommandModal()" style="background:#ff8c00;border-color:#ffd700;">Aceptar</button>
+          <button class="cmd-modal__btn" type="button" onclick="closeEditCommandModal()" style="background:#232526;border-color:#666;">Cancelar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal guardado correctamente (blur + centrado) -->
+    <div class="cmd-modal-overlay" id="cs-saved-modal" style="display:none;" aria-hidden="true">
+      <div class="cmd-modal" role="dialog" aria-modal="true" aria-label="Guardado">
+        <div class="cmd-modal__titlebar">Guardado</div>
+        <div class="cmd-modal__body">
+          <p class="commands-window__muted" style="margin:0;">Guardado correctamente.</p>
+        </div>
+        <div class="cmd-modal__actions">
+          <button class="cmd-modal__btn" id="cs-saved-ok" type="button" style="background:#ff8c00;border-color:#ffd700;">Aceptar</button>
+        </div>
+      </div>
+    </div>
+
+<script>
+let editAllMode = false;
+let activeCard = null;
+let activeRango = null;
+const CS_CAN_EDIT = !!document.getElementById('edit-all-btn');
+let csEditSnapshot = '';
+
+function csSerializeAllCommands() {
+  const all = {};
+  document.querySelectorAll('.role-commands').forEach(el => {
+    const r = el.dataset.rango;
+    try {
+      all[r] = JSON.parse(el.getAttribute('data-commands') || '[]');
+    } catch (e) { all[r] = []; }
+  });
+  const sorted = {};
+  Object.keys(all).sort().forEach(k => { sorted[k] = all[k]; });
+  try { return JSON.stringify(sorted); } catch (e) { return ''; }
+}
+
+function csCloseSavedModal() {
+  const overlay = document.getElementById('cs-saved-modal');
+  if (!overlay) return;
+  overlay.style.display = 'none';
+  overlay.setAttribute('aria-hidden', 'true');
+}
+
+function csOpenSavedModal() {
+  const overlay = document.getElementById('cs-saved-modal');
+  if (!overlay) return;
+  overlay.style.display = 'flex';
+  overlay.setAttribute('aria-hidden', 'false');
+  const btn = document.getElementById('cs-saved-ok');
+  if (btn) setTimeout(() => btn.focus(), 0);
+}
+
+(function wireSavedModal() {
+  const overlay = document.getElementById('cs-saved-modal');
+  const okBtn = document.getElementById('cs-saved-ok');
+  if (!overlay || !okBtn) return;
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) csCloseSavedModal(); });
+  okBtn.addEventListener('click', () => csCloseSavedModal());
+  document.addEventListener('keydown', (e) => {
+    const isOpen = overlay.style.display === 'flex';
+    if (!isOpen) return;
+    if (e.key === 'Escape' || e.key === 'Enter') {
+      e.preventDefault();
+      csCloseSavedModal();
+    }
+  });
+})();
+
+function setActiveCard(cardElem) {
+  document.querySelectorAll('.role-tab.active').forEach(el => {
+    el.classList.remove('active');
+    el.setAttribute('aria-selected', 'false');
+  });
+  if (cardElem) {
+    cardElem.classList.add('active');
+    cardElem.setAttribute('aria-selected', 'true');
+  }
+  activeCard = cardElem;
+}
+
+function clearCommandsWindow() {
+  setActiveCard(null);
+  activeRango = null;
+  const nameEl = document.getElementById('commands-window-name');
+  const iconEl = document.getElementById('commands-window-icon');
+  const bodyEl = document.getElementById('commands-window-body');
+  if (nameEl) nameEl.textContent = 'Selecciona un rango';
+  if (iconEl) { iconEl.style.display = 'none'; iconEl.src = ''; iconEl.alt = ''; }
+  if (bodyEl) bodyEl.innerHTML = '<p class="commands-window__muted">Haz click en un rango arriba para ver sus comandos aquí.</p>';
+}
+
+function getStoreDiv(rango) {
+  if (!rango) return null;
+  return document.querySelector('#roles-editor .role-commands[data-rango="' + rango + '"]');
+}
+
+function getStoreCommands(rango) {
+  const store = getStoreDiv(rango);
+  if (!store) return [];
+  try {
+    const jsonStr = store.getAttribute('data-commands');
+    if (jsonStr) return JSON.parse(jsonStr);
+  } catch (e) {}
+  return [];
+}
+
+function setStoreCommands(rango, cmds) {
+  const store = getStoreDiv(rango);
+  if (!store) return;
+  store.setAttribute('data-commands', JSON.stringify(cmds || []));
+  const ul = store.querySelector('ul') || store.appendChild(document.createElement('ul'));
+  ul.innerHTML = '';
+  (cmds || []).forEach(c => {
+    const li = document.createElement('li');
+    const span = document.createElement('span');
+    span.className = 'editable-cmd';
+    span.dataset.rango = rango;
+    const cmdName = (typeof c === 'object') ? (c.name || '') : c;
+    span.textContent = cmdName;
+    li.appendChild(span);
+    ul.appendChild(li);
+  });
+}
+
+
+function closeCommandModal() {
+  const modal = document.getElementById('cmd-detail-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+function openCommandDetail(cmdName, shortDesc, longDesc) {
+  const modal = document.getElementById('cmd-detail-modal');
+  const title = document.getElementById('cmd-detail-title');
+  const desc = document.getElementById('cmd-detail-desc');
+  if (!modal || !title || !desc) return;
+  
+  title.textContent = escapeHtml(cmdName);
+  desc.textContent = escapeHtml(longDesc || shortDesc || '');
+  modal.style.display = 'flex';
+}
+
+let currentEditIndex = null;
+
+function editCommandDetail(idx) {
+  const shortEl = document.querySelector('.cmd-edit-short[data-index="' + idx + '"]');
+  if (!shortEl) return;
+  
+  currentEditIndex = idx;
+  const longVal = shortEl.dataset.long || '';
+  const textarea = document.getElementById('cmd-edit-textarea');
+  if (textarea) {
+    textarea.value = longVal;
+    textarea.focus();
+  }
+  
+  const modal = document.getElementById('cmd-edit-modal');
+  if (modal) modal.style.display = 'flex';
+}
+
+function acceptEditCommandModal() {
+  if (currentEditIndex === null) return;
+  const shortEl = document.querySelector('.cmd-edit-short[data-index="' + currentEditIndex + '"]');
+  const textarea = document.getElementById('cmd-edit-textarea');
+  if (shortEl && textarea) {
+    shortEl.dataset.long = textarea.value;
+  }
+  closeEditCommandModal();
+}
+
+function closeEditCommandModal() {
+  currentEditIndex = null;
+  const modal = document.getElementById('cmd-edit-modal');
+  if (modal) modal.style.display = 'none';
+  const textarea = document.getElementById('cmd-edit-textarea');
+  if (textarea) textarea.value = '';
+}
+
+function renderCommandsWindow(roleLabel, cmds, iconUrl, lockedMessage) {
+  const nameEl = document.getElementById('commands-window-name');
+  const iconEl = document.getElementById('commands-window-icon');
+  const bodyEl = document.getElementById('commands-window-body');
+  if (nameEl) nameEl.textContent = roleLabel || 'Rango';
+  if (iconEl) {
+    if (iconUrl) {
+      iconEl.src = iconUrl;
+      iconEl.alt = roleLabel || '';
+      iconEl.style.display = 'block';
+    } else {
+      iconEl.style.display = 'none';
+      iconEl.src = '';
+      iconEl.alt = '';
+    }
+  }
+  if (!bodyEl) return;
+
+  if (lockedMessage) {
+    bodyEl.innerHTML = '<p style="color:#b8c1ca;margin:0;">' + escapeHtml(lockedMessage) + '</p>';
+    return;
+  }
+
+  if (editAllMode && activeRango) {
+    let html = '<ul id="cmd-edit-list" class="cmd-edit-list edit-mode">';
+    (cmds || []).forEach((c, idx) => {
+      const cmdName = (typeof c === 'object') ? (c.name || '') : c;
+      const shortDesc = (typeof c === 'object') ? (c.short || '') : '';
+      const longDesc = (typeof c === 'object') ? (c.long || '') : '';
+      
+      html += '<li class="cmd-item">';
+      html += '<input type="text" class="cmd-edit-name" data-index="' + idx + '" placeholder="Nombre del comando..." value="' + escapeHtml(cmdName) + '" style="width:120px;padding:6px 8px;border-radius:6px;border:1px solid rgba(255,204,0,0.25);background:rgba(255,255,255,0.03);color:#fff;margin-right:6px;"/>';
+      html += '<input type="text" class="cmd-edit-short" data-index="' + idx + '" data-long="' + escapeHtml(longDesc) + '" placeholder="Descripción corta..." value="' + escapeHtml(shortDesc) + '" style="flex:1;padding:6px 8px;border-radius:6px;border:1px solid rgba(255,204,0,0.25);background:rgba(255,255,255,0.03);color:#fff;"/>';
+      html += '<button class="cmd-item__edit-btn" data-index="' + idx + '" onclick="editCommandDetail(' + idx + ')">Editar</button>';
+      html += '<button class="cmd-item__delete-btn" onclick="removeCmdRow(this)">✕</button>';
+      html += '</li>';
+    });
+    html += '</ul>';
+    html += '<button class="add-cmd-btn" style="margin-top:10px;background:#232526;border:1.5px solid #ff8c00;color:#ffd700;border-radius:6px;cursor:pointer;padding:8px 12px;font-weight:800;" onclick="addCmdRow()">+ Agregar comando</button>';
+    bodyEl.innerHTML = html;
+    return;
+  }
+
+  if (cmds && cmds.length) {
+    let html = '<ul style="list-style:none;padding:0;margin:0;">';
+    cmds.forEach(c => {
+      const cmdName = (typeof c === 'object') ? (c.name || '') : c;
+      const shortDesc = (typeof c === 'object') ? (c.short || '') : '';
+      const longDesc = (typeof c === 'object') ? (c.long || '') : '';
+      
+      html += '<li class="cmd-item" onclick="openCommandDetail(\'' + escapeHtml(cmdName).replace(/'/g, "\\'") + '\', \'' + escapeHtml(shortDesc).replace(/'/g, "\\'") + '\', \'' + escapeHtml(longDesc).replace(/'/g, "\\'") + '\')">';
+      html += '<span class="cmd-item__name cmd-tooltip">';
+      html += escapeHtml(cmdName);
+      html += '<span class="cmd-tooltip__text">' + escapeHtml(shortDesc) + '</span>';
+      html += '</span>';
+      html += '<span class="cmd-item__short">' + escapeHtml(shortDesc) + '</span>';
+      html += '</li>';
+    });
+    html += '</ul>';
+    bodyEl.innerHTML = html;
+  } else {
+    bodyEl.innerHTML = '<p class="commands-window__muted">Sin comandos</p>';
+  }
+}
+
+function removeCmdRow(btn) {
+  const li = btn.closest('li');
+  if (li) li.remove();
+}
+
+function addCmdRow() {
+  if (!editAllMode || !activeRango) return;
+  const list = document.getElementById('cmd-edit-list');
+  if (!list) return;
+  const li = document.createElement('li');
+  li.className = 'cmd-item';
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.placeholder = 'Nuevo comando';
+  input.className = 'cmd-edit-name add-cmd-input';
+  li.appendChild(input);
+  list.appendChild(li);
+  input.focus();
+  
+  input.onkeydown = function(e) {
+    if (e.key === 'Enter') {
+      const v = input.value.trim();
+      if (v) input.blur();
+      else li.remove();
+    }
+    if (e.key === 'Escape') li.remove();
+  };
+  
+  input.onblur = function() {
+    const v = input.value.trim();
+    if (!v) { li.remove(); return; }
+    syncWindowToStore();
+  };
+}
+
+function syncWindowToStore() {
+  if (!editAllMode || !activeRango) return;
+  const list = document.getElementById('cmd-edit-list');
+  if (!list) return;
+  
+  const items = list.querySelectorAll('.cmd-item');
+  const cmds = [];
+  items.forEach(item => {
+    const nameEl = item.querySelector('.cmd-edit-name');
+    const shortEl = item.querySelector('.cmd-edit-short');
+    if (!nameEl) return;
+    
+    const name = nameEl.value || nameEl.textContent || '';
+    const short = shortEl ? (shortEl.value || shortEl.textContent || '') : '';
+    const long = shortEl ? (shortEl.dataset.long || '') : '';
+    
+    if (name.trim()) {
+      cmds.push({ name: name.trim(), short: short.trim(), long: long.trim() });
+    }
+  });
+  
+  setStoreCommands(activeRango, cmds);
+}
+
+// Mostrar comandos al hacer click en un rango (abajo)
+function onRoleClick(cardElem) {
+  // si estamos editando y cambiamos de rango, guardamos los cambios del rango anterior
+  if (editAllMode) {
+    syncWindowToStore();
+  }
+  // comprobar si el usuario tiene permiso para ver los comandos de este rango
+  const allowed = cardElem.dataset.allowed === '1';
+  if (!allowed) {
+    setActiveCard(null);
+    activeRango = null;
+    renderCommandsWindow('Rango bloqueado', [], null, 'uy tan cerca pero tan lejos esfuerzate un poquito mas para desbloquear estos comandos :D');
+    return;
+  }
+  const rango = cardElem.dataset.rango;
+  const title = cardElem.querySelector('.role-tab__label');
+  activeRango = rango;
+  const cmds = getStoreCommands(rango);
+  const roleLabel = title ? title.textContent.trim() : '';
+  const iconImg = cardElem.querySelector('.role-tab__icon');
+  const iconUrl = iconImg ? iconImg.src : '';
+
+  setActiveCard(cardElem);
+  renderCommandsWindow(roleLabel, cmds, iconUrl, null);
+
+  // scroll suave hacia la “ventana” si queda muy abajo
+  const win = document.getElementById('commands-window');
+  if (win) win.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+function escapeHtml(str){ return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function toggleEditAll() {
+  if (!CS_CAN_EDIT) return;
+  editAllMode = !editAllMode;
+  const saveBtn = document.getElementById('save-all-btn');
+  setEditMode(editAllMode);
+  document.getElementById('edit-all-btn').style.background = editAllMode ? '#ff8c00' : '#232526';
+  if (saveBtn) saveBtn.style.display = editAllMode ? 'flex' : 'none';
+
+  // Snapshot para saber si hubo cambios reales
+  if (editAllMode) {
+    csEditSnapshot = csSerializeAllCommands();
+  }
+
+  // al entrar a edición, si ya hay un rango seleccionado, lo re-renderizamos en modo editable
+  if (editAllMode && activeCard && activeRango) {
+    const title = activeCard.querySelector('.role-tab__label');
+    const roleLabel = title ? title.textContent.trim() : '';
+    const iconImg = activeCard.querySelector('.role-tab__icon');
+    const iconUrl = iconImg ? iconImg.src : '';
+    const cmds = getStoreCommands(activeRango);
+    renderCommandsWindow(roleLabel, cmds, iconUrl, null);
+  }
+}
+
+function saveAllEdits() {
+  if (!CS_CAN_EDIT) return;
+  if (!editAllMode) return;
+
+  // guardar cambios del rango actual en el store
+  syncWindowToStore();
+
+  // Si no cambió nada (solo visual), salir de edición sin mostrar modal ni hacer request
+  const current = csSerializeAllCommands();
+  if (current && csEditSnapshot && current === csEditSnapshot) {
+    editAllMode = false;
+    setEditMode(false);
+    document.getElementById('edit-all-btn').style.background = '#232526';
+    document.getElementById('save-all-btn').style.display = 'none';
+    if (activeCard && activeRango) {
+      const title = activeCard.querySelector('.role-tab__label');
+      const roleLabel = title ? title.textContent.trim() : '';
+      const iconImg = activeCard.querySelector('.role-tab__icon');
+      const iconUrl = iconImg ? iconImg.src : '';
+      const cmds = getStoreCommands(activeRango);
+      renderCommandsWindow(roleLabel, cmds, iconUrl, null);
+    }
+    return;
+  }
+
+  // Forzar blur en todos los inputs para guardar cambios visuales
+  document.querySelectorAll('.editable-rango input, .editable-cmd input').forEach(input => input.blur());
+  // Desactivar modo edición global
+  editAllMode = false;
+  setEditMode(false);
+  document.getElementById('edit-all-btn').style.background = '#232526';
+  document.getElementById('save-all-btn').style.display = 'none';
+
+  // re-renderiza el rango actual en modo lectura
+  if (activeCard && activeRango) {
+    const title = activeCard.querySelector('.role-tab__label');
+    const roleLabel = title ? title.textContent.trim() : '';
+    const iconImg = activeCard.querySelector('.role-tab__icon');
+    const iconUrl = iconImg ? iconImg.src : '';
+    const cmds = getStoreCommands(activeRango);
+    renderCommandsWindow(roleLabel, cmds, iconUrl, null);
+  }
+  // Enviar todos los comandos al backend para persistencia en BD
+  try {
+    const all = {};
+    document.querySelectorAll('.role-commands').forEach(el => {
+      const r = el.dataset.rango;
+      try {
+        all[r] = JSON.parse(el.getAttribute('data-commands') || '[]');
+      } catch (e) { all[r] = []; }
+    });
+
+    fetch('/api/comandosstaff/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ commands_map: all })
+    }).then(res => res.json()).then(json => {
+      if (json && json.ok) {
+        console.log('Comandos guardados en BD');
+        csEditSnapshot = csSerializeAllCommands();
+        csOpenSavedModal();
+      } else {
+        console.warn('Error guardando comandos:', json && json.error);
+      }
+    }).catch(err => { console.error('Network error saving comandos:', err); });
+  } catch (e) { console.error(e); }
+}
+function makeEditable(element) {
+  if (editAllMode) return; // cuando el modo global está activo, usar contentEditable para editar todos
+  if (element.querySelector('input')) return;
+  const oldText = element.textContent.trim();
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.value = oldText;
+  input.style.width = '90%';
+  input.style.fontSize = '1em';
+  input.style.background = '#232526';
+  input.style.color = '#ffd700';
+  input.style.border = '1.5px solid #ff8c00';
+  input.style.borderRadius = '6px';
+  input.style.padding = '2px 6px';
+  input.onblur = function() {
+    element.textContent = input.value;
+  };
+  input.onkeydown = function(e) {
+    if (e.key === 'Enter') {
+      input.blur();
+    }
+  };
+  element.textContent = '';
+  element.appendChild(input);
+  input.focus();
+}
+
+function setEditMode(enabled) {
+  const rangoSpans = document.querySelectorAll('.editable-rango');
+  const addBtns = document.querySelectorAll('.add-cmd-btn');
+  const delBtns = document.querySelectorAll('.cmd-item__delete-btn');
+  const editBtns = document.querySelectorAll('.cmd-item__edit-btn');
+
+  rangoSpans.forEach(span => {
+    span.contentEditable = enabled ? 'true' : 'false';
+    span.style.outline = enabled ? '1px dashed #ffd700' : 'none';
+    span.dataset.editing = enabled ? '1' : '';
+  });
+
+  addBtns.forEach(btn => btn.style.display = enabled ? 'inline-block' : 'none');
+  delBtns.forEach(btn => btn.style.display = enabled ? 'inline-block' : 'none');
+  editBtns.forEach(btn => btn.style.display = enabled ? 'inline-block' : 'none');
+
+  // Habilitar inputs cuando modo edición está activo
+  const inputs = document.querySelectorAll('.cmd-edit-name, .cmd-edit-short');
+  inputs.forEach(input => {
+    input.readOnly = !enabled;
+    input.style.outline = enabled ? '1px dashed rgba(255,204,0,0.5)' : 'none';
+  });
+
+  // activar clase global para cambiar layout a "desplegado" tipo panel
+  document.body.classList.toggle('edit-commands-mode', enabled);
+}
+
+function deleteCommand(btn) {
+  if (!CS_CAN_EDIT) return;
+  const li = btn.closest('li');
+  if (li) li.remove();
+}
+
+function addNewCommand(folderCommandsDiv) {
+  if (!CS_CAN_EDIT) return;
+  if (!folderCommandsDiv.classList.contains('role-commands')) return;
+  // Evitar múltiples inputs
+  if (folderCommandsDiv.querySelector('input.add-cmd-input')) return;
+  var ul = folderCommandsDiv.querySelector('ul');
+  var li = document.createElement('li');
+  var input = document.createElement('input');
+  input.type = 'text';
+  input.placeholder = 'Nuevo comando';
+  input.className = 'add-cmd-input';
+  input.style.width = '90%';
+  input.style.fontSize = '1em';
+  input.style.background = '#232526';
+  input.style.color = '#ffd700';
+  input.style.border = '1.5px solid #ff8c00';
+  input.style.borderRadius = '6px';
+  input.style.padding = '2px 6px';
+  input.onblur = function() {
+    if (input.value.trim() !== '') {
+      var span = document.createElement('span');
+      span.textContent = input.value;
+      span.className = 'editable-cmd';
+      span.ondblclick = function(e) { makeEditable(span); e.stopPropagation(); };
+      li.textContent = '';
+      li.appendChild(span);
+      // agrega botón de borrar para este nuevo comando (visible solo en modo edición)
+      var del = document.createElement('button');
+      del.className = 'delete-cmd-btn';
+      del.style.display = editAllMode ? 'inline-block' : 'none';
+      del.style.marginLeft = '8px';
+      del.style.background = '#232526';
+      del.style.border = '1px solid #ff8c00';
+      del.style.color = '#ffd700';
+      del.style.borderRadius = '4px';
+      del.style.cursor = 'pointer';
+      del.textContent = '🗑️';
+      del.onclick = function() { deleteCommand(this); };
+      li.appendChild(del);
+
+      // actualiza snapshot de cambios locales (evita que se considere no-op)
+      try { csEditSnapshot = ''; } catch (_) {}
+    } else {
+      li.remove();
+    }
+  };
+  input.onkeydown = function(e) {
+    if (e.key === 'Enter') {
+      input.blur();
+    } else if (e.key === 'Escape') {
+      li.remove();
+    }
+  };
+  li.appendChild(input);
+  ul.appendChild(li);
+  input.focus();
+}
+</script>
+  </div>
+</div>
+{% endblock %}

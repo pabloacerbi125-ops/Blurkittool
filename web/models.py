@@ -1,6 +1,6 @@
-"""Database models for BlurkitModsTool.
+"""Modelos de base de datos para BlurkitModsTool.
 
-Defines User and Mod models with SQLAlchemy.
+Define los modelos `User` y `Mod` con SQLAlchemy.
 """
 
 from flask_sqlalchemy import SQLAlchemy
@@ -11,7 +11,7 @@ db = SQLAlchemy()
 
 
 class User(UserMixin, db.Model):
-    """User model with role-based permissions."""
+    """Modelo de usuario con permisos basados en roles."""
     
     __tablename__ = 'users'
     
@@ -42,7 +42,13 @@ class User(UserMixin, db.Model):
         return f'<User {self.username} ({self.role})>'
     
     def has_role(self, *roles):
-        """Check if user has any of the specified roles. 'adminpage', 'owner', 'founder' cuentan como 'admin'; 'manager' como 'smod'; 'p-helper' como 'helper'."""
+        """Verifica si el usuario tiene alguno de los roles especificados.
+
+        Reglas de compatibilidad:
+        - 'adminpage', 'owner', 'founder' cuentan como 'admin'
+        - 'manager' cuenta como 'smod'
+        - 'p-helper' cuenta como 'helper'
+        """
         if 'admin' in roles and self.role in ('adminpage', 'owner', 'founder'):
             return True
         if 'smod' in roles and self.role == 'manager':
@@ -52,16 +58,16 @@ class User(UserMixin, db.Model):
         return self.role in roles
     
     def can_edit(self):
-        """Check if user can edit mods."""
+        """Indica si el usuario puede editar mods."""
         return self.role in ('smod', 'admin', 'adminpage', 'owner', 'founder', 'manager')
     
     def is_admin(self):
-        """Check if user es admin, adminpage, owner o founder."""
+        """Verifica si el usuario es admin, adminpage, owner o founder."""
         return self.role in ('admin', 'adminpage', 'owner', 'founder')
 
 
 class Mod(db.Model):
-    """Mod model with status, category, and aliases."""
+    """Modelo de mod con estado, categoría y alias."""
     
     __tablename__ = 'mods'
     
@@ -71,7 +77,7 @@ class Mod(db.Model):
     category = db.Column(db.String(100))
     platform = db.Column(db.String(100))
     description = db.Column(db.Text)
-    aliases = db.Column(db.Text)  # Stored as comma-separated string
+    aliases = db.Column(db.Text)  # Guardado como string separada por comas
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'))
@@ -80,13 +86,13 @@ class Mod(db.Model):
         return f'<Mod {self.name} ({self.status})>'
     
     def get_aliases_list(self):
-        """Get aliases as a list."""
+        """Devuelve los alias como lista."""
         if not self.aliases:
             return []
         return [a.strip() for a in self.aliases.split(',') if a.strip()]
     
     def set_aliases_list(self, alias_list):
-        """Set aliases from a list."""
+        """Setea los alias desde una lista."""
         if isinstance(alias_list, list):
             self.aliases = ', '.join([str(a).strip() for a in alias_list if a])
         else:
@@ -108,7 +114,7 @@ class Mod(db.Model):
 
 
 class LoginAttempt(db.Model):
-    """Model to track failed login attempts by IP and username."""
+    """Modelo para registrar intentos de login fallidos por IP y usuario."""
     
     __tablename__ = 'login_attempts'
     
@@ -137,6 +143,34 @@ class Modalidad(db.Model):
         return f'<Modalidad {self.nombre}>'
 
 
+# ===================== GUIA SANCIONES: MODALIDAD (SEPARADA) =====================
+class GuiaSancionesModalidad(db.Model):
+    __tablename__ = 'guia_sanciones_modalidades'
+    id = db.Column(db.Integer, primary_key=True)
+    nombre = db.Column(db.String(120), unique=True, nullable=False)
+    orden = db.Column(db.Integer, nullable=False, default=0, index=True)
+
+    def __repr__(self):
+        return f'<GuiaSancionesModalidad {self.nombre}>'
+
+
+# ===================== GUIA SANCIONES: SANCION =====================
+class GuiaSancion(db.Model):
+    __tablename__ = 'guia_sanciones_sanciones'
+    id = db.Column(db.Integer, primary_key=True)
+    modalidad_id = db.Column(db.Integer, db.ForeignKey('guia_sanciones_modalidades.id'), nullable=False, index=True)
+    texto = db.Column(db.Text, nullable=False)
+    orden = db.Column(db.Integer, nullable=False, default=0, index=True)
+
+    modalidad = db.relationship(
+        'GuiaSancionesModalidad',
+        backref=db.backref('sanciones', lazy=True, cascade='all, delete-orphan'),
+    )
+
+    def __repr__(self):
+        return f'<GuiaSancion {self.modalidad_id} #{self.orden}>'
+
+
 # ===================== REGLA =====================
 class Regla(db.Model):
     __tablename__ = 'reglas'
@@ -150,3 +184,63 @@ class Regla(db.Model):
 
     def __repr__(self):
         return f'<Regla {self.descripcion[:30]}... (Modalidad {self.modalidad_id})>'
+
+
+# ===================== COMANDOS STAFF =====================
+class Comando(db.Model):
+    __tablename__ = 'comandos_staff'
+    id = db.Column(db.Integer, primary_key=True)
+    rango = db.Column(db.String(64), nullable=False, index=True)
+    nombre = db.Column(db.String(200), nullable=False)
+    descripcion = db.Column(db.Text)    # descripción corta
+    informacion = db.Column(db.Text)    # descripción larga / información
+    orden = db.Column(db.Integer, default=0, index=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'rango': self.rango,
+            'name': self.nombre,
+            'short': self.descripcion,
+            'long': self.informacion,
+            'orden': self.orden,
+        }
+
+    def __repr__(self):
+        return f'<Comando {self.rango} {self.nombre}>'
+
+
+# ===================== SS SESSION (Login con 2FA temporal) =====================
+class SSSession(db.Model):
+    __tablename__ = 'ss_sessions'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    token = db.Column(db.String(255), unique=True, nullable=False, index=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    expires_at = db.Column(db.DateTime, nullable=False, index=True)
+    
+    user = db.relationship('User', backref=db.backref('ss_sessions', lazy=True, cascade='all, delete-orphan'))
+    
+    def is_valid(self):
+        """Verifica si el token no expiró."""
+        return datetime.utcnow() < self.expires_at
+    
+    def __repr__(self):
+        return f'<SSSession user={self.user_id} expires={self.expires_at}>'
+
+
+# ===================== SS LINKS =====================
+class SSLink(db.Model):
+    __tablename__ = 'ss_links'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(150), nullable=False)
+    url = db.Column(db.String(500), nullable=False)
+    icon = db.Column(db.String(50), nullable=True)
+    description = db.Column(db.String(300), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    def __repr__(self):
+        return f'<SSLink {self.name}>'

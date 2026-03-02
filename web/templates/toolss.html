@@ -1,9 +1,6 @@
-
-
 {% extends 'base.html' %}
 {% block content %}
-{% set neon_color = '#ff8c00' %}
-
+{% set neon_color = '#ffc107' %}
 <div style="--neon-color: {{ neon_color }}; --neon-color-11: {{ neon_color }}11; --neon-color-33: {{ neon_color }}33; --neon-color-88: {{ neon_color }}88;">
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
@@ -18,7 +15,7 @@
     top: 0; left: 0; width: 100vw; height: 100vh;
     z-index: 0;
     pointer-events: none;
-    background: radial-gradient(ellipse at 60% 40%, #ffcc0033 0%, #232526 80%);
+    background: radial-gradient(ellipse at 60% 40%, #ffc10733 0%, #232526 80%);
     animation: bgmove 12s linear infinite alternate;
     opacity: 0.7;
   }
@@ -48,25 +45,20 @@
       0 0 4px var(--neon-color-88),
       0 0 1px #fff8,
       0 2px 4px #0006;
-    margin-bottom: 0.7rem;
+    margin-bottom: 0rem;
     animation: gamerGlow 2.2s infinite alternate;
   }
   @keyframes gamerGlow {
     0% { text-shadow: 0 0 4px var(--neon-color-88), 0 0 1px #fff8, 0 2px 4px #0006; }
     100% { text-shadow: 0 0 8px var(--neon-color-88), 0 0 4px var(--neon-color-88), 0 2px 8px #0006; }
   }
-  .hero-subtitle {
-    color: #e6eef3;
-    font-size: 1.25rem;
-    margin-bottom: 0.5rem;
-    text-shadow: 0 0 4px #ffcc0077;
-  }
   .hero-user {
     color: #fff;
     font-size: 1.1rem;
     margin-bottom: 0.5rem;
+    margin-top: 1rem;
     font-family: 'Inter', Arial, sans-serif;
-    text-shadow: 0 0 4px #ffcc0077;
+    text-shadow: 0 0 4px #ffc10777;
   }
   .menu-grid {
     display: flex;
@@ -77,9 +69,9 @@
     z-index: 1;
   }
   .menu-card {
-    border: 2px solid #ff8c00;
-    box-shadow: 0 0 4px 1px #ffd70066, 0 0 8px 2px #ffd70022;
-    background: linear-gradient(135deg, rgba(30,32,36,0.97) 80%, #ffcc0011 100%);
+    border: 2px solid #ffc107;
+    box-shadow: 0 0 4px 1px #ffc10766, 0 0 8px 2px #ffc10722;
+    background: linear-gradient(135deg, rgba(30,32,36,0.97) 80%, #ffc10711 100%);
     border-radius: 14px;
     transition: box-shadow 0.3s, border-color 0.3s, transform 0.2s;
     font-family: 'Inter', Arial, sans-serif;
@@ -99,20 +91,22 @@
     content: '';
     position: absolute;
     top: 0; left: 0; width: 100%; height: 100%;
-    background: radial-gradient(circle at 60% 40%, #ffcc0011 0%, transparent 80%);
+    background: radial-gradient(circle at 60% 40%, #ffc10711 0%, transparent 80%);
     opacity: 0.2;
     z-index: 0;
     pointer-events: none;
   }
   .menu-card:hover {
-    box-shadow: 0 0 18px 6px #ffd700cc, 0 0 32px 10px #ffd700aa, 0 0 48px 16px #ffd70033;
-    border-color: #ff8c00;
+    box-shadow: 0 0 18px 6px #ffc107cc, 0 0 32px 10px #ffc107aa, 0 0 48px 16px #ffc10733;
+    border-color: #ffc107;
     transform: scale(1.05) rotate(-1.5deg);
+    text-decoration: none;
+    color: #fff;
   }
   .menu-icon {
     font-size: 3.2rem;
     margin-bottom: 1.1rem;
-    filter: drop-shadow(0 0 6px #ff8c4266);
+    filter: drop-shadow(0 0 6px #ffc10766);
     animation: gamerIconPop 2.5s infinite alternate;
     z-index: 1;
   }
@@ -126,7 +120,7 @@
     font-weight: 700;
     margin-bottom: 0.3rem;
     letter-spacing: 1px;
-    text-shadow: 0 0 4px #ffcc0077;
+    text-shadow: 0 0 4px #ffc10777;
     z-index: 1;
   }
   .menu-description {
@@ -135,13 +129,84 @@
     font-family: 'Inter', Arial, sans-serif;
     z-index: 1;
   }
+
+  /* Timer Position Bottom Right */
+  .ss-timer-widget {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    background: rgba(36, 38, 41, 0.98);
+    border: 2px solid var(--neon-color);
+    border-radius: 16px;
+    padding: 1.5rem 1.8rem;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 16px var(--neon-color-33);
+    backdrop-filter: blur(8px);
+    text-align: center;
+    animation: timerEntry 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+    z-index: 999;
+  }
+
+  @keyframes timerEntry {
+    0% { transform: scale(0.7) translateY(100px); opacity: 0; }
+    100% { transform: scale(1) translateY(0); opacity: 1; }
+  }
+
+  .ss-timer-label {
+    font-size: 0.9rem;
+    color: #999;
+    margin-bottom: 0.5rem;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+  }
+
+  .ss-timer-display {
+    font-size: 2.2rem;
+    font-weight: 700;
+    color: var(--neon-color);
+    font-family: 'Courier New', monospace;
+    text-shadow: 0 0 8px var(--neon-color-88);
+    letter-spacing: 2px;
+  }
+
+  .ss-timer-status {
+    font-size: 0.85rem;
+    color: #ffc107;
+    margin-top: 0.8rem;
+    animation: statusPulse 1.8s ease-in-out infinite;
+  }
+
+  @keyframes statusPulse {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 1; }
+  }
+
+  /* Media query para mobile */
+  @media (max-width: 768px) {
+    .ss-timer-widget {
+      bottom: 1rem;
+      right: 1rem;
+      padding: 1rem 1.2rem;
+    }
+    .ss-timer-display {
+      font-size: 1.8rem;
+    }
+    .hero-title {
+      font-size: 1.8rem;
+    }
+    .menu-grid {
+      gap: 1.5rem;
+    }
+    .menu-card {
+      min-width: 280px;
+      max-width: 300px;
+    }
+  }
 </style>
+
 <div class="gamer-bg-anim"></div>
 <div class="container-main" style="margin-top: 2rem; position: relative; z-index: 1;">
   <div class="hero-section">
-
-    <div class="hero-title">🎮 BlurkitTool</div>
-    <div class="hero-subtitle">🛠️ Herramientas rápidas para revisar mods y logs</div>
+    <div class="hero-title">🔐 Herramientas SS</div>
 
     {% if current_user.is_authenticated %}
     {# Icono de rol en el saludo principal #}
@@ -160,10 +225,10 @@
       {% set role_icon = 'FOUNDER_-1.png' %}
     {% endif %}
 
-    <div style="margin-top: 1.2rem; font-size: 1.18rem; color: #ffe066; font-weight: 600; text-shadow: 0 1px 8px #000; display: flex; align-items: center; justify-content: center; gap: 0.7rem;">
+    <div style="margin-top: 1.2rem; font-size: 1.18rem; color: #ffc107; font-weight: 600; text-shadow: 0 1px 8px #000; display: flex; align-items: center; justify-content: center; gap: 0.7rem;">
       Bienvenido
       {% if role_icon %}
-        <img src="{{ url_for('static', filename=role_icon) }}" alt="{{ current_user.role }}" style="width:64px;height:64px;object-fit:contain;filter:drop-shadow(0 0 6px #ffcc0077);margin:0 0.3rem;">
+        <img src="{{ url_for('static', filename=role_icon) }}" alt="{{ current_user.role }}" style="width:64px;height:64px;object-fit:contain;filter:drop-shadow(0 0 6px #ffc10777);margin:0 0.3rem;">
       {% endif %}
       <span style="color: #fff; font-weight: bold;">{{ current_user.username }}</span>
       {% if current_user.role == 'adminpage' %}
@@ -189,58 +254,72 @@
       {% endif %}
     </div>
     {% endif %}
-
   </div>
 
-
-  <!-- Gamer Quick Actions Grid -->
+  <!-- Herramientas SS Grid - 3 Tarjetas fija + dinámicas -->
   <div class="menu-grid">
-    <a href="/search" class="menu-card">
-      <div class="menu-icon">🔍</div>
-      <h3 class="menu-title">Buscar mod</h3>
-      <p class="menu-description">Busca un mod por nombre y verifica si está permitido o prohibido en la lista</p>
-    </a>
-    <!-- Subir log y Pegar log movidos a /toolss (Leer logs) -->
-    <a href="/comandosstaff" class="menu-card">
-      <div class="menu-icon">💬</div>
-      <h3 class="menu-title">Comandos staff</h3>
-      <p class="menu-description">Consulta la lista de comandos útiles para el staff y su uso.</p>
-    </a>
-    {% if current_user.is_authenticated and ((current_user.role|default('')|lower) in ['p-helper', 'helper', 'mod', 'smod', 'admin', 'owner', 'founder'] or (current_user.username|default('')|lower) == 'ponygamer_uwu') %}
-    <a href="/guias" class="menu-card">
-      <div class="menu-icon">📖</div>
-      <h3 class="menu-title">Guias</h3>
-      <p class="menu-description">Consulta guías y tutoriales útiles para el uso del sistema.</p>
-    </a>
-    {% endif %}
-    {% if current_user.is_authenticated and current_user.role in ['smod', 'manager', 'admin', 'owner', 'founder', 'adminpage'] %}
-    <a href="/reglasadm" class="menu-card">
-      <div class="menu-icon">📜</div>
-      <h3 class="menu-title">Administración de reglas</h3>
-      <p class="menu-description">Gestiona las reglas y modalidades del servidor. Solo para staff autorizado.</p>
-    </a>
-    {% endif %}
-    {% if current_user.is_admin() or current_user.role == 'smod' %}
-    <a href="/admin/users" class="menu-card">
-      <div class="menu-icon">👥</div>
-      <h3 class="menu-title">Usuarios</h3>
-      <p class="menu-description">Gestión de usuarios y roles del sistema</p>
-    </a>
-    {% endif %}
-    <a href="/mods" class="menu-card">
-      <div class="menu-icon">📊</div>
-      <h3 class="menu-title">Modificación de la lista de mods</h3>
-      <p class="menu-description">Edita, elimina y agrega mods en las listas de permitidos y prohibidos.</p>
-    </a>
-    {% if current_user.is_authenticated and ((current_user.role|default('')|lower) in ['admin', 'owner', 'founder'] or (current_user.username|default('')|lower) == 'ponygamer_uwu') %}
-    <a href="/toolss" class="menu-card">
+    {% if current_user.is_authenticated and current_user.role in ['admin', 'adminpage'] %}
+    <a id="add-ss-link-card" href="{{ url_for('herramienta_ss') }}" class="menu-card" title="Abrir Herramientas SS">
       <div class="menu-icon">🔧</div>
       <h3 class="menu-title">Herramientas SS</h3>
-      <p class="menu-description">Acceso a Herramientas SS (sesión temporal).</p>
+      <p class="menu-description">Descarga rápida de estas herramientas</p>
     </a>
     {% endif %}
+    {% if current_user.is_authenticated and (
+      (current_user.role|default('')|lower) in ['admin', 'owner', 'founder']
+      or (current_user.username|default('')|lower) == 'ponygamer_uwu'
+      or ((current_user.role|default('')|lower) in ['p-helper', 'helper', 'mod', 'smod'] and session.get('ss_token'))
+    ) %}
+      <a href="{{ url_for('leer_l') }}" class="menu-card" title="Leer logs">
+      <div class="menu-icon">🤖</div>
+      <h3 class="menu-title">Leer logs</h3>
+      <p class="menu-description">Subir o pegar logs para análisis</p>
+    </a>
+    {% endif %}
+    {# Los enlaces/targetas administradas en HerramientaSS no se muestran en /toolss #}
   </div>
 </div>
-{% endblock %}
+
+<!-- Modal para agregar herramienta SS -->
+<div class="modal fade" id="addSSLinkModal" tabindex="-1" aria-labelledby="addSSLinkLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="addSSLinkLabel">Agregar herramienta</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body">
+        <form id="add-ss-link-form" method="POST" action="{{ url_for('herramienta_ss') }}">
+          <div class="mb-3">
+            <label class="form-label">Nombre *</label>
+            <input type="text" name="name" class="form-control" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">URL *</label>
+            <input type="url" name="url" class="form-control" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Icono (emoji o clase)</label>
+            <input type="text" name="icon" class="form-control" placeholder="por ejemplo 🔧">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Descripción</label>
+            <input type="text" name="description" class="form-control" placeholder="Opcional">
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="submit" form="add-ss-link-form" class="btn btn-primary">Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- El comportamiento de abrir modal se reemplazó por navegar a la página de gestión -->
+
+<!-- Leer logs moved to dedicated page LeerL -->
 
 </div>
+
+{% endblock %}

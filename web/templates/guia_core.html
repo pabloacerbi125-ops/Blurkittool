@@ -1,0 +1,181 @@
+{% extends 'base.html' %}
+{% block content %}
+<style>
+  /* CSS base del contenedor */
+  #core-doc {
+    width: 100%;
+    overflow-x: auto;
+    background: transparent;
+    color: #e6eef3;
+  }
+
+  /* Evitar texto negro del export sobre fondo oscuro.
+     Nota: el export puede traer estilos inline; para esos casos
+     aplicamos una corrección por JS (más abajo). */
+
+  /* Centrar imágenes: siempre en el centro, independientemente de estilos de Google Docs */
+  #core-doc img {
+    max-width: 100% !important;
+    height: auto !important;
+    display: block !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    margin-top: 10px !important;
+    margin-bottom: 10px !important;
+    text-align: center !important;
+  }
+
+  /* Centrar contenedores de imágenes */
+  #core-doc p {
+    text-align: center !important;
+  }
+
+  #core-doc div {
+    text-align: center !important;
+  }
+
+  #core-doc span {
+    text-align: center !important;
+  }
+
+  /* No forzamos tablas: si una tabla es ancha, que haga scroll horizontal
+     para mantener la posición exacta del documento. */
+
+  /* No forzar font/color aquí: si quieres "tal cual Drive",
+     necesitamos respetar el CSS del documento. */
+</style>
+<div id="core-content" class="container-main" style="margin-top: 2rem; user-select: none; -webkit-user-select: none;">
+  <h2 style="color: #ff8c00; text-align:center; margin-bottom:2rem;">Guía del core</h2>
+  <div style="max-width: 100%; margin: 0 auto; border: 2px solid #ff8c00; box-shadow: 0 0 8px #ff8c0044; border-radius: 12px; overflow: auto; background:#111; padding:1.5rem;">
+    {% if error_msg %}
+      <p style="color:#ffb3b3; text-align:center;">{{ error_msg }}</p>
+    {% elif doc_html %}
+      {% if doc_css %}
+        <style>{{ doc_css|safe }}</style>
+      {% endif %}
+      <div id="core-doc" style="border-radius:10px; margin: 0 auto;">
+        {{ doc_html|safe }}
+      </div>
+    {% else %}
+      <p style="text-align:center; color:#fff; font-size:1.1rem;">La guía aún no está disponible.</p>
+    {% endif %}
+  </div>
+</div>
+<script>
+// Bloquear clic derecho
+document.addEventListener('contextmenu', function(e) {
+  e.preventDefault();
+}, false);
+
+// Bloquear selección, copiar, cortar, pegar, arrastrar
+['copy','cut','paste','selectstart','dragstart'].forEach(function(evt) {
+  document.addEventListener(evt, function(e) {
+    e.preventDefault();
+    return false;
+  }, false);
+});
+
+// Bloquear teclas comunes de inspección y PrintScreen
+document.addEventListener('keydown', function(e) {
+  // F12, Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+U, Ctrl+S, Ctrl+Shift+C, PrintScreen
+  if (
+    e.key === 'F12' ||
+    (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C')) ||
+    (e.ctrlKey && (e.key === 'U' || e.key === 'S')) ||
+    e.key === 'PrintScreen'
+  ) {
+    e.preventDefault();
+    e.stopPropagation();
+    return false;
+  }
+});
+
+// Ocultar contenido si la ventana pierde foco (dificulta capturas con apps externas)
+const coreContent = document.getElementById('core-content');
+window.addEventListener('blur', function() {
+  if(coreContent) coreContent.style.opacity = '0';
+});
+window.addEventListener('focus', function() {
+  if(coreContent) coreContent.style.opacity = '1';
+});
+
+// Si Google Docs exporta texto negro (o casi negro), convertirlo a blanco
+// para que sea legible sobre el fondo oscuro, respetando textos que ya
+// usan colores (naranja, etc.).
+function _parseRgb(color) {
+  // Espera formatos: rgb(r,g,b) o rgba(r,g,b,a)
+  const m = String(color).match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/i);
+  if (!m) return null;
+  return {
+    r: parseInt(m[1], 10),
+    g: parseInt(m[2], 10),
+    b: parseInt(m[3], 10),
+    a: m[4] == null ? 1 : parseFloat(m[4])
+  };
+}
+
+function _isNearBlack(rgb) {
+  if (!rgb || rgb.a === 0) return false;
+  // Luma aproximada (0..255). Umbral bajo = negro/casi negro.
+  const luma = 0.2126 * rgb.r + 0.7152 * rgb.g + 0.0722 * rgb.b;
+  return luma <= 45;
+}
+
+function fixBlackTextInCoreDoc() {
+  const root = document.getElementById('core-doc');
+  if (!root) return;
+
+  // Elementos típicos con texto en Google Docs export.
+  const nodes = root.querySelectorAll('p, span, li, td, th, h1, h2, h3, h4, h5, h6, a, div');
+  nodes.forEach((el) => {
+    // Solo si tiene texto visible
+    const txt = (el.textContent || '').trim();
+    if (!txt) return;
+
+    const color = window.getComputedStyle(el).color;
+    const rgb = _parseRgb(color);
+    if (_isNearBlack(rgb)) {
+      el.style.color = '#e6eef3';
+    }
+  });
+}
+
+// Centrar todas las imágenes removiendo estilos inline conflictivos
+function centerAllImages() {
+  const root = document.getElementById('core-doc');
+  if (!root) return;
+
+  const images = root.querySelectorAll('img');
+  images.forEach((img) => {
+    // Remover estilos inline que conflicten
+    img.removeAttribute('align');
+    img.style.width = '100%';
+    img.style.maxWidth = '100%';
+    img.style.height = 'auto';
+    img.style.display = 'block';
+    img.style.marginLeft = 'auto';
+    img.style.marginRight = 'auto';
+    img.style.marginTop = '10px';
+    img.style.marginBottom = '10px';
+    img.style.textAlign = 'center';
+
+    // Si la imagen está dentro de un div/p/span, también centrar eso
+    let parent = img.parentElement;
+    while (parent && parent !== root) {
+      if (['DIV', 'P', 'SPAN'].includes(parent.tagName)) {
+        parent.style.textAlign = 'center';
+      }
+      parent = parent.parentElement;
+    }
+  });
+}
+
+// Ejecutar al cargar y un poquito después (por si el HTML llega grande)
+document.addEventListener('DOMContentLoaded', () => {
+  fixBlackTextInCoreDoc();
+  centerAllImages();
+  setTimeout(centerAllImages, 50);
+  setTimeout(fixBlackTextInCoreDoc, 250);
+});
+</script>
+{% endblock %}
