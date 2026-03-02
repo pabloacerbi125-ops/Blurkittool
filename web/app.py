@@ -1554,7 +1554,7 @@ def guia_core():
     """
     export_url = (
         "https://docs.google.com/document/d/"
-        "1BAdjZg5QOMY1Y8jCgUOWvau2eCt4LvPYyRW3Xrr-SUg/export?format=html"
+        "1YXIf07KwR4A1Zmx3JLv7ScMUiqt_HDxivPvWMZ0hNPQ/export?format=html"
     )
 
     username = (getattr(current_user, 'username', '') or '').strip().lower()
