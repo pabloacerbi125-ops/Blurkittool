@@ -46,18 +46,33 @@
 </style>
 <div id="core-content" class="container-main" style="margin-top: 2rem; user-select: none; -webkit-user-select: none;">
   <h2 style="color: #ff8c00; text-align:center; margin-bottom:2rem;">Guía del core</h2>
-  <div style="max-width: 100%; margin: 0 auto; border: 2px solid #ff8c00; box-shadow: 0 0 8px #ff8c0044; border-radius: 12px; overflow: auto; background:#111; padding:1.5rem;">
-    {% if error_msg %}
-      <p style="color:#ffb3b3; text-align:center;">{{ error_msg }}</p>
-    {% elif doc_html %}
-      {% if doc_css %}
-        <style>{{ doc_css|safe }}</style>
-      {% endif %}
-      <div id="core-doc" style="border-radius:10px; margin: 0 auto;">
-        {{ doc_html|safe }}
+  <div style="max-width: 100%; margin: 0 auto; border: 2px solid #ff8c00; box-shadow: 0 0 8px #ff8c0044; border-radius: 12px; overflow: hidden; background:#111;">
+    {% if doc_iframe_url %}
+      <div style="background:#fff;">
+        <iframe
+          src="{{ doc_iframe_url }}"
+          title="Guía del core"
+          style="width:100%;height:82vh;border:0;display:block;"
+          loading="lazy"
+          referrerpolicy="no-referrer-when-downgrade"
+          allowfullscreen
+        ></iframe>
       </div>
     {% else %}
-      <p style="text-align:center; color:#fff; font-size:1.1rem;">La guía aún no está disponible.</p>
+      <div style="padding:1.5rem; overflow: auto;">
+        {% if error_msg %}
+          <p style="color:#ffb3b3; text-align:center;">{{ error_msg }}</p>
+        {% elif doc_html %}
+          {% if doc_css %}
+            <style>{{ doc_css|safe }}</style>
+          {% endif %}
+          <div id="core-doc" style="border-radius:10px; margin: 0 auto;">
+            {{ doc_html|safe }}
+          </div>
+        {% else %}
+          <p style="text-align:center; color:#fff; font-size:1.1rem;">La guía aún no está disponible.</p>
+        {% endif %}
+      </div>
     {% endif %}
   </div>
 </div>

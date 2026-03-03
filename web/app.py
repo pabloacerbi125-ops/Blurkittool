@@ -1628,14 +1628,22 @@ def guia_ss():
 @app.route('/Guiaco')
 @login_required
 def guia_core():
-    """Página de la Guía del core cargada desde Google Docs.
+    """Página de la Guía del core.
 
-    Descarga el documento público como HTML y lo incrusta dentro del
-    layout de la página para usar la misma fuente/estilos del sitio.
+    Modo recomendado: iframe (Google Docs preview) para que se vea tal cual
+    el documento (incluye tablas/imágenes con el layout original).
+    Fallback: export HTML (modo legacy) si no se puede embeber.
     """
+
+    # URL del doc (se puede sobreescribir por env). Si el documento es "cualquiera con el link",
+    # el preview funciona sin necesidad de "Publicar en la web".
+    doc_id = "1BAdjZg5QOMY1Y8jCgUOWvau2eCt4LvPYyRW3Xrr-SUg"
+    doc_iframe_url = os.environ.get('GUIA_CORE_IFRAME_URL') or (
+        f"https://docs.google.com/document/d/{doc_id}/preview?rm=minimal"
+    )
+
     export_url = (
-        "https://docs.google.com/document/d/"
-        "1BAdjZg5QOMY1Y8jCgUOWvau2eCt4LvPYyRW3Xrr-SUg/export?format=html"
+        f"https://docs.google.com/document/d/{doc_id}/export?format=html"
     )
 
     username = (getattr(current_user, 'username', '') or '').strip().lower()
@@ -1644,6 +1652,10 @@ def guia_core():
     if not allowed:
         flash('No tienes permiso para acceder a Guías.', 'danger')
         return redirect(url_for('menu'))
+
+    # Si tenemos iframe URL, renderizarlo directamente (se ve igual a Drive).
+    if doc_iframe_url:
+        return render_template('guia_core.html', doc_iframe_url=doc_iframe_url)
 
     doc_html = ""
     doc_css = ""
