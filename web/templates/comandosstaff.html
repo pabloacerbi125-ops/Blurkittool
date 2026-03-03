@@ -374,7 +374,7 @@
       {'name': 'smod', 'label': 'S-MOD', 'icon': 'S-MOD-_MOD.png'},
       {'name': 'admin', 'label': 'Admin', 'icon': 'ADMIN.png'}
     ] %}
-    {% set commands = {
+    {% set commands = commands_map if commands_map is defined and commands_map else {
       'helper': [
         {'name': '!ayuda', 'short': 'Muestra ayuda general', 'long': 'Comando para obtener ayuda general del servidor y de otros comandos disponibles.'},
         {'name': '!info', 'short': 'Ver información del servidor', 'long': 'Obtén información detallada del servidor, jugadores conectados y estadísticas.'},

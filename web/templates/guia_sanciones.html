@@ -330,9 +330,10 @@
   /* Slight overlap around the 50% split to prevent 1px seams on some zoom levels */
   .gs-action-pill--warnkick { background: linear-gradient(90deg, #f2c94c 0%, #f2c94c 50.2%, #1e3a5f 49.8%, #1e3a5f 100%); color: #ffffff; border-color: rgba(255,255,255,0.08); }
   .gs-action-pill--jailkick { background: linear-gradient(90deg, #f2994a 0%, #f2994a 50.2%, #1e3a5f 49.8%, #1e3a5f 100%); color: #ffffff; border-color: rgba(255,255,255,0.08); }
+  .gs-action-pill--jailwarn { background: linear-gradient(90deg, #f2994a 0%, #f2994a 50.2%, #f2c94c 49.8%, #f2c94c 100%); color: #ffffff; border-color: rgba(255,255,255,0.08); }
 
   /* Visual seam fix: nudge gradient and enlarge to hide 1px seam between adjacent pills */
-  .gs-action-pill--warnkick, .gs-action-pill--jailkick {
+  .gs-action-pill--warnkick, .gs-action-pill--jailkick, .gs-action-pill--jailwarn {
     background-size: calc(100% + 2px) 100%;
     background-position: -1px 0;
     background-repeat: no-repeat;
@@ -341,7 +342,8 @@
 
   /* Hard split (no gradient) to avoid any perceived "desnivel" on the right half at certain zoom levels */
   .gs-action-pill--warnkick,
-  .gs-action-pill--jailkick {
+  .gs-action-pill--jailkick,
+  .gs-action-pill--jailwarn {
     position: relative;
     overflow: hidden;
     background: transparent;
@@ -353,7 +355,9 @@
   .gs-action-pill--warnkick::before,
   .gs-action-pill--warnkick::after,
   .gs-action-pill--jailkick::before,
-  .gs-action-pill--jailkick::after {
+  .gs-action-pill--jailkick::after,
+  .gs-action-pill--jailwarn::before,
+  .gs-action-pill--jailwarn::after {
     content: '';
     position: absolute;
     top: 0;
@@ -368,9 +372,12 @@
   .gs-action-pill--warnkick::after { right: -1px; background: #1e3a5f; }
   .gs-action-pill--jailkick::before { left: -1px; background: #f2994a; }
   .gs-action-pill--jailkick::after { right: -1px; background: #1e3a5f; }
+  .gs-action-pill--jailwarn::before { left: -1px; background: #f2994a; }
+  .gs-action-pill--jailwarn::after { right: -1px; background: #f2c94c; }
 
   .gs-action-pill--warnkick > span,
-  .gs-action-pill--jailkick > span {
+  .gs-action-pill--jailkick > span,
+  .gs-action-pill--jailwarn > span {
     position: relative;
     z-index: 1;
   }
@@ -504,9 +511,18 @@
     font-weight: 900;
   }
 
+  /* Combined badge for Jail + Warn */
+  .gs-badge--combined-jail-warn {
+    background: linear-gradient(90deg, #f2994a 0%, #f2994a 50.2%, #f2c94c 49.8%, #f2c94c 100%);
+    color: #ffffff;
+    border-color: rgba(255,255,255,0.08);
+    font-weight: 900;
+  }
+
   /* Seam fix for combined badges (same trick as action pills) */
   .gs-badge--combined-warn-kick,
-  .gs-badge--combined-jail-kick {
+  .gs-badge--combined-jail-kick,
+  .gs-badge--combined-jail-warn {
     background-size: calc(100% + 2px) 100%;
     background-position: -1px 0;
     background-repeat: no-repeat;
@@ -528,9 +544,19 @@
   /* Vista en formato “barra” */
   .gs-segview {
     display: flex;
+    flex-direction: column;
     flex-wrap: wrap;
     gap: 10px;
     align-items: center;
+    width: 100%;
+  }
+
+  .gs-segview__top {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    justify-content: space-between;
     width: 100%;
   }
 
@@ -543,6 +569,22 @@
     background: transparent;
     color: #ffffff;
     border: none;
+  }
+
+  .gs-segview__name {
+    color: #ffffff;
+    font-weight: 1000;
+    line-height: 1.1;
+  }
+
+  .gs-segview__explain {
+    color: var(--muted);
+    font-weight: 800;
+    line-height: 1.2;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    width: 100%;
   }
 
   .gs-segview__bar {
@@ -826,13 +868,13 @@
   <div class="gs-modal" role="dialog" aria-modal="true" aria-label="Duración">
     <div class="gs-modal__titlebar" id="gs-duration-title">Duración</div>
     <div class="gs-modal__body">
-      <label class="gs-modal__label" for="gs-duration-amount">¿Cuánto tiempo?</label>
+      <label class="gs-modal__label" for="gs-duration-amount" style="display:none;">Duración</label>
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-        <input class="gs-modal__input" id="gs-duration-amount" type="number" min="1" step="1" autocomplete="off" placeholder="Tiempo" style="width:160px;">
-        <select class="gs-select" id="gs-duration-unit" style="min-width:120px;"></select>
+        <input class="gs-modal__input" id="gs-duration-amount" type="text" inputmode="text" autocomplete="off" placeholder="Ej: 30m" style="width:160px;">
+        <select class="gs-select" id="gs-duration-unit" style="min-width:120px;pointer-events:none;appearance:none;-webkit-appearance:none;background-image:none;" disabled aria-disabled="true"></select>
         <span class="commands-window__muted" id="gs-duration-hint" style="margin:0;"></span>
       </div>
-      <div class="gs-segbar" id="gs-duration-presets" style="margin-top:12px;"></div>
+      <div class="gs-segbar" id="gs-duration-presets" style="margin-top:12px;display:none;"></div>
     </div>
     <div class="gs-modal__actions">
       <button type="button" class="gs-btn" id="gs-duration-cancel">Cancelar</button>
@@ -849,6 +891,7 @@
     </div>
     <div class="gs-modal__actions">
       <button type="button" class="gs-btn" id="gs-combo-no">No</button>
+      <button type="button" class="gs-btn" id="gs-combo-warn" style="display:none;">Warn</button>
       <button type="button" class="gs-btn gs-btn--primary" id="gs-combo-yes">Sí</button>
     </div>
   </div>
@@ -948,10 +991,12 @@
     const amount = a && a.amount != null ? parseInt(a.amount, 10) : NaN;
     const unit = String((a && a.unit) || '').toLowerCase();
     if ((kind === 'mute' || kind === 'jail') && Number.isFinite(amount) && amount > 0) {
-      return `${amount}${unit === 'h' ? 'h' : 'm'}`;
+      const u = (unit === 's' || unit === 'm' || unit === 'h' || unit === 'd' || unit === 'w') ? unit : 'm';
+      return `${amount}${u}`;
     }
     if (kind === 'ban' && Number.isFinite(amount) && amount > 0) {
-      return `${amount}d`;
+      const u = (unit === 's' || unit === 'm' || unit === 'h' || unit === 'd' || unit === 'w') ? unit : 'd';
+      return `${amount}${u}`;
     }
     return '';
   }
@@ -981,6 +1026,15 @@
           parts.push(`<span class="gs-badge gs-badge--combined-jail-kick">${escapeHtml(text)}</span>`);
         }
         i++; // consume kick
+        continue;
+      }
+
+      if (k === 'jail' && nextKind === 'warn') {
+        const dur = formatActionDuration(a) || '';
+        const label = sancionKindLabel('jail') || 'Jail';
+        const text = dur ? `${label} ${dur} + Warn` : `${label} + Warn`;
+        parts.push(`<span class="gs-badge gs-badge--combined-jail-warn">${escapeHtml(text)}</span>`);
+        i++; // consume warn
         continue;
       }
 
@@ -1014,6 +1068,13 @@
           i++;
           continue;
         }
+        if (kind === 'jail' && nextKind === 'warn') {
+          const label = sancionKindLabel('jail') || 'Jail';
+          const dur = formatActionDuration(a);
+          tags.push(dur ? `${label} ${dur} + Warn` : `${label} + Warn`);
+          i++;
+          continue;
+        }
         const label = sancionKindLabel(kind) || 'Sanción';
         const dur = formatActionDuration(a);
         tags.push(dur ? `${label} ${dur}` : label);
@@ -1033,7 +1094,7 @@
     if (!row) return null;
     const idx = row.getAttribute('data-index');
     const cls = active.classList;
-    const field = cls && cls.contains('gs-text') ? 'text' : '';
+    const field = cls && cls.contains('gs-text') ? 'text' : (cls && cls.contains('gs-explain') ? 'explain' : '');
     if (!field) return null;
     let selStart = null;
     let selEnd = null;
@@ -1051,6 +1112,8 @@
     let el = null;
     if (state.field === 'text') {
       el = row.querySelector('.gs-text');
+    } else if (state.field === 'explain') {
+      el = row.querySelector('.gs-explain');
     }
     if (!el) return;
     el.focus();
@@ -1087,14 +1150,20 @@
     if (!gsEditMode) {
       const data = (s && s.data && typeof s.data === 'object') ? s.data : null;
       const actions = data && Array.isArray(data.actions) ? data.actions : [];
-      const motivo = data ? String(data.text || '') : (s && typeof s.texto === 'string' ? s.texto : '');
+      const nombre = data ? String(data.text || '') : (s && typeof s.texto === 'string' ? s.texto : '');
+      const explain = data ? String(data.explain || '') : '';
       const badges = renderSancionBadges(actions);
-      const motivoSafe = escapeHtml((motivo || '').trim());
+      const nombreSafe = escapeHtml((nombre || '').trim());
+      const explainTrim = (explain || '').trim();
+      const explainSafe = escapeHtml(explainTrim);
       return `
         <div class="gs-sanction-row" data-index="${idx}">
           <div class="gs-segview">
-            <div class="gs-segview__motivo">${motivoSafe || '—'}</div>
-            ${badges}
+            <div class="gs-segview__top">
+              <div class="gs-segview__motivo"><div class="gs-segview__name">${nombreSafe || '—'}</div></div>
+              ${badges}
+            </div>
+            ${explainTrim ? `<div class="gs-segview__explain">${explainSafe}</div>` : ''}
           </div>
         </div>
       `;
@@ -1107,6 +1176,7 @@
     const has = (k) => countKind(k) > 0;
 
     const text = data ? String(data.text || '') : (s && typeof s.texto === 'string' ? s.texto : '');
+    const explain = data ? String(data.explain || '') : '';
 
     // Orden solicitado: AVISO ESCRITO → WARNING → JAIL → MUTE → BAN → KICK
     const actionOrder = ['aviso', 'warn', 'jail', 'mute', 'ban', 'kick'];
@@ -1157,6 +1227,20 @@
           i++; // skip next (kick) since consumed
           continue;
         }
+
+        if (k === 'jail' && i + 1 < list.length && list[i + 1] && String(list[i + 1].kind).toLowerCase() === 'warn') {
+          const pos = i;
+          const dur = formatActionDuration(a) || '';
+          const label = sancionKindLabel('jail') || 'Jail';
+          const leftText = dur ? `${label} ${dur}` : label;
+          const html = `<span class="gs-action-pill gs-action-pill--jailwarn" data-action-pos="${pos}" data-action-idxs="${pos},${pos + 1}" title="Quitar">` +
+            `<span>${escapeHtml(leftText)} +W</span>` +
+            `<span class="gs-action-pill__x" aria-hidden="true">×</span>` +
+          `</span>`;
+          pills.push({ k: 'jailwarn', pos, html });
+          i++; // skip next (warn) since consumed
+          continue;
+        }
         if (!['aviso', 'warn', 'jail', 'mute', 'ban', 'kick'].includes(k)) continue;
         const label = sancionKindLabel(k) || 'Sanción';
         const dur = formatActionDuration(a);
@@ -1192,8 +1276,11 @@
             </div>
           </div>
           <div class="gs-field" style="flex:1 1 320px;justify-content:flex-end;gap:10px;">
-            <input class="gs-input gs-text" style="width:min(520px, 100%);" type="text" placeholder="Nombre / motivo de la sanción..." value="${escapeHtml(text)}">
+            <input class="gs-input gs-text" style="width:min(520px, 100%);" type="text" placeholder="Nombre (ej. Farmkill)..." value="${escapeHtml(text)}">
           </div>
+        </div>
+        <div style="width:100%;margin-top:10px;">
+          <textarea class="gs-input gs-explain" style="width:min(820px, 100%);min-height:44px;" rows="2" placeholder="Explicación de la sanción...">${escapeHtml(explain)}</textarea>
         </div>
         <div style="width:100%;margin-top:10px;">${renderDurationPills()}</div>
       </div>
@@ -1381,26 +1468,41 @@
 
     amountEl.value = '';
 
+    // Selector de unidad es solo informativo (auto-detectado por sufijo)
+    unitEl.disabled = true;
+    unitEl.setAttribute('aria-disabled', 'true');
+
+    // Quitar presets y mostrar explicación simple
+    presets.innerHTML = '';
+    presets.style.display = 'none';
+    hintEl.textContent = 'Escribe: número + letra (s=seg, m=min, h=horas, d=días, w=semanas). Ej: 30m, 10s, 2h, 1w, 3d.';
+
+    const unitLabel = (u) => {
+      const uu = String(u || '').toLowerCase();
+      if (uu === 's') return 'seg';
+      if (uu === 'm') return 'min';
+      if (uu === 'h') return 'h';
+      if (uu === 'd') return 'días';
+      if (uu === 'w') return 'semanas';
+      return '';
+    };
+
+    const setUnitIndicator = (u) => {
+      const uu = String(u || '').toLowerCase();
+      const label = unitLabel(uu) || uu || '';
+      unitEl.innerHTML = `<option value="${escapeHtml(uu)}">${escapeHtml(label)}</option>`;
+      unitEl.value = uu;
+    };
+
     if (k === 'ban') {
       title.textContent = '¿Cuánto tiempo de Ban?';
-      hintEl.textContent = 'en días';
-      unitEl.innerHTML = '<option value="d">días</option>';
-      presets.innerHTML = '<button type="button" class="gs-chip gs-preset" data-kind="ban" data-amount="1" data-unit="d">1d</button>';
-      amountEl.placeholder = 'Días';
-      unitEl.value = 'd';
+      setUnitIndicator('d');
+      amountEl.placeholder = 'Ej: 1d o 2w';
     } else {
       const label = (k === 'jail') ? 'Jail' : 'Mute';
       title.textContent = `¿Cuánto tiempo de ${label}?`;
-      hintEl.textContent = '';
-      unitEl.innerHTML = '<option value="m">min</option><option value="h">h</option>';
-      presets.innerHTML = [
-        `<button type="button" class="gs-chip gs-preset" data-kind="${k}" data-amount="30" data-unit="m">30m</button>`,
-        `<button type="button" class="gs-chip gs-preset" data-kind="${k}" data-amount="1" data-unit="h">1h</button>`,
-        `<button type="button" class="gs-chip gs-preset" data-kind="${k}" data-amount="2" data-unit="h">2h</button>`,
-        `<button type="button" class="gs-chip gs-preset" data-kind="${k}" data-amount="4" data-unit="h">4h</button>`,
-      ].join('');
-      amountEl.placeholder = 'Tiempo';
-      unitEl.value = 'm';
+      setUnitIndicator('m');
+      amountEl.placeholder = 'Ej: 30m o 1h';
     }
 
     overlay.style.display = 'flex';
@@ -1436,13 +1538,48 @@
       }
     });
 
+    // Auto-detectar unidad por sufijo en el input (p.ej. 30m, 10s, 2w, 1d)
+    function gsParseDurationInput(raw) {
+      const s = String(raw || '').trim();
+      if (!s) return null;
+      const m = s.match(/^\s*(\d+)\s*([a-zA-Z])?\s*$/);
+      if (!m) return null;
+      const amount = parseInt(m[1], 10);
+      if (!Number.isFinite(amount) || amount <= 0) return null;
+      const unit = (m[2] ? String(m[2]).toLowerCase() : '');
+      return { amount, unit };
+    }
+
+    function gsSyncUnitFromInput() {
+      const parsed = gsParseDurationInput(amountEl.value);
+      if (!parsed) return;
+      if (!parsed.unit) return;
+      const u = String(parsed.unit || '').toLowerCase();
+      const kind = String(gsDurationState.kind || '').toLowerCase();
+      // Normalizar según tipo
+      const valid = ['s','m','h','d','w'];
+      const finalUnit = valid.includes(u) ? u : (kind === 'ban' ? 'd' : 'm');
+      // Mantener el indicador como opción única (sin lista)
+      unitEl.innerHTML = `<option value="${escapeHtml(finalUnit)}">${escapeHtml(finalUnit === 's' ? 'seg' : finalUnit === 'm' ? 'min' : finalUnit === 'h' ? 'h' : finalUnit === 'd' ? 'días' : 'semanas')}</option>`;
+      unitEl.value = finalUnit;
+    }
+
+    amountEl.addEventListener('input', () => {
+      gsSyncUnitFromInput();
+    });
+
     presets.addEventListener('click', (e) => {
       const btn = e.target && e.target.closest ? e.target.closest('.gs-preset') : null;
       if (!btn) return;
       const amount = parseInt(btn.getAttribute('data-amount') || '0', 10);
       const unit = String(btn.getAttribute('data-unit') || '').toLowerCase();
-      if (Number.isFinite(amount) && amount > 0) amountEl.value = String(amount);
-      if (unit) unitEl.value = unit;
+      if (Number.isFinite(amount) && amount > 0) {
+        amountEl.value = unit ? `${amount}${unit}` : String(amount);
+      }
+      if (unit) {
+        unitEl.innerHTML = `<option value="${escapeHtml(unit)}">${escapeHtml(unit === 's' ? 'seg' : unit === 'm' ? 'min' : unit === 'h' ? 'h' : unit === 'd' ? 'días' : 'semanas')}</option>`;
+        unitEl.value = unit;
+      }
     });
 
     okBtn.addEventListener('click', () => {
@@ -1453,14 +1590,23 @@
         return;
       }
 
-      const amount = parseInt(String(amountEl.value || '').trim() || '0', 10);
-      if (!Number.isFinite(amount) || amount <= 0) return;
+      const parsed = gsParseDurationInput(amountEl.value);
+      if (!parsed) return;
+      const amount = parsed.amount;
+      const unitRaw = parsed.unit ? parsed.unit : String(unitEl.value || '').toLowerCase();
 
-      const unitRaw = String(unitEl.value || '').toLowerCase();
-      const unit = (kind === 'ban') ? 'd' : (unitRaw === 'h' ? 'h' : 'm');
+      // Normalizar unidades válidas por tipo
+      let unit = unitRaw;
+      if (kind === 'ban') {
+        if (!['s','m','h','d','w'].includes(unit)) unit = 'd';
+      } else {
+        // Jail/Mute: permitir s/m/h/d/w (si el servidor/uso lo soporta), fallback a min
+        if (!['s','m','h','d','w'].includes(unit)) unit = 'm';
+      }
 
       const cur = gsSancionesCache[idx] || {};
       const curText = (cur && cur.data && typeof cur.data === 'object') ? String(cur.data.text || '') : (cur && typeof cur.texto === 'string' ? cur.texto : '');
+      const curExplain = (cur && cur.data && typeof cur.data === 'object') ? String(cur.data.explain || '') : '';
       const curActions = (cur && cur.data && typeof cur.data === 'object' && Array.isArray(cur.data.actions)) ? cur.data.actions.slice() : [];
 
       // If the action is 'jail' ask whether to also include a Kick (use simple combo modal)
@@ -1478,7 +1624,7 @@
 
       // Non-jail: append duration action immediately
       curActions.push({ kind, amount, unit });
-      gsSancionesCache[idx] = { texto: '', data: { v: 2, actions: curActions, text: curText } };
+      gsSancionesCache[idx] = { texto: '', data: { v: 2, actions: curActions, text: curText, explain: curExplain } };
       gsCloseDurationModal();
       gsMarkDirty();
       gsRerenderPreserveFocus();
@@ -1501,6 +1647,9 @@
     const overlay = document.getElementById('gs-simple-combo-modal');
     const title = document.getElementById('gs-combo-title');
     const msg = document.getElementById('gs-combo-message');
+    const yesBtn = document.getElementById('gs-combo-yes');
+    const noBtn = document.getElementById('gs-combo-no');
+    const warnBtn = document.getElementById('gs-combo-warn');
     if (!overlay || !title || !msg) return;
 
     const k = String(kind || '').toLowerCase();
@@ -1508,10 +1657,24 @@
     gsSimpleComboState.kind = k;
 
     title.textContent = `Confirmar`;
-    if (k === 'warn') msg.textContent = '¿Quieres que esta sanción incluya Kick además de Warn?';
-    else if (k === 'aviso') msg.textContent = '¿Quieres que esta sanción incluya Kick además de Aviso escrito?';
-    else if (k === 'jail') msg.textContent = '¿Quieres que esta sanción incluya Kick además de Jail?';
-    else msg.textContent = '¿Agregar sanción?';
+
+    if (k === 'jail') {
+      msg.textContent = 'Al crear un Jail, ¿quieres agregar Kick, Warn o ninguna?';
+      if (noBtn) noBtn.textContent = 'Ninguna';
+      if (yesBtn) yesBtn.textContent = 'Kick';
+      if (warnBtn) {
+        warnBtn.textContent = 'Warn';
+        warnBtn.style.display = '';
+      }
+    } else {
+      if (k === 'warn') msg.textContent = '¿Quieres que esta sanción incluya Kick además de Warn?';
+      else if (k === 'aviso') msg.textContent = '¿Quieres que esta sanción incluya Kick además de Aviso escrito?';
+      else msg.textContent = '¿Agregar sanción?';
+
+      if (noBtn) noBtn.textContent = 'No';
+      if (yesBtn) yesBtn.textContent = 'Sí';
+      if (warnBtn) warnBtn.style.display = 'none';
+    }
 
     overlay.style.display = 'flex';
     overlay.setAttribute('aria-hidden', 'false');
@@ -1521,6 +1684,7 @@
     const overlay = document.getElementById('gs-simple-combo-modal');
     const yesBtn = document.getElementById('gs-combo-yes');
     const noBtn = document.getElementById('gs-combo-no');
+    const warnBtn = document.getElementById('gs-combo-warn');
     if (!overlay || !yesBtn || !noBtn) return;
 
     overlay.addEventListener('click', (e) => {
@@ -1548,7 +1712,9 @@
         return;
       }
       const textEl = document.querySelector(`.gs-sanction-row[data-index="${CSS.escape(String(idx))}"] .gs-text`);
+      const explainEl = document.querySelector(`.gs-sanction-row[data-index="${CSS.escape(String(idx))}"] .gs-explain`);
       const curText = (textEl && typeof textEl.value === 'string') ? textEl.value : '';
+      const curExplain = (explainEl && typeof explainEl.value === 'string') ? explainEl.value : '';
       const cur = gsSancionesCache[idx] || {};
       const curActions = (cur && cur.data && typeof cur.data === 'object' && Array.isArray(cur.data.actions)) ? cur.data.actions.slice() : [];
 
@@ -1561,7 +1727,7 @@
         curActions.push({ kind: 'kick' });
       }
 
-      gsSancionesCache[idx] = { texto: '', data: { v: 2, actions: curActions, text: String(curText || '') } };
+      gsSancionesCache[idx] = { texto: '', data: { v: 2, actions: curActions, text: String(curText || ''), explain: String(curExplain || '') } };
       gsCloseComboModal();
       gsMarkDirty();
       gsRerenderPreserveFocus();
@@ -1575,7 +1741,9 @@
         return;
       }
       const textEl = document.querySelector(`.gs-sanction-row[data-index="${CSS.escape(String(idx))}"] .gs-text`);
+      const explainEl = document.querySelector(`.gs-sanction-row[data-index="${CSS.escape(String(idx))}"] .gs-explain`);
       const curText = (textEl && typeof textEl.value === 'string') ? textEl.value : '';
+      const curExplain = (explainEl && typeof explainEl.value === 'string') ? explainEl.value : '';
       const cur = gsSancionesCache[idx] || {};
       const curActions = (cur && cur.data && typeof cur.data === 'object' && Array.isArray(cur.data.actions)) ? cur.data.actions.slice() : [];
 
@@ -1586,11 +1754,47 @@
         curActions.push({ kind });
       }
 
-      gsSancionesCache[idx] = { texto: '', data: { v: 2, actions: curActions, text: String(curText || '') } };
+      gsSancionesCache[idx] = { texto: '', data: { v: 2, actions: curActions, text: String(curText || ''), explain: String(curExplain || '') } };
       gsCloseComboModal();
       gsMarkDirty();
       gsRerenderPreserveFocus();
     });
+
+    if (warnBtn) {
+      warnBtn.addEventListener('click', () => {
+        const idx = gsSimpleComboState.idx;
+        const kind = String(gsSimpleComboState.kind || '').toLowerCase();
+        if (!Number.isFinite(idx) || idx == null || idx < 0 || idx >= gsSancionesCache.length) {
+          gsCloseComboModal();
+          return;
+        }
+
+        // Solo aplica para Jail (en otros casos el botón está oculto)
+        if (kind !== 'jail') {
+          gsCloseComboModal();
+          return;
+        }
+
+        const textEl = document.querySelector(`.gs-sanction-row[data-index="${CSS.escape(String(idx))}"] .gs-text`);
+        const explainEl = document.querySelector(`.gs-sanction-row[data-index="${CSS.escape(String(idx))}"] .gs-explain`);
+        const curText = (textEl && typeof textEl.value === 'string') ? textEl.value : '';
+        const curExplain = (explainEl && typeof explainEl.value === 'string') ? explainEl.value : '';
+        const cur = gsSancionesCache[idx] || {};
+        const curActions = (cur && cur.data && typeof cur.data === 'object' && Array.isArray(cur.data.actions)) ? cur.data.actions.slice() : [];
+
+        if (gsSimpleComboState.amount != null) {
+          curActions.push({ kind: 'jail', amount: gsSimpleComboState.amount, unit: gsSimpleComboState.unit });
+        } else {
+          curActions.push({ kind: 'jail' });
+        }
+        curActions.push({ kind: 'warn' });
+
+        gsSancionesCache[idx] = { texto: '', data: { v: 2, actions: curActions, text: String(curText || ''), explain: String(curExplain || '') } };
+        gsCloseComboModal();
+        gsMarkDirty();
+        gsRerenderPreserveFocus();
+      });
+    }
   })();
 
   function addSanction() {
@@ -1599,7 +1803,7 @@
     gsMarkDirty();
     gsSancionesCache = Array.isArray(gsSancionesCache) ? gsSancionesCache : [];
     // Auto-add Warn+Kick when creating new sanction
-    gsSancionesCache.push({ texto: '', data: { v: 2, actions: [{ kind: 'warn' }, { kind: 'kick' }], text: '' } });
+    gsSancionesCache.push({ texto: '', data: { v: 2, actions: [{ kind: 'warn' }, { kind: 'kick' }], text: '', explain: '' } });
     renderSancionesList(gsSancionesCache);
     const rows = document.querySelectorAll('#gs-sanctions-list .gs-sanction-row');
     const last = rows && rows.length ? rows[rows.length - 1] : null;
@@ -1666,11 +1870,10 @@
             const data = it.data;
             const actions = Array.isArray(data.actions) ? data.actions : [];
             const textVal = String(data.text || '').trim();
-            if (!actions.length) {
-              if (textVal) sanciones.push({ texto: textVal });
-              return;
-            }
-            sanciones.push({ data: { v: 2, actions, text: textVal } });
+            const explainVal = String(data.explain || '').trim();
+            // If user cleared everything, don't send -> it will be deleted in DB.
+            if (!actions.length && !textVal && !explainVal) return;
+            sanciones.push({ data: { v: 2, actions, text: textVal, explain: explainVal } });
             return;
           }
           const texto = (typeof it.texto === 'string') ? it.texto.trim() : '';
@@ -1785,7 +1988,9 @@
 
       if (kind === 'aviso') {
         const textEl = row.querySelector('.gs-text');
+        const explainEl = row.querySelector('.gs-explain');
         const curText = (textEl && typeof textEl.value === 'string') ? textEl.value : '';
+        const curExplain = (explainEl && typeof explainEl.value === 'string') ? explainEl.value : '';
         const cur = gsSancionesCache[idx] || {};
         const curActions = (cur && cur.data && typeof cur.data === 'object' && Array.isArray(cur.data.actions)) ? cur.data.actions.slice() : [];
 
@@ -1795,9 +2000,9 @@
           // Remove both aviso AND kick
           const nextActions = curActions.filter((a) => !(a && String(a.kind || '').toLowerCase() === 'aviso') && !(a && String(a.kind || '').toLowerCase() === 'kick'));
           if (!nextActions.length) {
-            gsSancionesCache[idx] = { texto: String(curText || ''), data: null };
+            gsSancionesCache[idx] = { texto: '', data: { v: 2, actions: [], text: String(curText || ''), explain: String(curExplain || '') } };
           } else {
-            gsSancionesCache[idx] = { texto: '', data: { v: 2, actions: nextActions, text: String(curText || '') } };
+            gsSancionesCache[idx] = { texto: '', data: { v: 2, actions: nextActions, text: String(curText || ''), explain: String(curExplain || '') } };
           }
         } else {
           // Add aviso AND kick
@@ -1805,7 +2010,7 @@
           if (!curActions.some((a) => a && String(a.kind || '').toLowerCase() === 'kick')) {
             curActions.push({ kind: 'kick' });
           }
-          gsSancionesCache[idx] = { texto: '', data: { v: 2, actions: curActions, text: String(curText || '') } };
+          gsSancionesCache[idx] = { texto: '', data: { v: 2, actions: curActions, text: String(curText || ''), explain: String(curExplain || '') } };
         }
 
         gsMarkDirty();
@@ -1815,7 +2020,9 @@
 
       // Other simple toggles: kick (standalone)
       const textEl = row.querySelector('.gs-text');
+      const explainEl = row.querySelector('.gs-explain');
       const curText = (textEl && typeof textEl.value === 'string') ? textEl.value : '';
+      const curExplain = (explainEl && typeof explainEl.value === 'string') ? explainEl.value : '';
       const cur = gsSancionesCache[idx] || {};
       const curActions = (cur && cur.data && typeof cur.data === 'object' && Array.isArray(cur.data.actions)) ? cur.data.actions.slice() : [];
 
@@ -1825,9 +2032,9 @@
       else nextActions = curActions.concat([{ kind }]);
 
       if (!nextActions.length) {
-        gsSancionesCache[idx] = { texto: String(curText || ''), data: null };
+        gsSancionesCache[idx] = { texto: '', data: { v: 2, actions: [], text: String(curText || ''), explain: String(curExplain || '') } };
       } else {
-        gsSancionesCache[idx] = { texto: '', data: { v: 2, actions: nextActions, text: String(curText || '') } };
+        gsSancionesCache[idx] = { texto: '', data: { v: 2, actions: nextActions, text: String(curText || ''), explain: String(curExplain || '') } };
       }
 
       gsMarkDirty();
@@ -1844,10 +2051,14 @@
       if (!Number.isFinite(idx) || idx < 0 || idx >= gsSancionesCache.length) return;
       const cur = gsSancionesCache[idx] || {};
       const textEl = row.querySelector('.gs-text');
+      const explainEl = row.querySelector('.gs-explain');
       const curText = (textEl && typeof textEl.value === 'string') ? textEl.value : '';
+      const curExplain = (explainEl && typeof explainEl.value === 'string') ? explainEl.value : '';
       let curActions = (cur && cur.data && typeof cur.data === 'object' && Array.isArray(cur.data.actions)) ? cur.data.actions.slice() : [];
       const isCombined = pill.classList && pill.classList.contains && (
-        pill.classList.contains('gs-action-pill--warnkick') || pill.classList.contains('gs-action-pill--jailkick')
+        pill.classList.contains('gs-action-pill--warnkick') ||
+        pill.classList.contains('gs-action-pill--jailkick') ||
+        pill.classList.contains('gs-action-pill--jailwarn')
       );
       if (isCombined) {
         // Remove the {warn|jail}+kick pair at the given position (first at pos, kick at pos+1)
@@ -1855,11 +2066,12 @@
         // Remove warn at pos and kick at pos+1 if present
         const nextPos = pos + 1;
         // Remove higher index first to avoid reindexing issues
-        if (nextPos < curActions.length && String((curActions[nextPos] && curActions[nextPos].kind) || '').toLowerCase() === 'kick') {
+        const expectedSecond = pill.classList.contains('gs-action-pill--jailwarn') ? 'warn' : 'kick';
+        if (nextPos < curActions.length && String((curActions[nextPos] && curActions[nextPos].kind) || '').toLowerCase() === expectedSecond) {
           curActions.splice(nextPos, 1);
         }
-        // Remove the first element at pos (warn for warnkick, jail for jailkick)
-        const expectedFirst = pill.classList.contains('gs-action-pill--jailkick') ? 'jail' : 'warn';
+        // Remove the first element at pos (warn for warnkick, jail for jailkick/jailwarn)
+        const expectedFirst = (pill.classList.contains('gs-action-pill--jailkick') || pill.classList.contains('gs-action-pill--jailwarn')) ? 'jail' : 'warn';
         if (pos < curActions.length && String((curActions[pos] && curActions[pos].kind) || '').toLowerCase() === expectedFirst) {
           curActions.splice(pos, 1);
         }
@@ -1868,9 +2080,9 @@
         curActions.splice(pos, 1);
       }
       if (!curActions.length) {
-        gsSancionesCache[idx] = { texto: String(curText || ''), data: null };
+        gsSancionesCache[idx] = { texto: '', data: { v: 2, actions: [], text: String(curText || ''), explain: String(curExplain || '') } };
       } else {
-        gsSancionesCache[idx] = { texto: '', data: { v: 2, actions: curActions, text: String(curText || '') } };
+        gsSancionesCache[idx] = { texto: '', data: { v: 2, actions: curActions, text: String(curText || ''), explain: String(curExplain || '') } };
       }
       gsMarkDirty();
       gsRerenderPreserveFocus();
@@ -1894,17 +2106,14 @@
     if (!gsEditMode) return;
 
     const textEl = row.querySelector('.gs-text');
-    if (!textEl) return;
-    const textVal = (typeof textEl.value === 'string') ? textEl.value : '';
+    const explainEl = row.querySelector('.gs-explain');
+    if (!textEl && !explainEl) return;
+    const textVal = (textEl && typeof textEl.value === 'string') ? textEl.value : '';
+    const explainVal = (explainEl && typeof explainEl.value === 'string') ? explainEl.value : '';
 
     const cur = gsSancionesCache[idx] || {};
-    if (cur.data && typeof cur.data === 'object') {
-      const actions = Array.isArray(cur.data.actions) ? cur.data.actions : [];
-      gsSancionesCache[idx] = { texto: '', data: { v: 2, actions, text: String(textVal || '') } };
-      gsMarkDirty();
-      return;
-    }
-    gsSancionesCache[idx] = { texto: String(textVal || ''), data: null };
+    const actions = (cur && cur.data && typeof cur.data === 'object' && Array.isArray(cur.data.actions)) ? cur.data.actions : [];
+    gsSancionesCache[idx] = { texto: '', data: { v: 2, actions, text: String(textVal || ''), explain: String(explainVal || '') } };
     gsMarkDirty();
   });
 
@@ -2066,7 +2275,9 @@
 
       const cur = gsSancionesCache[idx] || {};
       const textEl = row.querySelector('.gs-text');
+      const explainEl = row.querySelector('.gs-explain');
       const curText = (textEl && typeof textEl.value === 'string') ? textEl.value : '';
+      const curExplain = (explainEl && typeof explainEl.value === 'string') ? explainEl.value : '';
       const originalActions = (cur && cur.data && typeof cur.data === 'object' && Array.isArray(cur.data.actions)) ? cur.data.actions.slice() : [];
       if (!originalActions.length) return;
 
@@ -2082,9 +2293,9 @@
       }
 
       if (!nextActions.length) {
-        gsSancionesCache[idx] = { texto: String(curText || ''), data: null };
+        gsSancionesCache[idx] = { texto: '', data: { v: 2, actions: [], text: String(curText || ''), explain: String(curExplain || '') } };
       } else {
-        gsSancionesCache[idx] = { texto: '', data: { v: 2, actions: nextActions, text: String(curText || '') } };
+        gsSancionesCache[idx] = { texto: '', data: { v: 2, actions: nextActions, text: String(curText || ''), explain: String(curExplain || '') } };
       }
 
       gsMarkDirty();

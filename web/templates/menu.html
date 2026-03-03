@@ -227,11 +227,13 @@
       <p class="menu-description">Gestión de usuarios y roles del sistema</p>
     </a>
     {% endif %}
+    {% if current_user.is_authenticated and current_user.can_edit() %}
     <a href="/mods" class="menu-card">
       <div class="menu-icon">📊</div>
       <h3 class="menu-title">Modificación de la lista de mods</h3>
       <p class="menu-description">Edita, elimina y agrega mods en las listas de permitidos y prohibidos.</p>
     </a>
+    {% endif %}
     {% if current_user.is_authenticated and ((current_user.role|default('')|lower) in ['admin', 'owner', 'founder'] or (current_user.username|default('')|lower) == 'ponygamer_uwu') %}
     <a href="/toolss" class="menu-card">
       <div class="menu-icon">🔧</div>

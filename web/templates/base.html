@@ -46,6 +46,35 @@
         margin-right: 6px;
         filter: drop-shadow(0 0 4px #ffcc0077);
       }
+
+      /* Overlay "intocable" (fondo desenfocado) */
+      .untouchable-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 2000;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.35);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+      }
+      .untouchable-overlay.is-open { display: flex; }
+      .untouchable-card {
+        max-width: 520px;
+        width: calc(100% - 2.5rem);
+        padding: 18px 20px;
+        border-radius: 16px;
+        background: rgba(36, 38, 41, 0.96);
+        border: 2px solid rgba(255, 204, 0, 0.55);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+        text-align: center;
+        color: #fff;
+        font-weight: 900;
+        letter-spacing: 0.2px;
+        font-size: 1.3rem;
+        user-select: none;
+      }
     </style>
   </head>
   <body>
@@ -271,12 +300,64 @@
     <main class="container container-main my-4">
       {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
+          {% set ns = namespace(untouchable_message=None) %}
           {% for category, message in messages %}
-            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-              {{ message }}
-              <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
+            {% if category == 'untouchable' %}
+              {% set ns.untouchable_message = message %}
+            {% else %}
+              <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+              </div>
+            {% endif %}
           {% endfor %}
+
+          {% if ns.untouchable_message %}
+            <div class="untouchable-overlay is-open" id="untouchableOverlay" role="dialog" aria-modal="true">
+              <div class="untouchable-card" id="untouchableCard">{{ ns.untouchable_message }}</div>
+            </div>
+            <script>
+              (function(){
+                const overlay = document.getElementById('untouchableOverlay');
+                const card = document.getElementById('untouchableCard');
+                if(!overlay) return;
+
+                // Sound (MP3) on blocked attempts
+                const soundUrl = "{{ url_for('static', filename='untouchable.mp3') }}";
+                let soundPlayed = false;
+                function tryPlaySound(){
+                  if(soundPlayed) return;
+                  try {
+                    const audio = new Audio(soundUrl);
+                    audio.volume = 0.9;
+                    const p = audio.play();
+                    if (p && typeof p.then === 'function') {
+                      p.then(() => { soundPlayed = true; }).catch(() => {});
+                    } else {
+                      soundPlayed = true;
+                    }
+                  } catch (_) {}
+                }
+
+                // Attempt immediately; if autoplay is blocked, retry on first user gesture.
+                tryPlaySound();
+                document.addEventListener('pointerdown', tryPlaySound, { once: true, passive: true });
+                document.addEventListener('keydown', tryPlaySound, { once: true });
+
+                function close(){
+                  overlay.classList.remove('is-open');
+                }
+
+                overlay.addEventListener('click', function(){ close(); });
+                if(card){
+                  card.addEventListener('click', function(e){ e.stopPropagation(); });
+                }
+                document.addEventListener('keydown', function(e){
+                  if(e.key === 'Escape') close();
+                });
+              })();
+            </script>
+          {% endif %}
         {% endif %}
       {% endwith %}
       

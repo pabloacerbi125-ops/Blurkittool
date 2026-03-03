@@ -71,8 +71,8 @@ def _gs_parse_sancion(texto: str):
     """Parsea una sanción estructurada guardada como JSON en GuiaSancion.texto.
 
     Formatos soportados:
-    - v1: {"v":1, "kind":"warn|aviso|jail|mute|ban", "amount": int?, "unit":"m|h|d"?, "text": str?}
-    - v2: {"v":2, "actions":[{"kind":"...", "amount":int?, "unit":"m|h|d"?}, ...], "text": str?}
+    - v1: {"v":1, "kind":"warn|aviso|jail|mute|ban", "amount": int?, "unit":"s|m|h|d|w"?, "text": str?}
+    - v2: {"v":2, "actions":[{"kind":"...", "amount":int?, "unit":"s|m|h|d|w"?}, ...], "text": str?, "explain": str?}
 
     Devuelve siempre un dict normalizado v2 o None.
     """
@@ -89,6 +89,7 @@ def _gs_parse_sancion(texto: str):
         return None
 
     allowed_kinds = ('warn', 'aviso', 'jail', 'mute', 'ban', 'kick')
+    allowed_units = ('s', 'm', 'h', 'd', 'w')
 
     v = data.get('v')
     # v2: acciones múltiples
@@ -110,16 +111,15 @@ def _gs_parse_sancion(texto: str):
                 amount = None
             unit = (a.get('unit') or '').strip().lower() or None
 
-            # Normalizar restricciones de duración
-            if kind in ('mute', 'jail'):
+            # Normalizar restricciones de duración (permitir s/m/h/d/w)
+            if kind in ('mute', 'jail', 'ban'):
                 if not isinstance(amount, int) or amount <= 0:
                     amount = None
-                if unit not in ('m', 'h'):
-                    unit = 'm' if amount is not None else None
-            elif kind == 'ban':
-                if not isinstance(amount, int) or amount <= 0:
-                    amount = None
-                unit = 'd' if amount is not None else None
+                if amount is not None:
+                    if unit not in allowed_units:
+                        unit = 'd' if kind == 'ban' else 'm'
+                else:
+                    unit = None
             else:
                 amount = None
                 unit = None
@@ -131,7 +131,12 @@ def _gs_parse_sancion(texto: str):
             text_val = ''
         text_val = str(text_val)
 
-        return {'v': 2, 'actions': actions, 'text': text_val}
+        explain_val = data.get('explain')
+        if explain_val is None:
+            explain_val = ''
+        explain_val = str(explain_val)
+
+        return {'v': 2, 'actions': actions, 'text': text_val, 'explain': explain_val}
 
     # v1: una sola acción -> normalizamos a v2
     if v == 1:
@@ -149,21 +154,20 @@ def _gs_parse_sancion(texto: str):
             text_val = ''
         text_val = str(text_val)
 
-        # Normalize duration constraints
-        if kind in ('mute', 'jail'):
+        # Normalize duration constraints (permit s/m/h/d/w)
+        if kind in ('mute', 'jail', 'ban'):
             if not isinstance(amount, int) or amount <= 0:
                 amount = None
-            if unit not in ('m', 'h'):
-                unit = 'm' if amount is not None else None
-        elif kind == 'ban':
-            if not isinstance(amount, int) or amount <= 0:
-                amount = None
-            unit = 'd' if amount is not None else None
+            if amount is not None:
+                if unit not in allowed_units:
+                    unit = 'd' if kind == 'ban' else 'm'
+            else:
+                unit = None
         else:
             amount = None
             unit = None
 
-        return {'v': 2, 'actions': [{'kind': kind, 'amount': amount, 'unit': unit}], 'text': text_val}
+        return {'v': 2, 'actions': [{'kind': kind, 'amount': amount, 'unit': unit}], 'text': text_val, 'explain': ''}
 
     return None
 
@@ -196,10 +200,9 @@ def _gs_format_sancion_text(data: dict, fallback: str = '') -> str:
         unit = (a.get('unit') or '').strip().lower()
 
         dur = ''
-        if kind in ('mute', 'jail') and isinstance(amount, int) and amount > 0:
-            dur = f"{amount}{'h' if unit == 'h' else 'm'}"
-        elif kind == 'ban' and isinstance(amount, int) and amount > 0:
-            dur = f"{amount}d"
+        if kind in ('mute', 'jail', 'ban') and isinstance(amount, int) and amount > 0:
+            u = unit if unit in ('s', 'm', 'h', 'd', 'w') else ('d' if kind == 'ban' else 'm')
+            dur = f"{amount}{u}"
 
         tag = label
         if dur:
@@ -234,6 +237,32 @@ def _twofa_role_allowed(user) -> bool:
         return (role in ('p-helper', 'helper', 'mod', 'smod', 'admin', 'owner', 'founder')) or (username == 'ponygamer_uwu')
     except Exception:
         return False
+
+
+def _is_untouchable_user(user) -> bool:
+    """Cuenta protegida: no puede ser suspendida/eliminada/restringida ni se le puede resetear 2FA por terceros."""
+    try:
+        username = (getattr(user, 'username', '') or '').strip().lower()
+        return username == 'ponygamer_uwu'
+    except Exception:
+        return False
+
+
+def _is_self_target(target_user) -> bool:
+    try:
+        return bool(getattr(current_user, 'is_authenticated', False)) and int(getattr(current_user, 'id', -1)) == int(
+            getattr(target_user, 'id', -2)
+        )
+    except Exception:
+        return False
+
+
+def _deny_if_untouchable_target(target_user, action_label: str = 'realizar esta acción') -> bool:
+    """Devuelve True si debe bloquearse la acción contra un usuario protegido."""
+    if _is_untouchable_user(target_user) and not _is_self_target(target_user):
+        flash('eh tu que haces ojito', 'untouchable')
+        return True
+    return False
 
 
 def _twofa_disable_for_user(user) -> None:
@@ -1092,7 +1121,54 @@ def comandos_staff():
     - smod ve rangos hasta smod.
     - admin/adminpage ven todos los rangos.
     """
-    return render_template('comandosstaff.html')
+    # Defaults (fallback) en caso de BD vacía.
+    commands_map = {
+        'helper': [
+            {'name': '!ayuda', 'short': 'Muestra ayuda general', 'long': 'Comando para obtener ayuda general del servidor y de otros comandos disponibles.'},
+            {'name': '!info', 'short': 'Ver información del servidor', 'long': 'Obtén información detallada del servidor, jugadores conectados y estadísticas.'},
+            {'name': '!mute', 'short': 'Silencia a un jugador', 'long': 'Silencia a un jugador especificado durante el tiempo indicado. El jugador no podrá escribir en el chat.'},
+            {'name': '!unmute', 'short': 'Dessilencia a un jugador', 'long': 'Remueve el silencio de un jugador, permitiéndole escribir en el chat nuevamente.'},
+        ],
+        'mod': [
+            {'name': '!ban', 'short': 'Banea a un jugador', 'long': 'Banea a un jugador del servidor de forma permanente o temporal. Se registra en la base de datos de bans.'},
+            {'name': '!unban', 'short': 'Desbanea a un jugador', 'long': 'Remueve el ban de un jugador, permitiéndole conectarse nuevamente al servidor.'},
+        ],
+        'smod': [
+            {'name': '!kick', 'short': 'Expulsa a un jugador', 'long': 'Expulsa a un jugador del servidor. El jugador puede volver a conectarse inmediatamente.'},
+            {'name': '!warn', 'short': 'Advierte a un jugador', 'long': 'Envía una advertencia a un jugador por incumplimiento de reglas. Después de 3 advertencias, puede resultar en ban.'},
+        ],
+        'admin': [
+            {'name': '!shutdown', 'short': 'Reinicia el servidor', 'long': 'Reinicia el servidor de forma segura, desconectando a todos los jugadores con aviso previo.'},
+            {'name': '!config', 'short': 'Edita configuración', 'long': 'Abre el panel de configuración del servidor para ajustar parámetros, dificultad, y más opciones.'},
+        ],
+    }
+
+    # Si hay comandos en BD, se usan (por rango) en vez de defaults.
+    try:
+        db_cmds = (
+            Comando.query
+            .order_by(Comando.rango.asc(), Comando.orden.asc(), Comando.id.asc())
+            .all()
+        )
+        if db_cmds:
+            grouped = {}
+            for cmd in db_cmds:
+                rango = (cmd.rango or '').strip().lower()
+                if rango not in commands_map:
+                    # ignorar rangos no soportados en la UI
+                    continue
+                grouped.setdefault(rango, []).append({
+                    'name': cmd.nombre,
+                    'short': cmd.descripcion or '',
+                    'long': cmd.informacion or '',
+                })
+            for rango, items in grouped.items():
+                commands_map[rango] = items
+    except Exception as exc:
+        # No romper la vista si hay algún problema puntual con la BD.
+        print(f"[COMANDOSSTAFF] Aviso: no se pudo cargar comandos desde BD: {exc}")
+
+    return render_template('comandosstaff.html', commands_map=commands_map)
 
 
 @app.route('/api/comandosstaff/save', methods=['POST'])
@@ -1274,6 +1350,7 @@ def guias_sanciones_guardar_sanciones(modalidad_id: int):
             data = item.get('data') or {}
 
             allowed_kinds = ('warn', 'aviso', 'jail', 'mute', 'ban', 'kick')
+            allowed_units = ('s', 'm', 'h', 'd', 'w')
             actions = []
 
             # v2 preferred: actions[]
@@ -1295,12 +1372,13 @@ def guias_sanciones_guardar_sanciones(modalidad_id: int):
                         if not isinstance(amount, int) or amount <= 0:
                             # if duration action is selected, it must be valid
                             continue
-                        if unit not in ('m', 'h'):
+                        if unit not in allowed_units:
                             unit = 'm'
                     elif kind == 'ban':
                         if not isinstance(amount, int) or amount <= 0:
                             continue
-                        unit = 'd'
+                        if unit not in allowed_units:
+                            unit = 'd'
                     else:
                         amount = None
                         unit = None
@@ -1320,12 +1398,13 @@ def guias_sanciones_guardar_sanciones(modalidad_id: int):
                 if kind in ('mute', 'jail'):
                     if not isinstance(amount, int) or amount <= 0:
                         continue
-                    if unit not in ('m', 'h'):
+                    if unit not in allowed_units:
                         unit = 'm'
                 elif kind == 'ban':
                     if not isinstance(amount, int) or amount <= 0:
                         continue
-                    unit = 'd'
+                    if unit not in allowed_units:
+                        unit = 'd'
                 else:
                     amount = None
                     unit = None
@@ -1333,8 +1412,9 @@ def guias_sanciones_guardar_sanciones(modalidad_id: int):
                 actions = [{'kind': kind, 'amount': amount, 'unit': unit}]
 
             text_val = str(data.get('text') or '')
+            explain_val = str(data.get('explain') or '')
 
-            if not actions and not text_val.strip():
+            if not actions and not text_val.strip() and not explain_val.strip():
                 # Nothing to save
                 continue
 
@@ -1342,6 +1422,7 @@ def guias_sanciones_guardar_sanciones(modalidad_id: int):
                 'v': 2,
                 'actions': actions,
                 'text': text_val,
+                'explain': explain_val,
             }
             texto_json = json.dumps(payload_data, ensure_ascii=False, separators=(',', ':'))
             to_insert.append(GuiaSancion(modalidad_id=modalidad_id, texto=texto_json, orden=orden))
@@ -2377,8 +2458,9 @@ def eliminar_regla(regla_id):
 
 @app.route('/mods')
 @login_required
+@smod_required
 def index():
-    """List all mods - viewable by all roles."""
+    """List all mods - restricted to smod+ roles."""
     search_term = request.args.get('search', '').strip()
     
     if search_term:
@@ -2399,6 +2481,7 @@ def index():
 
 @app.route('/api/search', methods=['POST'])
 @login_required
+@smod_required
 @limiter.limit('30 per minute')
 def api_search():
     """API endpoint para búsqueda en tiempo real (AJAX) - requiere autenticación."""
@@ -2845,6 +2928,8 @@ def admin_reset_user_twofa(user_id):
         return redirect(url_for('admin_users'))
 
     user = User.query.get_or_404(user_id)
+    if _deny_if_untouchable_target(user, 'remover/resetear el 2FA'):
+        return redirect(url_for('admin_users'))
     user.twofa_enabled = False
     user.twofa_secret = None
     user.twofa_confirmed_at = None
@@ -2921,6 +3006,9 @@ def admin_create_user():
 def admin_toggle_user(user_id):
     """Toggle user active status - admin only."""
     user = User.query.get_or_404(user_id)
+
+    if _deny_if_untouchable_target(user, 'desactivar/activar la cuenta'):
+        return redirect(url_for('admin_users'))
     
     if user.id == current_user.id:
         flash('No puedes desactivar tu propia cuenta.', 'danger')
@@ -2960,17 +3048,17 @@ def admin_change_role(user_id):
         return redirect(url_for('admin_users'))
 
     # AdminPage: solo PonyGamer_uwu puede otorgar ese rango
-    if new_role == 'adminpage' and current_user.username != 'PonyGamer_uwu':
+    if new_role == 'adminpage' and (getattr(current_user, 'username', '') or '').strip().lower() != 'ponygamer_uwu':
         flash('Solo PonyGamer_uwu puede otorgar el rango AdminPage.', 'danger')
         return redirect(url_for('admin_users'))
 
     # Proteger la cuenta de PonyGamer_uwu: nadie excepto él puede cambiarle el rol
-    if user.username == 'PonyGamer_uwu' and current_user.username != 'PonyGamer_uwu':
+    if (getattr(user, 'username', '') or '').strip().lower() == 'ponygamer_uwu' and (getattr(current_user, 'username', '') or '').strip().lower() != 'ponygamer_uwu':
         flash('El rol de PonyGamer_uwu está bloqueado.', 'danger')
         return redirect(url_for('admin_users'))
     
     # Solo permitir que PonyGamer_uwu cambie su propio rol
-    if user.id == current_user.id and current_user.username != 'PonyGamer_uwu':
+    if user.id == current_user.id and (getattr(current_user, 'username', '') or '').strip().lower() != 'ponygamer_uwu':
         flash('No puedes cambiar tu propio rol.', 'danger')
         return redirect(url_for('admin_users'))
     
@@ -2988,6 +3076,9 @@ def admin_change_role(user_id):
 def admin_edit_user(user_id):
     """Edit user - admin only."""
     user = User.query.get_or_404(user_id)
+
+    if _deny_if_untouchable_target(user, 'editar esta cuenta'):
+        return redirect(url_for('admin_users'))
     
     username = request.form.get('username', '').strip()
     email = request.form.get('email', '').strip()
@@ -3043,6 +3134,9 @@ def admin_edit_user(user_id):
 def admin_delete_user(user_id):
     """Delete user - admin only."""
     user = User.query.get_or_404(user_id)
+
+    if _deny_if_untouchable_target(user, 'eliminar la cuenta'):
+        return redirect(url_for('admin_users'))
     
     if user.id == current_user.id:
         flash('No puedes eliminar tu propia cuenta.', 'danger')
