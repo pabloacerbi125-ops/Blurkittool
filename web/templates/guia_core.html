@@ -9,33 +9,69 @@
     color: #e6eef3;
   }
 
+  /* Centrar el bloque del documento (que no quede pegado a un lado) */
+  #core-doc .core-doc__inner {
+    width: 100%;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 18px;
+    box-sizing: border-box;
+    text-align: center;
+  }
+
+  /* Centrar todo el texto tipo Word */
+  #core-doc p,
+  #core-doc span,
+  #core-doc div,
+  #core-doc li,
+  #core-doc td,
+  #core-doc th,
+  #core-doc h1,
+  #core-doc h2,
+  #core-doc h3,
+  #core-doc h4,
+  #core-doc h5,
+  #core-doc h6 {
+    text-align: center !important;
+  }
+
+  /* Si el export trae cosas con position:absolute pueden montarse sobre texto.
+     Forzamos a flujo normal dentro del doc para evitar superposición. */
+  #core-doc [style*="position:absolute"],
+  #core-doc [style*="position: absolute"] {
+    position: static !important;
+    left: auto !important;
+    right: auto !important;
+    top: auto !important;
+    bottom: auto !important;
+  }
+
   /* Evitar texto negro del export sobre fondo oscuro.
      Nota: el export puede traer estilos inline; para esos casos
      aplicamos una corrección por JS (más abajo). */
 
-  /* Centrar imágenes: siempre en el centro, independientemente de estilos de Google Docs */
+  /* Integración al fondo del sitio: evitar el "papel blanco" del export.
+     Esto sacrifica fondos de celdas/tablas, pero hace que se vea dentro del tema. */
+  #core-doc, #core-doc * {
+    background: transparent !important;
+    background-color: transparent !important;
+  }
+
+  /* Evitar imágenes flotantes/posicionadas que puedan montarse sobre el texto */
   #core-doc img {
     max-width: 100% !important;
     height: auto !important;
     display: block !important;
-    margin-left: auto !important;
-    margin-right: auto !important;
-    margin-top: 10px !important;
-    margin-bottom: 10px !important;
-    text-align: center !important;
+    margin: 18px auto !important;
+    float: none !important;
+    clear: both !important;
+    position: static !important;
+    z-index: auto !important;
   }
 
-  /* Centrar contenedores de imágenes */
-  #core-doc p {
-    text-align: center !important;
-  }
-
-  #core-doc div {
-    text-align: center !important;
-  }
-
-  #core-doc span {
-    text-align: center !important;
+  /* Mantener tablas legibles en fondo oscuro */
+  #core-doc table, #core-doc td, #core-doc th {
+    border-color: rgba(255, 140, 0, 0.25) !important;
   }
 
   /* No forzamos tablas: si una tabla es ancha, que haga scroll horizontal
@@ -46,9 +82,9 @@
 </style>
 <div id="core-content" class="container-main" style="margin-top: 2rem; user-select: none; -webkit-user-select: none;">
   <h2 style="color: #ff8c00; text-align:center; margin-bottom:2rem;">Guía del core</h2>
-  <div style="max-width: 100%; margin: 0 auto; border: 2px solid #ff8c00; box-shadow: 0 0 8px #ff8c0044; border-radius: 12px; overflow: hidden; background:#111;">
+  <div style="max-width: 100%; margin: 0 auto; border: 2px solid #ff8c00; box-shadow: 0 0 8px #ff8c0044; border-radius: 12px; overflow: hidden; background: transparent;">
     {% if doc_iframe_url %}
-      <div style="background:#fff;">
+      <div style="background: transparent;">
         <iframe
           src="{{ doc_iframe_url }}"
           title="Guía del core"
@@ -67,7 +103,9 @@
             <style>{{ doc_css|safe }}</style>
           {% endif %}
           <div id="core-doc" style="border-radius:10px; margin: 0 auto;">
-            {{ doc_html|safe }}
+            <div class="core-doc__inner">
+              {{ doc_html|safe }}
+            </div>
           </div>
         {% else %}
           <p style="text-align:center; color:#fff; font-size:1.1rem;">La guía aún no está disponible.</p>
@@ -155,41 +193,9 @@ function fixBlackTextInCoreDoc() {
   });
 }
 
-// Centrar todas las imágenes removiendo estilos inline conflictivos
-function centerAllImages() {
-  const root = document.getElementById('core-doc');
-  if (!root) return;
-
-  const images = root.querySelectorAll('img');
-  images.forEach((img) => {
-    // Remover estilos inline que conflicten
-    img.removeAttribute('align');
-    img.style.width = '100%';
-    img.style.maxWidth = '100%';
-    img.style.height = 'auto';
-    img.style.display = 'block';
-    img.style.marginLeft = 'auto';
-    img.style.marginRight = 'auto';
-    img.style.marginTop = '10px';
-    img.style.marginBottom = '10px';
-    img.style.textAlign = 'center';
-
-    // Si la imagen está dentro de un div/p/span, también centrar eso
-    let parent = img.parentElement;
-    while (parent && parent !== root) {
-      if (['DIV', 'P', 'SPAN'].includes(parent.tagName)) {
-        parent.style.textAlign = 'center';
-      }
-      parent = parent.parentElement;
-    }
-  });
-}
-
 // Ejecutar al cargar y un poquito después (por si el HTML llega grande)
 document.addEventListener('DOMContentLoaded', () => {
   fixBlackTextInCoreDoc();
-  centerAllImages();
-  setTimeout(centerAllImages, 50);
   setTimeout(fixBlackTextInCoreDoc, 250);
 });
 </script>

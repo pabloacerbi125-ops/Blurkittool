@@ -1994,22 +1994,20 @@
         const cur = gsSancionesCache[idx] || {};
         const curActions = (cur && cur.data && typeof cur.data === 'object' && Array.isArray(cur.data.actions)) ? cur.data.actions.slice() : [];
 
+        // Aviso escrito debe ser independiente (no agrega kick).
         // Check if aviso already exists
         const hasAviso = curActions.some((a) => a && String(a.kind || '').toLowerCase() === 'aviso');
         if (hasAviso) {
-          // Remove both aviso AND kick
-          const nextActions = curActions.filter((a) => !(a && String(a.kind || '').toLowerCase() === 'aviso') && !(a && String(a.kind || '').toLowerCase() === 'kick'));
+          // Remove only aviso
+          const nextActions = curActions.filter((a) => !(a && String(a.kind || '').toLowerCase() === 'aviso'));
           if (!nextActions.length) {
             gsSancionesCache[idx] = { texto: '', data: { v: 2, actions: [], text: String(curText || ''), explain: String(curExplain || '') } };
           } else {
             gsSancionesCache[idx] = { texto: '', data: { v: 2, actions: nextActions, text: String(curText || ''), explain: String(curExplain || '') } };
           }
         } else {
-          // Add aviso AND kick
+          // Add only aviso
           curActions.push({ kind: 'aviso' });
-          if (!curActions.some((a) => a && String(a.kind || '').toLowerCase() === 'kick')) {
-            curActions.push({ kind: 'kick' });
-          }
           gsSancionesCache[idx] = { texto: '', data: { v: 2, actions: curActions, text: String(curText || ''), explain: String(curExplain || '') } };
         }
 

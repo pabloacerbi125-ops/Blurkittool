@@ -18,6 +18,7 @@ from markupsafe import Markup, escape
 from sqlalchemy import inspect, text, or_
 from werkzeug.utils import secure_filename
 from werkzeug.middleware.proxy_fix import ProxyFix
+from threading import Lock
 
 # Función para obtener la IP real incluso detrás de proxy (Render)
 def get_real_ip():
@@ -220,6 +221,15 @@ app = Flask(__name__)
 # Respect reverse-proxy headers on Render (X-Forwarded-For / X-Forwarded-Proto)
 # so rate limiting and redirects use the real client IP/protocol.
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+
+# Cache simple en memoria para guías remotas (evita descargar/procesar en cada request)
+_CORE_GUIDE_CACHE_LOCK = Lock()
+_CORE_GUIDE_CACHE = {
+    'ts': 0.0,
+    'html': '',
+    'css': '',
+    'error': None,
+}
 
 
 _modalidad_orden_ready = False
@@ -1630,21 +1640,24 @@ def guia_ss():
 def guia_core():
     """Página de la Guía del core.
 
-    Modo recomendado: iframe (Google Docs preview) para que se vea tal cual
-    el documento (incluye tablas/imágenes con el layout original).
-    Fallback: export HTML (modo legacy) si no se puede embeber.
+    Nota: un iframe de Google Docs siempre renderiza con su propio fondo (blanco)
+    y no se puede volver transparente por cross-origin.
+
+    Por defecto usamos export HTML embebido y lo adaptamos al fondo del sitio.
+    Si quieres iframe "tal cual Drive", usa GUIA_CORE_RENDER_MODE=iframe.
     """
 
-    # URL del doc (se puede sobreescribir por env). Si el documento es "cualquiera con el link",
-    # el preview funciona sin necesidad de "Publicar en la web".
     doc_id = "1BAdjZg5QOMY1Y8jCgUOWvau2eCt4LvPYyRW3Xrr-SUg"
-    doc_iframe_url = os.environ.get('GUIA_CORE_IFRAME_URL') or (
-        f"https://docs.google.com/document/d/{doc_id}/preview?rm=minimal"
-    )
+    render_mode = (os.environ.get('GUIA_CORE_RENDER_MODE') or 'html').strip().lower()
 
-    export_url = (
-        f"https://docs.google.com/document/d/{doc_id}/export?format=html"
-    )
+    doc_iframe_url = None
+    if render_mode == 'iframe':
+        doc_iframe_url = os.environ.get('GUIA_CORE_IFRAME_URL') or (
+            f"https://docs.google.com/document/d/{doc_id}/preview?rm=minimal"
+        )
+        return render_template('guia_core.html', doc_iframe_url=doc_iframe_url)
+
+    export_url = f"https://docs.google.com/document/d/{doc_id}/export?format=html"
 
     username = (getattr(current_user, 'username', '') or '').strip().lower()
     role = (getattr(current_user, 'role', '') or '').strip().lower()
@@ -1653,9 +1666,31 @@ def guia_core():
         flash('No tienes permiso para acceder a Guías.', 'danger')
         return redirect(url_for('menu'))
 
-    # Si tenemos iframe URL, renderizarlo directamente (se ve igual a Drive).
-    if doc_iframe_url:
-        return render_template('guia_core.html', doc_iframe_url=doc_iframe_url)
+    # Cache TTL (segundos). 300 = 5 minutos.
+    try:
+        cache_ttl = int(os.environ.get('CORE_GUIDE_CACHE_TTL', '300') or '300')
+    except Exception:
+        cache_ttl = 300
+
+    username = (getattr(current_user, 'username', '') or '').strip().lower()
+    role = (getattr(current_user, 'role', '') or '').strip().lower()
+    can_force_refresh = (role in ('admin', 'owner', 'founder')) or (username == 'ponygamer_uwu')
+    force_refresh = bool(request.args.get('refresh')) and can_force_refresh
+
+    now_ts = time()
+    with _CORE_GUIDE_CACHE_LOCK:
+        cache_valid = (
+            (not force_refresh)
+            and _CORE_GUIDE_CACHE.get('html')
+            and (now_ts - float(_CORE_GUIDE_CACHE.get('ts') or 0.0) < cache_ttl)
+        )
+        if cache_valid:
+            return render_template(
+                'guia_core.html',
+                doc_html=_CORE_GUIDE_CACHE.get('html') or '',
+                doc_css=_CORE_GUIDE_CACHE.get('css') or '',
+                error_msg=_CORE_GUIDE_CACHE.get('error'),
+            )
 
     doc_html = ""
     doc_css = ""
@@ -1796,6 +1831,13 @@ def guia_core():
     except Exception as exc:
         print(f"[Guiaco] Error fetching Google Doc: {exc}", flush=True)
         error_msg = "No se pudo cargar la guía desde Google Docs en este momento."
+
+    # Guardar en cache (incluso error) para no reintentar en bucle si Google está lento.
+    with _CORE_GUIDE_CACHE_LOCK:
+        _CORE_GUIDE_CACHE['ts'] = time()
+        _CORE_GUIDE_CACHE['html'] = doc_html or ''
+        _CORE_GUIDE_CACHE['css'] = doc_css or ''
+        _CORE_GUIDE_CACHE['error'] = error_msg
 
     return render_template('guia_core.html', doc_html=doc_html, doc_css=doc_css, error_msg=error_msg)
 
