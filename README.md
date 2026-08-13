@@ -1,22 +1,22 @@
-# 🎮 BlurkitModsTool
+﻿# BlurkitTool
 
-Herramienta de escritorio para gestionar y analizar mods de Blurkit. Aplicación multiplataforma desarrollada con Flask + Electron que permite administrar listas de mods prohibidos/permitidos y analizar logs del juego.
+Herramienta de escritorio para gestionar y analizar mods de Blurkit. La aplicación permite administrar listas de mods permitidos y bloqueados, revisar registros del juego y mantener una base de control ordenada para uso diario.
 
-## ✨ Características
+## Características
 
-- **Gestión de Mods**: Agregar, editar y eliminar mods con categorías y plataformas
-- **Clasificación Automática**: Organiza mods en prohibidos y permitidos
-- **Análisis de Logs**: Carga y analiza archivos de log del juego para detectar mods
-- **Búsqueda Inteligente**: Busca mods por nombre, categoría o plataforma
-- **Interfaz Moderna**: Diseño dark theme con estilo gaming
-- **App de Escritorio**: Empaquetada como aplicación nativa de Windows
+- Gestión de mods con categorías y plataformas
+- Clasificación automática entre mods permitidos y bloqueados
+- Análisis de archivos de registro para detectar mods activos
+- Búsqueda por nombre, categoría o plataforma
+- Interfaz visual con estilo oscuro
+- Aplicación de escritorio compatible con Windows
 
-## 🚀 Instalación
+## Instalación
 
-### Opción 1: Ejecutable (Recomendado)
-1. Descarga `BlurkitTool 1.0.0.exe` desde [Releases](https://github.com/pabloacerbi125-ops/Blurkittool/releases)
-2. Ejecuta el archivo - no requiere instalación
-3. ¡Listo para usar!
+### Opción 1: Ejecutable
+1. Descarga el archivo ejecutable desde la sección de releases del proyecto.
+2. Ejecuta el archivo sin necesidad de instalar nada adicional.
+3. La aplicación queda lista para su uso.
 
 ### Opción 2: Desde el código fuente
 
@@ -27,152 +27,136 @@ Herramienta de escritorio para gestionar y analizar mods de Blurkit. Aplicación
 
 #### Pasos
 
-1. **Clona el repositorio**
+1. Clona el repositorio:
 ```bash
-git clone https://github.com/pabloacerbi125-ops/Blurkittool.git
-cd Blurkittool
+git clone <URL_DEL_REPOSITORIO>
+cd BlurkitTool
 ```
 
-2. **Configura el entorno Python**
+2. Configura el entorno de Python:
 ```bash
 python -m venv .venv
 .venv\Scripts\activate
 pip install -r web/requirements.txt
 ```
 
-3. **Instala dependencias de Node**
+3. Instala las dependencias de Node:
 ```bash
 npm install
 ```
 
-4. **Genera el ejecutable de Flask**
+4. Genera el ejecutable de Flask:
 ```bash
 pyinstaller BlurkitTool.spec
 ```
 
-5. **Compila la aplicación Electron**
+5. Compila la aplicación Electron:
 ```bash
 npm run build-win
 ```
 
-El ejecutable final estará en `dist\BlurkitTool 1.0.0.exe`
+El ejecutable final se generará en la carpeta de distribución del proyecto.
 
-## 📖 Uso
+## Uso
 
-### Modo Desarrollo
+### Modo desarrollo
 ```bash
 cd web
 python app.py
 ```
-Abre http://localhost:5000 en tu navegador
 
-## ☁️ Base de Datos en Render (PostgreSQL) + Migración desde SQLite
+La aplicación puede abrirse en el navegador en `http://localhost:5000`.
 
-Para evitar problemas con 2FA y dejar de depender de `git pull` para “traer la BD”, usa PostgreSQL en Render.
+## Base de datos y despliegue
 
-### 1) Crear PostgreSQL en Render
-- Render Dashboard → New → PostgreSQL
-- Crea la base y copia:
-  - **Internal Database URL** (para que tu Web Service se conecte dentro de Render)
-  - **External Database URL** (para migrar desde tu PC)
+Para mantener la información en un entorno más estable y evitar depender de una copia local, se puede utilizar PostgreSQL en un servicio externo. La idea es conservar la base de datos en un entorno gestionado y migrar los datos desde SQLite una sola vez.
 
-### 2) Conectar tu Web Service
-En tu Web Service → Environment:
-- Agrega `DATABASE_URL` = **Internal Database URL**
+### 1) Crear la base de datos
+- Crear una instancia PostgreSQL en el servicio de despliegue elegido.
+- Registrar la URL de conexión de la base de datos.
 
-### 3) Migrar tus datos actuales (SQLite → PostgreSQL)
-Esto se hace 1 sola vez desde tu PC:
+### 2) Configurar la aplicación
+- Añadir la variable de entorno `DATABASE_URL` con la URL interna o de conexión apropiada para el entorno de la aplicación.
 
-1. Asegúrate de tener dependencias:
-	- `pip install -r web/requirements.txt`
-2. Copia el **External Database URL** de Render.
-3. En PowerShell, desde `web/`:
-	- `$env:DATABASE_URL = "<EXTERNAL_DATABASE_URL>"`
-	- `python migrate_sqlite_to_postgres.py --sqlite instance/blurkit.db`
-4. Cuando termine, vuelve a dejar `DATABASE_URL` en Render apuntando al **Internal Database URL**.
+### 3) Migración de SQLite a PostgreSQL
+1. Verificar que las dependencias estén instaladas:
+```bash
+pip install -r web/requirements.txt
+```
+2. Preparar la URL de conexión de PostgreSQL.
+3. Ejecutar la migración desde la carpeta `web/`:
+```powershell
+$env:DATABASE_URL = "<DATABASE_URL>"
+python migrate_sqlite_to_postgres.py --sqlite instance/blurkit.db
+```
+4. Cuando termine la migración, dejar la aplicación apuntando a la URL final correcta del entorno.
 
 Notas:
-- La migración espera una BD Postgres vacía.
-- Si necesitas sobreescribir (peligroso), puedes usar `--force`.
+- La migración asume que la base de datos destino en PostgreSQL está vacía.
+- En algunos casos puede requerirse una opción de sobrescritura si se desea reemplazar contenido existente.
 
-### Aplicación de Escritorio
-Ejecuta `BlurkitTool 1.0.0.exe` directamente
+## Funcionalidades
 
-## 🎯 Funcionalidades
+### Gestión de mods
+- Agregar mods con nombre, categoría, plataforma y estado
+- Editar cualquier campo existente
+- Eliminar elementos con confirmación
+- Filtrar por criterios de búsqueda
 
-### Gestión de Mods
-- **Agregar Mod**: Nombre, categoría, plataforma y estado (prohibido/permitido)
-- **Editar Mod**: Modifica cualquier campo de un mod existente
-- **Eliminar Mod**: Borra mods con confirmación
-- **Búsqueda**: Filtra mods por criterios específicos
+### Análisis de logs
+- Cargar archivos de log del juego
+- Pegar texto directamente desde el portapapeles
+- Detectar mods activos automáticamente
+- Personalizar patrones de búsqueda desde la configuración
 
-### Análisis de Logs
-- **Cargar Log**: Sube archivos de log del juego
-- **Pegar Log**: Copia y pega contenido directamente
-- **Detección Automática**: Identifica mods activos en el juego
-- **Edición de Lookup**: Personaliza patrones de detección
+## Tecnologías
 
-## 🛠️ Tecnologías
+- Backend: Flask 3.1.2 (Python)
+- Frontend: Bootstrap 5.3.2, JavaScript vanilla
+- Desktop: Electron 28.3.3
+- Empaquetado: PyInstaller 6.17.0, electron-builder 24.13.3
+- Datos: JSON y soporte para bases de datos externas
 
-- **Backend**: Flask 3.1.2 (Python)
-- **Frontend**: Bootstrap 5.3.2, JavaScript vanilla
-- **Desktop**: Electron 28.3.3
-- **Empaquetado**: PyInstaller 6.17.0, electron-builder 24.13.3
-- **Datos**: JSON (mods.json)
+## Estructura del proyecto
 
-## 📁 Estructura del Proyecto
-
-```
-BlurkitModsTool/
+```text
+BlurkitTool/
 ├── web/                    # Aplicación Flask
 │   ├── app.py             # Rutas y lógica principal
 │   ├── core.py            # Funciones de análisis
 │   ├── templates/         # Plantillas HTML
 │   └── static/           # CSS y assets
 ├── main.js                # Proceso principal de Electron
-├── run_app.py            # Entry point para PyInstaller
-├── package.json          # Configuración de Electron
-├── BlurkitTool.spec      # Configuración de PyInstaller
-└── mods.json             # Base de datos de mods
+├── run_app.py             # Entry point para PyInstaller
+├── package.json           # Configuración de Electron
+├── BlurkitTool.spec       # Configuración de PyInstaller
+├── mods.json              # Base de datos de mods
+├── README.md              # Documentación del proyecto
+└── ...
 ```
 
-## 🐛 Solución de Problemas
+## Solución de problemas
 
-### La app no abre
-- Verifica que no haya otra instancia ejecutándose
-- Cierra procesos con: `taskkill /F /IM BlurkitTool.exe`
+### La aplicación no abre
+- Verifica que no haya otra instancia ejecutándose.
+- Si es necesario, cierra procesos activos del ejecutable.
 
 ### Los datos no se guardan
-- Asegúrate de que `mods.json` está en la misma carpeta que el .exe
-- Verifica permisos de escritura en la carpeta
+- Asegúrate de que el archivo de datos se encuentre en la misma carpeta que el ejecutable.
+- Comprueba que la carpeta tenga permisos de escritura.
 
 ### Error al cargar logs
-- Verifica que el archivo sea un log válido de Blurkit
-- Revisa que los patrones en "Editar Lookup" coincidan con tu formato
+- Comprueba que el archivo sea un log válido del juego.
+- Revisa que los patrones configurados coincidan con el formato del registro.
 
-## 📝 Licencia
+## Licencia
 
-Este proyecto es de código abierto. Siéntete libre de usarlo y modificarlo.
+Este proyecto es de código abierto y puede utilizarse, modificarse y adaptarse según sea necesario.
 
-## 👤 Autor
+## Contribuciones
 
-**pabloacerbi125-ops**
-- GitHub: [@pabloacerbi125-ops](https://github.com/pabloacerbi125-ops)
+Las contribuciones son bienvenidas. Si se encuentra un problema o se desea mejorar la funcionalidad, se puede trabajar sobre una rama de desarrollo y abrir una solicitud de cambios una vez validado el resultado.
 
-## 🤝 Contribuir
+## Capturas y ejemplos
 
-Las contribuciones son bienvenidas! Si encuentras un bug o tienes una sugerencia:
-
-1. Fork el proyecto
-2. Crea una rama (`git checkout -b feature/mejora`)
-3. Commit tus cambios (`git commit -m 'Añade nueva característica'`)
-4. Push a la rama (`git push origin feature/mejora`)
-5. Abre un Pull Request
-
-## 🎮 Screenshots
-
-_(Aquí puedes agregar capturas de pantalla de la aplicación)_
-
----
-
-⭐ Si este proyecto te fue útil, considera darle una estrella en GitHub!
+Se pueden añadir capturas de pantalla o ejemplos de uso en esta sección según lo requiera la distribución final del proyecto.
